@@ -1,0 +1,18 @@
+{
+  "maxTurns":12,
+  "boardSize":24,
+  "startingIrp":108000000,
+  "startingCash":12000000,
+  "salarySurplusPerTurn":1400000,
+  "defaultGoal":500000,
+  "minGoal":350000,
+  "maxGoal":700000,
+  "contributionAmount":1000000,
+  "tradeAmount":8000000,
+  "safeCashThreshold":6000000,
+  "diversificationMin":3,
+  "maxDrawdownThreshold":0.12,
+  "depositMaturityTurns":3,
+  "defaultAllocation":{"deposit":0.6,"shortBond":0,"longBond":0,"balanced":0.4,"equityEtf":0,"tdf":0},
+  "rebalanceAllocation":{"deposit":0.3,"shortBond":0.15,"longBond":0.1,"balanced":0.25,"equityEtf":0.1,"tdf":0.1}
+}

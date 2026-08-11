@@ -1,0 +1,10 @@
+[
+  {"id":"medical","title":"예상치 못한 의료비","body":"치료비가 필요합니다. 이 사건은 교육용 중도인출 가능 사유로 처리됩니다.","cost":3500000,"eligibleWithdrawal":true,"learningCardId":"irp-withdrawal"},
+  {"id":"moving","title":"갑작스러운 이사","body":"이사비가 생겼지만 이 게임에서는 중도인출 가능 사유가 아닙니다.","cost":2500000,"eligibleWithdrawal":false,"learningCardId":"emergency-cash"},
+  {"id":"career","title":"이직 준비 기간","body":"소득 공백을 생활자금으로 버텨야 합니다.","cost":4200000,"eligibleWithdrawal":false,"learningCardId":"emergency-cash"},
+  {"id":"housing","title":"주거 보증금 부담","body":"법정 요건 충족을 가정해 제한적 중도인출을 신청할 수 있습니다.","cost":5000000,"eligibleWithdrawal":true,"learningCardId":"irp-withdrawal"},
+  {"id":"family","title":"가족 돌봄 비용","body":"별도 생활자금이 있으면 장기계좌를 지킬 수 있습니다.","cost":3000000,"eligibleWithdrawal":false,"learningCardId":"emergency-cash"},
+  {"id":"education","title":"직무 교육 기회","body":"생활자금에서 교육비를 사용하고 다음 급여 여력을 높입니다.","cost":1800000,"eligibleWithdrawal":false,"learningCardId":"liquidity"},
+  {"id":"repair","title":"집수리 비용","body":"계획 밖 지출입니다. IRP는 생활비 통장이 아닙니다.","cost":2200000,"eligibleWithdrawal":false,"learningCardId":"irp-withdrawal"},
+  {"id":"bonus","title":"성과 보너스","body":"생활자금에 여유가 생겼습니다. 납입과 현금 보유를 함께 검토하세요.","cost":-2500000,"eligibleWithdrawal":false,"learningCardId":"contribution-limit"}
+]

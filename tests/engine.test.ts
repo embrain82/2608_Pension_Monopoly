@@ -1,0 +1,137 @@
+import { describe, expect, it } from 'vitest';
+import { balanceConfig, lifeEvents, policyRules } from '../src/data/content';
+import { autoplay, createGame, performAction, resolveLifeEvent, rollAndMove } from '../src/engine/game-engine';
+import { applyMarketStep, rateShockReturn } from '../src/engine/market-engine';
+import { buyProduct, portfolioValue, rebalancePortfolio, sellProduct } from '../src/engine/portfolio-engine';
+import { canBuyRiskAsset, contributionCredit, effectiveRiskRatio, riskAssetRatio } from '../src/engine/policy-engine';
+import { calculateScore, monthlyPension } from '../src/engine/scoring-engine';
+import { defaultSave, loadSave, STORAGE_KEY } from '../src/ui/ui-state';
+
+describe('재현 가능한 게임', () => {
+  it('동일 시드는 동일한 결과를 만든다', () => {
+    const a = autoplay('same-seed');
+    const b = autoplay('same-seed');
+    expect(a.diceHistory).toEqual(b.diceHistory);
+    expect(a.eventHistory).toEqual(b.eventHistory);
+    expect(portfolioValue(a)).toBeCloseTo(portfolioValue(b), 6);
+  });
+
+  it('12턴 후 반드시 종료한다', () => {
+    const state = autoplay('finish');
+    expect(state.turn).toBe(12);
+    expect(state.status).toBe('finished');
+  });
+});
+
+describe('정책과 주문', () => {
+  it('위험자산 한도 초과 매수를 차단한다', () => {
+    const state = { ...createGame('risk'), irpCash: 200_000_000 };
+    const result = canBuyRiskAsset(state, 'equityEtf', 200_000_000);
+    expect(result.ok).toBe(false);
+    expect(result.reason).toContain('한도');
+  });
+
+  it('시장 상승의 사후 한도 초과는 즉시 규칙 위반이 아니다', () => {
+    const base = createGame('market-limit');
+    const state = { ...base, holdings: [
+      { productId: 'deposit' as const, amount: 30_000_000, principal: 30_000_000, depositTurnsHeld: 0 },
+      { productId: 'equityEtf' as const, amount: 70_000_000, principal: 70_000_000, depositTurnsHeld: 0 }
+    ] };
+    const market = { ...state.lastMarket, returns: { ...state.lastMarket.returns, deposit: 0, equityEtf: 0.5 } };
+    const moved = applyMarketStep(state, market);
+    expect(moved.marketLimitExceeded).toBe(true);
+    expect(moved.ruleBreaches).toBe(0);
+    expect(canBuyRiskAsset(moved, 'equityEtf', 1_000_000).ok).toBe(false);
+  });
+
+  it('TDF 예외 속성을 유효 위험비율에 반영한다', () => {
+    expect(effectiveRiskRatio('tdf')).toBe(policyRules.tdfAdjustedRiskRatio);
+    expect(effectiveRiskRatio('tdf')).toBeLessThan(0.8);
+  });
+
+  it('납입 한도와 세액공제 대상 한도를 분리한다', () => {
+    expect(policyRules.annualContributionLimit).toBeGreaterThan(policyRules.annualTaxCreditLimit);
+    const result = contributionCredit(policyRules.annualTaxCreditLimit, 1_000_000);
+    expect(result.eligible).toBe(0);
+    expect(result.benefit).toBe(0);
+  });
+
+  it('펀드는 주문 대기, ETF는 즉시 체결한다', () => {
+    const state = { ...createGame('orders'), irpCash: 20_000_000 };
+    const fund = buyProduct(state, 'longBond', 5_000_000);
+    const etf = buyProduct(state, 'equityEtf', 5_000_000);
+    expect(fund.state.pendingOrders).toHaveLength(1);
+    expect(fund.state.holdings.some((item) => item.productId === 'longBond')).toBe(false);
+    expect(etf.state.pendingOrders).toHaveLength(0);
+    expect(etf.state.holdings.find((item) => item.productId === 'equityEtf')?.amount).toBe(5_000_000);
+    expect(portfolioValue(fund.state)).toBeCloseTo(portfolioValue(state), 2);
+  });
+
+  it('예금 중도해지 불이익을 반영한다', () => {
+    const state = createGame('deposit');
+    const sold = sellProduct(state, 'deposit', 8_000_000);
+    expect(sold.ok).toBe(true);
+    expect(sold.state.irpCash).toBeLessThan(8_000_000);
+    expect(sold.message).toContain('불이익');
+  });
+});
+
+describe('시장, 리밸런싱, 생활사건', () => {
+  it('금리 상승 시 장기채가 단기채보다 민감하다', () => {
+    expect(rateShockReturn('longBond', 1)).toBeLessThan(rateShockReturn('shortBond', 1));
+  });
+
+  it('리밸런싱 후 목표 위험비중에 접근한다', () => {
+    const result = rebalancePortfolio(createGame('rebalance'));
+    const targetRisk = 0.25 * 0.5 + 0.1 + 0.1 * policyRules.tdfAdjustedRiskRatio;
+    expect(riskAssetRatio(result.state)).toBeCloseTo(targetRisk, 5);
+  });
+
+  it('중도인출 가능·불가능 사건을 구분한다', () => {
+    const allowed = lifeEvents.find((event) => event.eligibleWithdrawal)!;
+    const blocked = lifeEvents.find((event) => !event.eligibleWithdrawal && event.cost > 0)!;
+    const a = resolveLifeEvent({ ...createGame('a'), turn: 1, currentEventId: allowed.id }, 'withdraw');
+    const b = resolveLifeEvent({ ...createGame('b'), turn: 1, currentEventId: blocked.id }, 'withdraw');
+    expect(a.ok).toBe(true);
+    expect(b.ok).toBe(false);
+  });
+});
+
+describe('점수와 저장 복구', () => {
+  it('월 연금과 별 등급을 정확히 계산한다', () => {
+    expect(monthlyPension(120_000_000)).toBe(500_000);
+    const base = autoplay('stars');
+    const strong = { ...base, cash: 10_000_000, maxDrawdown: 0.05, ruleBreaches: 0, profileId: 'balanced' as const,
+      holdings: [
+        { productId: 'deposit' as const, amount: 50_000_000, principal: 50_000_000, depositTurnsHeld: 4 },
+        { productId: 'shortBond' as const, amount: 30_000_000, principal: 30_000_000, depositTurnsHeld: 0 },
+        { productId: 'equityEtf' as const, amount: 50_000_000, principal: 50_000_000, depositTurnsHeld: 0 }
+      ], irpCash: 0, goalMonthly: 500_000 };
+    expect(calculateScore(strong).stars).toBe(3);
+  });
+
+  it('점수는 유효 범위이고 NaN이 아니다', () => {
+    for (let i = 0; i < 50; i += 1) {
+      const score = calculateScore(autoplay(`score-${i}`));
+      expect(Number.isFinite(score.totalScore)).toBe(true);
+      expect(score.totalScore).toBeGreaterThanOrEqual(0);
+      expect(score.totalScore).toBeLessThanOrEqual(100);
+    }
+  });
+
+  it('LocalStorage 데이터가 없거나 손상되어도 복구한다', () => {
+    const missing = { getItem: () => null };
+    const broken = { getItem: (key: string) => key === STORAGE_KEY ? '{oops' : null };
+    expect(loadSave(missing)).toEqual(defaultSave);
+    expect(loadSave(broken)).toEqual(defaultSave);
+  });
+
+  it('모든 기본 행동이 실제 상태를 바꾼다', () => {
+    let state = rollAndMove(createGame('actions')).state;
+    if (state.currentEventId) state = resolveLifeEvent(state, 'cash').state;
+    const result = performAction(state, { kind: 'contribute', amount: balanceConfig.contributionAmount });
+    expect(result.ok).toBe(true);
+    expect(result.state.turn).toBe(1);
+    expect(result.state.contributionTotal).toBeGreaterThan(0);
+  });
+});
