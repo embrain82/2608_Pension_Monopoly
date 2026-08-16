@@ -3,9 +3,10 @@ import { createGame, performAction, resolveActionAmount, resolveLifeEvent, start
 import { getLifeEvent, getLearningCard } from '../engine/content-engine';
 import { portfolioValue } from '../engine/portfolio-engine';
 import { expectedRiskAfterBuy, riskAssetRatio } from '../engine/policy-engine';
-import { randomSeed } from '../engine/random-engine';
+import { randomSeed, rollDie } from '../engine/random-engine';
 import { calculateScore } from '../engine/scoring-engine';
 import type { ActionKind, GameState, ProfileId, ProductId, SaveData } from '../types';
+import { DICE_ROLL_DURATION_MS, canRevealNextTurn, renderDiceMarkup, shouldSkipDiceAnimation } from './dice';
 import { loadSave, saveData } from './ui-state';
 
 type Screen = 'title' | 'diagnosis' | 'goal' | 'game' | 'result';
@@ -51,6 +52,9 @@ export class PensionRoadApp {
   private coachDismissed = false;
   private tipDismissed = false;
   private feedback = '';
+  private diceRolling = false;
+  private diceFace = 1;
+  private diceTimer = 0;
 
   constructor(private readonly root: HTMLElement) {
     this.root.addEventListener('click', (event) => this.onClick(event));
@@ -102,6 +106,7 @@ export class PensionRoadApp {
     if (!button) return;
     const action = button.dataset.action;
     if (!action) return;
+    if (this.diceRolling && action !== 'to-title') return;
 
     if (action === 'begin' && this.canStart()) {
       this.save.disclaimerAccepted = true;
@@ -119,6 +124,9 @@ export class PensionRoadApp {
     } else if (action === 'goal-next') {
       this.screen = this.setupReturn === 'game' && this.game ? 'game' : 'title';
       this.announce(`월 연금 목표 ${formatWon(this.goalMonthly)}이 다음 판에 적용됩니다.`);
+    } else if (action === 'roll-dice') {
+      this.beginDiceRoll();
+      return;
     } else if (action === 'open-action' && this.game?.awaitingAction) {
       this.actionView = 'menu';
       this.amountPreset = 'default';
@@ -176,7 +184,8 @@ export class PensionRoadApp {
     } else if (action === 'new-seed') {
       this.startGame(randomSeed());
     } else if (action === 'to-title') {
-      this.screen = 'title'; this.modal = null; this.game = null; this.coachDismissed = false; this.tipDismissed = false;
+      this.clearDiceTimer();
+      this.screen = 'title'; this.modal = null; this.game = null; this.coachDismissed = false; this.tipDismissed = false; this.diceRolling = false;
     }
     this.render();
   }
@@ -204,21 +213,58 @@ export class PensionRoadApp {
       this.persist(true);
       return;
     }
-    const next = startTurn(this.game);
-    this.game = next.state;
-    this.modal = this.game.currentEventId ? 'life' : null;
     this.persist(true);
   }
 
+  private clearDiceTimer(): void {
+    if (this.diceTimer) window.clearTimeout(this.diceTimer);
+    this.diceTimer = 0;
+  }
+
+  private beginDiceRoll(): void {
+    if (!this.game || this.diceRolling || !canRevealNextTurn(this.game)) return;
+    const rolled = rollDie(this.game.rngState);
+    this.game = { ...this.game, rngState: rolled.state };
+    this.diceFace = rolled.value;
+    this.modal = null;
+
+    const reveal = (): void => {
+      if (!this.game) return;
+      const next = startTurn(this.game);
+      this.game = next.state;
+      this.diceRolling = false;
+      this.modal = this.game.currentEventId ? 'life' : null;
+      this.announce(`${this.diceFace} · ${next.message}`);
+      this.persist(true);
+      this.render();
+    };
+
+    if (shouldSkipDiceAnimation(
+      this.save.settings.reducedMotion,
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    )) {
+      reveal();
+      return;
+    }
+
+    this.diceRolling = true;
+    this.announce('주사위를 굴리는 중');
+    this.render();
+    this.clearDiceTimer();
+    this.diceTimer = window.setTimeout(reveal, DICE_ROLL_DURATION_MS);
+  }
+
   private startGame(seed: string): void {
-    this.game = startTurn(createGame(seed, this.profileId, this.goalMonthly)).state;
+    this.clearDiceTimer();
+    this.game = createGame(seed, this.profileId, this.goalMonthly);
     this.screen = 'game';
     this.actionView = 'menu';
     this.coachDismissed = false;
     this.tipDismissed = false;
-    this.modal = this.game.currentEventId ? 'life' : null;
+    this.diceRolling = false;
+    this.modal = null;
     this.persist(true);
-    this.announce(`시드 ${seed} · 시장을 보고 한 가지만 고르세요.`);
+    this.announce('주사위를 굴려 이번 턴 시장을 확인하세요.');
   }
 
   private onKeydown(event: KeyboardEvent): void {
@@ -245,7 +291,7 @@ export class PensionRoadApp {
         : this.screen === 'goal' ? this.renderGoal()
           : this.screen === 'game' ? this.renderGame()
             : this.renderResult();
-    this.root.innerHTML = `<main id="main" class="app-shell">${screenHtml}</main>${this.renderModal()}`;
+    this.root.innerHTML = `<main id="main" class="app-shell">${screenHtml}</main>${this.renderModal()}${this.diceRolling ? renderDiceMarkup(this.diceFace, true) : ''}`;
     const dialog = this.root.querySelector<HTMLElement>('[role="dialog"]');
     if (dialog) requestAnimationFrame(() => dialog.querySelector<HTMLElement>('button:not([disabled]), select, input:not([disabled]), a[href]')?.focus());
   }
@@ -312,14 +358,55 @@ export class PensionRoadApp {
     return `<div class="turn-track" role="img" aria-label="12턴 중 ${state.turn}턴, 현재 국면 ${state.phase}">${cells}</div>`;
   }
 
-  private renderProductReturns(state: GameState): string {
+  private renderProductReturns(state: GameState, hidden = false): string {
     const total = portfolioValue(state);
     const rows = products.map((product) => {
       const amount = state.holdings.find((holding) => holding.productId === product.id)?.amount ?? 0;
+      if (hidden) {
+        return `<li class="hidden"><span>${product.shortName}</span><b>???</b><small>${total ? percent(amount / total) : '0%'}</small></li>`;
+      }
       const ret = state.lastMarket.returns[product.id];
       return `<li class="${ret < 0 ? 'down' : ret > 0 ? 'up' : ''}"><span>${product.shortName}</span><b>${signedPercent(ret)}</b><small>${total ? percent(amount / total) : '0%'}</small></li>`;
     }).join('');
     return `<ul class="product-returns">${rows}</ul>`;
+  }
+
+  private renderMarketCard(state: GameState, pending: boolean): string {
+    if (pending) {
+      const nextTurn = Math.min(state.turn + 1, 12);
+      return `<article class="market-card pending">
+            <div class="card-label">TURN ${String(nextTurn).padStart(2, '0')} · 시장 대기</div>
+            <h2>주사위를 굴려 시장을 확인하세요</h2>
+            <p class="signal">이번 턴 브리핑은 주사위가 멈춘 뒤에 공개됩니다.</p>
+            <p>나온 숫자는 연출이며, 시장 국면은 12턴 시나리오를 따릅니다.</p>
+            <div class="market-bars muted"><span>금리 <i></i>—</span><span>물가 <i></i>—</span><span>주가 <i></i>—</span></div>
+            ${this.renderProductReturns(state, true)}
+          </article>`;
+    }
+    return `<article class="market-card">
+            <div class="card-label">TURN ${String(state.turn).padStart(2, '0')} · 시장 브리핑</div>
+            <h2>${state.lastMarket.headline}</h2>
+            <p class="signal">${state.lastMarket.signal}</p>
+            <p>${state.lastMarket.reason}</p>
+            <div class="market-bars"><span>금리 <i style="--level:${state.lastMarket.rate}"></i>${state.lastMarket.rate}/5</span><span>물가 <i style="--level:${state.lastMarket.inflation}"></i>${state.lastMarket.inflation}/5</span><span>주가 <i style="--level:${state.lastMarket.stocks}"></i>${state.lastMarket.stocks}/5</span></div>
+            ${this.renderProductReturns(state)}
+          </article>`;
+  }
+
+  private renderGameCta(state: GameState): string {
+    if (this.diceRolling) {
+      return `<button class="dice-button" disabled><span>⚄</span>주사위 굴리는 중</button>`;
+    }
+    if (canRevealNextTurn(state)) {
+      return `<button class="dice-button ready" data-action="roll-dice"><span>⚄</span>주사위 굴리기</button>`;
+    }
+    if (state.currentEventId) {
+      return `<button class="dice-button" disabled><span>♥</span>생활사건 해결 중</button>`;
+    }
+    if (state.awaitingAction) {
+      return `<button class="dice-button" data-action="open-action"><span>↗</span>이번 턴 운용하기</button>`;
+    }
+    return `<button class="dice-button" disabled><span>↗</span>정산 중</button>`;
   }
 
   private renderGame(): string {
@@ -328,7 +415,12 @@ export class PensionRoadApp {
     const score = calculateScore(state);
     const pending = state.pendingOrders.length;
     const latestCard = getLearningCard(state.unlockedCards.at(-1) ?? '');
-    const ctaLabel = state.currentEventId ? '생활사건 해결 중' : state.awaitingAction ? '이번 턴 운용하기' : '정산 중';
+    const waitingForDice = canRevealNextTurn(state) || this.diceRolling;
+    const coach = !this.coachDismissed && waitingForDice && state.turn === 0
+      ? '<p class="coach-tip">주사위를 굴리면 이번 턴 시장이 공개됩니다. 숫자는 연출이고, 시장은 12턴 이야기를 따릅니다. <button class="text-button" data-action="dismiss-coach">숨기기</button></p>'
+      : !this.coachDismissed && state.turn === 1 && !waitingForDice
+        ? '<p class="coach-tip">숫자를 보고 한 가지만 고르세요. 선택하면 이번 턴 수익률이 반영됩니다. <button class="text-button" data-action="dismiss-coach">숨기기</button></p>'
+        : '';
     return `<section class="game-screen">
       <header class="game-topbar">
         <div class="brand-small"><span>연금로드</span><small>금리의 두 얼굴</small></div>
@@ -342,18 +434,11 @@ export class PensionRoadApp {
       <div class="game-layout">
         <div class="board-wrap market-first">
           ${this.renderTrack(state)}
-          ${state.lastMarket.shock ? '<p class="shock-banner">충격 턴 · 신호를 보고 비중을 조정하세요</p>' : ''}
-          <article class="market-card">
-            <div class="card-label">TURN ${String(state.turn).padStart(2, '0')} · 시장 브리핑</div>
-            <h2>${state.lastMarket.headline}</h2>
-            <p class="signal">${state.lastMarket.signal}</p>
-            <p>${state.lastMarket.reason}</p>
-            <div class="market-bars"><span>금리 <i style="--level:${state.lastMarket.rate}"></i>${state.lastMarket.rate}/5</span><span>물가 <i style="--level:${state.lastMarket.inflation}"></i>${state.lastMarket.inflation}/5</span><span>주가 <i style="--level:${state.lastMarket.stocks}"></i>${state.lastMarket.stocks}/5</span></div>
-            ${this.renderProductReturns(state)}
-          </article>
+          ${!waitingForDice && state.lastMarket.shock ? '<p class="shock-banner">충격 턴 · 신호를 보고 비중을 조정하세요</p>' : ''}
+          ${this.renderMarketCard(state, waitingForDice)}
         </div>
         <aside class="dashboard">
-          ${!this.coachDismissed && state.turn === 1 ? '<p class="coach-tip">숫자를 보고 한 가지만 고르세요. 선택하면 이번 턴 수익률이 반영됩니다. <button class="text-button" data-action="dismiss-coach">숨기기</button></p>' : ''}
+          ${coach}
           ${!this.tipDismissed && latestCard ? `<p class="card-tip"><strong>${latestCard.title}</strong>${latestCard.key}<button class="text-button" data-action="dismiss-tip">닫기</button></p>` : ''}
           <article class="asset-card"><div class="card-label">나의 은퇴설계</div>
             <div class="big-number"><span>IRP 평가액</span><strong>${formatShortWon(score.irpValue)}</strong></div>
@@ -368,7 +453,7 @@ export class PensionRoadApp {
       </div>
       <nav class="game-actions" aria-label="게임 행동">
         <button data-action="open-portfolio"><span>◫</span>포트폴리오</button>
-        <button class="dice-button" data-action="open-action" ${state.awaitingAction ? '' : 'disabled'}><span>↗</span>${ctaLabel}</button>
+        ${this.renderGameCta(state)}
         <button data-action="open-market"><span>☰</span>타임라인</button>
       </nav>
     </section>`;
@@ -512,7 +597,8 @@ export class PensionRoadApp {
     const rows = products.map((product) => {
       const amount = this.game!.holdings.find((holding) => holding.productId === product.id)?.amount ?? 0;
       const ret = this.game!.lastMarket.returns[product.id];
-      return `<tr><td><span class="risk-symbol ${product.risk_asset_ratio > 0 ? 'risky' : 'safe'}">${product.risk_asset_ratio > 0 ? '▲' : '●'}</span>${product.shortName}<small>${product.riskLabel}</small></td><td>${formatShortWon(amount)}</td><td>${total ? percent(amount / total) : '0%'}</td><td class="${ret < 0 ? 'neg' : ''}">${signedPercent(ret)}</td></tr>`;
+      const hideReturns = canRevealNextTurn(this.game!) || this.diceRolling;
+      return `<tr><td><span class="risk-symbol ${product.risk_asset_ratio > 0 ? 'risky' : 'safe'}">${product.risk_asset_ratio > 0 ? '▲' : '●'}</span>${product.shortName}<small>${product.riskLabel}</small></td><td>${formatShortWon(amount)}</td><td>${total ? percent(amount / total) : '0%'}</td><td class="${!hideReturns && ret < 0 ? 'neg' : ''}">${hideReturns ? '???' : signedPercent(ret)}</td></tr>`;
     }).join('');
     const orders = this.game.pendingOrders.length ? this.game.pendingOrders.map((order) => `<li>${order.side === 'buy' ? '매수' : '환매'} · ${products.find((item) => item.id === order.productId)?.shortName} · ${order.stage === 'received' ? '주문 접수' : '기준가 확정'} → ${order.settlesTurn}턴 반영</li>`).join('') : '<li>대기 주문 없음</li>';
     return `<p class="eyebrow">포트폴리오</p><h2>${formatWon(total)}</h2><p>위험자산 ${percent(riskAssetRatio(this.game))} · IRP 대기자금 ${formatWon(this.game.irpCash)}</p><div class="table-wrap"><table><thead><tr><th>상품</th><th>평가액</th><th>비중</th><th>이번 턴</th></tr></thead><tbody>${rows}</tbody></table></div><h3>주문 처리</h3><ul class="order-list">${orders}</ul>`;
@@ -530,7 +616,7 @@ export class PensionRoadApp {
 
   private renderSettingsModal(): string {
     return `<p class="eyebrow">설정 · 면책 · 출처</p><h2>교육용 게임 안내</h2>
-      <label class="setting-row" for="reduced-motion"><span><strong>동작 줄이기</strong><small>전환 애니메이션을 즉시 표시합니다.</small></span><input id="reduced-motion" type="checkbox" ${this.save.settings.reducedMotion ? 'checked' : ''}></label>
+      <label class="setting-row" for="reduced-motion"><span><strong>동작 줄이기</strong><small>전환·주사위 애니메이션을 즉시 표시합니다.</small></span><input id="reduced-motion" type="checkbox" ${this.save.settings.reducedMotion ? 'checked' : ''}></label>
       <div class="button-stack compact">
         <button class="secondary" data-action="open-diagnosis">성향 다시 진단</button>
         <button class="secondary" data-action="open-goal">월 연금 목표 바꾸기</button>
