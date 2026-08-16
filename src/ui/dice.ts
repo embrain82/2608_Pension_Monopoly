@@ -1,8 +1,8 @@
 import { hashSeed, rollDie } from '../engine/random-engine';
 import type { GameState } from '../types';
 
-export const DICE_ROLL_DURATION_MS = 560;
-export const DICE_LAND_HOLD_MS = 140;
+export const DICE_ROLL_DURATION_MS = 1120;
+export const DICE_LAND_HOLD_MS = 280;
 
 const FACE_TRANSFORMS: Record<number, string> = {
   1: 'rotateX(0deg) rotateY(0deg)',

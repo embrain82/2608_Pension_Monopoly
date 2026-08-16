@@ -7,6 +7,7 @@ import { randomSeed } from '../engine/random-engine';
 import { calculateScore } from '../engine/scoring-engine';
 import type { ActionKind, GameState, ProfileId, ProductId, SaveData } from '../types';
 import { DICE_LAND_HOLD_MS, DICE_ROLL_DURATION_MS, canRevealNextTurn, dicePairForTurn, dicePairLabel, isCompletedTurn, isRevealedTurn, isUpcomingSpoiler, renderDiceMarkup, shouldSkipDiceAnimation } from './dice';
+import { renderBoardMarkup } from './board';
 import { loadSave, saveData } from './ui-state';
 
 type Screen = 'title' | 'diagnosis' | 'goal' | 'game' | 'result';
@@ -387,6 +388,10 @@ export class PensionRoadApp {
     return `<div class="turn-track" role="img" aria-label="${aria}">${cells}</div>`;
   }
 
+  private renderBoard(state: GameState, waiting: boolean): string {
+    return renderBoardMarkup(state, waiting);
+  }
+
   private renderProductReturns(state: GameState, hidden = false): string {
     const total = portfolioValue(state);
     const rows = products.map((product) => {
@@ -461,14 +466,15 @@ export class PensionRoadApp {
         <button class="icon-button" data-action="open-settings" aria-label="설정과 출처">⋮</button>
       </header>
       <div class="game-layout">
-        <div class="board-wrap market-first">
+        <div class="board-wrap">
           ${this.renderTrack(state, waitingForDice)}
-          ${!waitingForDice && state.lastMarket.shock ? '<p class="shock-banner">충격 턴 · 신호를 보고 비중을 조정하세요</p>' : ''}
-          ${this.renderMarketCard(state, waitingForDice)}
+          ${this.renderBoard(state, waitingForDice)}
         </div>
         <aside class="dashboard">
           ${coach}
           ${!this.tipDismissed && latestCard ? `<p class="card-tip"><strong>${latestCard.title}</strong>${latestCard.key}<button class="text-button" data-action="dismiss-tip">닫기</button></p>` : ''}
+          ${!waitingForDice && state.lastMarket.shock ? '<p class="shock-banner">충격 턴 · 신호를 보고 비중을 조정하세요</p>' : ''}
+          ${this.renderMarketCard(state, waitingForDice)}
           <article class="asset-card"><div class="card-label">나의 은퇴설계</div>
             <div class="big-number"><span>IRP 평가액</span><strong>${formatShortWon(score.irpValue)}</strong></div>
             <div class="metric-row"><span><abbr title="최종 IRP 평가액을 240개월로 나눈 교육용 값">예상 월 연금</abbr><strong>${formatWon(score.monthlyPension)}</strong></span><span>시작 대비<strong class="${score.returnRate < 0 ? 'neg' : ''}">${signedPercent(score.returnRate)}</strong></span></div>

@@ -25,11 +25,9 @@ describe('주사위 연출', () => {
     expect(shouldSkipDiceAnimation(true)).toBe(true);
     expect(shouldSkipDiceAnimation(false)).toBe(false);
     expect(shouldSkipDiceAnimation(false, true)).toBe(true);
-    expect(DICE_ROLL_DURATION_MS).toBeGreaterThanOrEqual(400);
-    expect(DICE_ROLL_DURATION_MS).toBeLessThan(800);
-    expect(DICE_LAND_HOLD_MS).toBeGreaterThanOrEqual(80);
-    expect(DICE_LAND_HOLD_MS).toBeLessThan(200);
-    expect(DICE_ROLL_DURATION_MS + DICE_LAND_HOLD_MS).toBeLessThanOrEqual(800);
+    expect(DICE_ROLL_DURATION_MS).toBe(1120);
+    expect(DICE_LAND_HOLD_MS).toBe(280);
+    expect(DICE_ROLL_DURATION_MS + DICE_LAND_HOLD_MS).toBe(1400);
   });
 
   it('새 판과 행동 직후에는 다음 상황을 바로 열지 않고 주사위를 기다린다', () => {

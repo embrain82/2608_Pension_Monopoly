@@ -94,7 +94,8 @@ a { color: var(--green); text-underline-offset: 3px; }
 .icon-button { width: 44px; height: 44px; border: 0; border-radius: 50%; background: transparent; font-size: 1.4rem; }
 .game-layout { width: min(100% - 32px, 1320px); margin: 24px auto; display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(350px, .75fr); gap: 28px; align-items: start; }
 .board-wrap { padding: 14px; background: rgba(255,255,255,.62); border: 1px solid rgba(255,255,255,.9); border-radius: 28px; box-shadow: var(--shadow); }
-.board-wrap.market-first { padding: 18px; }
+.board-wrap .turn-track { margin-bottom: 10px; }
+.board { display: block; width: 100%; height: auto; max-height: calc(100dvh - 150px); }
 .turn-track { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 4px; margin-bottom: 12px; }
 .turn-track i { display: grid; place-items: center; min-height: 28px; border-radius: 8px; background: #e4ece6; color: #738481; font: 700 .68rem Georgia, serif; }
 .turn-track .past { background: #cfe0d6; color: var(--green); }
@@ -124,7 +125,6 @@ a { color: var(--green); text-underline-offset: 3px; }
 .result-hero.dual { grid-template-columns: 1fr 1fr; }
 .result-hero.dual > div { display: grid; gap: 6px; }
 .timeline .shock.current > span, .timeline .shock > span { border-color: var(--orange); }
-.board { display: block; width: 100%; height: auto; max-height: calc(100dvh - 150px); }
 .board-bg { fill: #dfe9df; }
 .tile rect { fill: #f9faf4; stroke: #c6d5cd; stroke-width: 2; }
 .tile-product rect { fill: #e9f1e3; }
@@ -133,6 +133,7 @@ a { color: var(--green); text-underline-offset: 3px; }
 .tile-policy rect, .tile-trade rect { fill: #efe9d4; }
 .tile-rebalance rect { fill: #d8e9d8; }
 .tile.active rect { stroke: var(--orange); stroke-width: 6; filter: drop-shadow(0 7px 5px rgba(78,70,45,.18)); }
+.tile.past rect { fill: #e4eee6; }
 .tile text { fill: var(--ink); pointer-events: none; }
 .tile-icon { font-size: 22px; font-weight: 800; }
 .tile-number { font-size: 11px; fill: #738481 !important; }
@@ -181,10 +182,10 @@ abbr { text-decoration: underline dotted; text-underline-offset: 3px; cursor: he
 .dice-overlay p { margin: 0; font-weight: 800; letter-spacing: .04em; }
 .dice-scene { position: relative; width: min(100% - 24px, 280px); height: 150px; perspective: 560px; display: flex; align-items: center; justify-content: center; gap: 28px; transform-style: preserve-3d; }
 .dice-slot { display: grid; place-items: center; width: 88px; height: 88px; }
-.dice-slot:has(.rolling) { animation: dice-hop var(--dice-ms, .56s) ease-out both; }
+.dice-slot:has(.rolling) { animation: dice-hop var(--dice-ms, 1.12s) ease-out both; }
 .dice-slot.alt:has(.rolling) { animation-name: dice-hop-alt; }
 .dice { --dice-size: 76px; --half: 38px; position: relative; width: var(--dice-size); height: var(--dice-size); transform-style: preserve-3d; }
-.dice.rolling { animation: dice-tumble var(--dice-ms, .56s) cubic-bezier(.12, .72, .28, 1) both; will-change: transform; }
+.dice.rolling { animation: dice-tumble var(--dice-ms, 1.12s) cubic-bezier(.12, .72, .28, 1) both; will-change: transform; }
 .dice.rolling.alt { animation-name: dice-tumble-alt; }
 .dice.landed { transform: var(--land); }
 .dice-face { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); padding: 10px; background: linear-gradient(145deg, #fffef8, #eef3ea); border: 1px solid #c5d4cb; border-radius: 12px; box-shadow: inset 0 0 0 2px rgba(255,255,255,.55), 0 8px 18px rgba(16,40,37,.18); backface-visibility: hidden; }
