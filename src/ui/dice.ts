@@ -1,6 +1,8 @@
+import { hashSeed, rollDie } from '../engine/random-engine';
 import type { GameState } from '../types';
 
 export const DICE_ROLL_DURATION_MS = 1300;
+export const DICE_LAND_HOLD_MS = 350;
 
 const FACE_TRANSFORMS: Record<number, string> = {
   1: 'rotateX(0deg) rotateY(0deg)',
@@ -24,6 +26,27 @@ export function canRevealNextTurn(state: GameState): boolean {
   return state.status === 'playing' && !state.awaitingAction && !state.currentEventId;
 }
 
+export function diceFaceForTurn(seed: string, turn: number): number {
+  return rollDie(hashSeed(`${seed}:dice:${turn}`)).value;
+}
+
+export function diceFaceParticle(face: number): '이' | '가' {
+  return face === 1 || face === 3 || face === 6 ? '이' : '가';
+}
+
+export function isUpcomingSpoiler(stepTurn: number, currentTurn: number): boolean {
+  return stepTurn > currentTurn;
+}
+
+export function isRevealedTurn(stepTurn: number, currentTurn: number, waiting: boolean): boolean {
+  return !waiting && stepTurn === currentTurn;
+}
+
+export function isCompletedTurn(stepTurn: number, currentTurn: number, waiting: boolean): boolean {
+  if (stepTurn < currentTurn) return true;
+  return waiting && currentTurn > 0 && stepTurn === currentTurn;
+}
+
 const PIP_MAP: Record<number, number[]> = {
   1: [5],
   2: [1, 9],
@@ -40,7 +63,8 @@ function facePips(face: number): string {
 
 export function renderDiceMarkup(face: number, rolling: boolean): string {
   const faces = [1, 2, 3, 4, 5, 6].map((value) => `<div class="dice-face n${value}">${facePips(value)}</div>`).join('');
-  return `<div class="dice-overlay" role="status" aria-live="assertive" aria-label="${rolling ? '주사위를 굴리는 중입니다' : `${face}가 나왔습니다`}">
+  const particle = diceFaceParticle(face);
+  return `<div class="dice-overlay" role="status" aria-live="assertive" aria-label="${rolling ? '주사위를 굴리는 중입니다' : `${face}${particle} 나왔습니다`}">
     <div class="dice-scene">
       <div class="dice ${rolling ? 'rolling' : 'landed'}" style="--land:${diceLandTransform(face)};--dice-ms:${DICE_ROLL_DURATION_MS}ms">${faces}</div>
     </div>

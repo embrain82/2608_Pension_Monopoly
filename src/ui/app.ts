@@ -3,10 +3,10 @@ import { createGame, performAction, resolveActionAmount, resolveLifeEvent, start
 import { getLifeEvent, getLearningCard } from '../engine/content-engine';
 import { portfolioValue } from '../engine/portfolio-engine';
 import { expectedRiskAfterBuy, riskAssetRatio } from '../engine/policy-engine';
-import { randomSeed, rollDie } from '../engine/random-engine';
+import { randomSeed } from '../engine/random-engine';
 import { calculateScore } from '../engine/scoring-engine';
 import type { ActionKind, GameState, ProfileId, ProductId, SaveData } from '../types';
-import { DICE_ROLL_DURATION_MS, canRevealNextTurn, renderDiceMarkup, shouldSkipDiceAnimation } from './dice';
+import { DICE_LAND_HOLD_MS, DICE_ROLL_DURATION_MS, canRevealNextTurn, diceFaceForTurn, diceFaceParticle, isCompletedTurn, isRevealedTurn, isUpcomingSpoiler, renderDiceMarkup, shouldSkipDiceAnimation } from './dice';
 import { loadSave, saveData } from './ui-state';
 
 type Screen = 'title' | 'diagnosis' | 'goal' | 'game' | 'result';
@@ -164,12 +164,16 @@ export class PensionRoadApp {
     } else if (action === 'open-settings') {
       this.modal = 'settings';
     } else if (action === 'open-diagnosis') {
+      this.clearDiceTimer();
+      this.diceRolling = false;
       this.setupReturn = this.game ? 'game' : 'title';
       this.questionIndex = 0;
       this.diagnosisScore = 0;
       this.modal = null;
       this.screen = 'diagnosis';
     } else if (action === 'open-goal') {
+      this.clearDiceTimer();
+      this.diceRolling = false;
       this.setupReturn = this.game ? 'game' : 'title';
       this.modal = null;
       this.screen = 'goal';
@@ -223,9 +227,7 @@ export class PensionRoadApp {
 
   private beginDiceRoll(): void {
     if (!this.game || this.diceRolling || !canRevealNextTurn(this.game)) return;
-    const rolled = rollDie(this.game.rngState);
-    this.game = { ...this.game, rngState: rolled.state };
-    this.diceFace = rolled.value;
+    this.diceFace = diceFaceForTurn(this.game.seed, this.game.turn);
     this.modal = null;
 
     const reveal = (): void => {
@@ -251,7 +253,18 @@ export class PensionRoadApp {
     this.announce('주사위를 굴리는 중');
     this.render();
     this.clearDiceTimer();
-    this.diceTimer = window.setTimeout(reveal, DICE_ROLL_DURATION_MS);
+    this.diceTimer = window.setTimeout(() => {
+      const overlay = this.root.querySelector('.dice-overlay');
+      const die = overlay?.querySelector('.dice');
+      die?.classList.remove('rolling');
+      die?.classList.add('landed');
+      if (overlay) {
+        overlay.setAttribute('aria-label', `${this.diceFace}${diceFaceParticle(this.diceFace)} 나왔습니다`);
+        const caption = overlay.querySelector('p');
+        if (caption) caption.textContent = `${this.diceFace} · 이번 턴 시장을 확인하세요`;
+      }
+      this.diceTimer = window.setTimeout(reveal, DICE_LAND_HOLD_MS);
+    }, DICE_ROLL_DURATION_MS);
   }
 
   private startGame(seed: string): void {
@@ -286,12 +299,20 @@ export class PensionRoadApp {
 
   private render(): void {
     document.documentElement.dataset.reduceMotion = String(this.save.settings.reducedMotion);
+    const existingOverlay = this.diceRolling ? this.root.querySelector('.dice-overlay') : null;
     const screenHtml = this.screen === 'title' ? this.renderTitle()
       : this.screen === 'diagnosis' ? this.renderDiagnosis()
         : this.screen === 'goal' ? this.renderGoal()
           : this.screen === 'game' ? this.renderGame()
             : this.renderResult();
-    this.root.innerHTML = `<main id="main" class="app-shell">${screenHtml}</main>${this.renderModal()}${this.diceRolling ? renderDiceMarkup(this.diceFace, true) : ''}`;
+    this.root.innerHTML = `<main id="main" class="app-shell">${screenHtml}</main>${this.renderModal()}`;
+    if (this.diceRolling) {
+      if (existingOverlay) this.root.appendChild(existingOverlay);
+      else this.root.insertAdjacentHTML('beforeend', renderDiceMarkup(this.diceFace, true));
+      const main = this.root.querySelector('#main');
+      main?.setAttribute('aria-hidden', 'true');
+      main?.setAttribute('inert', '');
+    }
     const dialog = this.root.querySelector<HTMLElement>('[role="dialog"]');
     if (dialog) requestAnimationFrame(() => dialog.querySelector<HTMLElement>('button:not([disabled]), select, input:not([disabled]), a[href]')?.focus());
   }
@@ -342,20 +363,26 @@ export class PensionRoadApp {
     </section>`;
   }
 
-  private renderTrack(state: GameState): string {
+  private renderTrack(state: GameState, waiting: boolean): string {
     const lifeTurns = new Set(state.lifeEventSchedule.map((item) => item.turn));
     const cells = marketScenario.map((step) => {
-      const current = step.turn === state.turn;
-      const past = step.turn < state.turn;
+      const current = isRevealedTurn(step.turn, state.turn, waiting);
+      const past = isCompletedTurn(step.turn, state.turn, waiting);
       const classes = [
         current ? 'current' : '',
         past ? 'past' : '',
         step.shock ? 'shock' : '',
         lifeTurns.has(step.turn) ? 'life' : ''
       ].filter(Boolean).join(' ');
-      return `<i class="${classes}" title="${step.phase}${step.shock ? ' · 충격' : ''}">${step.turn}</i>`;
+      const label = waiting && isUpcomingSpoiler(step.turn, state.turn)
+        ? `${step.turn}턴`
+        : `${step.phase}${step.shock ? ' · 충격' : ''}`;
+      return `<i class="${classes}" title="${label}">${step.turn}</i>`;
     }).join('');
-    return `<div class="turn-track" role="img" aria-label="12턴 중 ${state.turn}턴, 현재 국면 ${state.phase}">${cells}</div>`;
+    const aria = waiting
+      ? `12턴 중 ${state.turn}턴 정산 후 시장 대기`
+      : `12턴 중 ${state.turn}턴, 현재 국면 ${state.phase}`;
+    return `<div class="turn-track" role="img" aria-label="${aria}">${cells}</div>`;
   }
 
   private renderProductReturns(state: GameState, hidden = false): string {
@@ -433,7 +460,7 @@ export class PensionRoadApp {
       </header>
       <div class="game-layout">
         <div class="board-wrap market-first">
-          ${this.renderTrack(state)}
+          ${this.renderTrack(state, waitingForDice)}
           ${!waitingForDice && state.lastMarket.shock ? '<p class="shock-banner">충격 턴 · 신호를 보고 비중을 조정하세요</p>' : ''}
           ${this.renderMarketCard(state, waitingForDice)}
         </div>
@@ -597,7 +624,7 @@ export class PensionRoadApp {
     const rows = products.map((product) => {
       const amount = this.game!.holdings.find((holding) => holding.productId === product.id)?.amount ?? 0;
       const ret = this.game!.lastMarket.returns[product.id];
-      const hideReturns = canRevealNextTurn(this.game!) || this.diceRolling;
+      const hideReturns = this.game!.turn === 0;
       return `<tr><td><span class="risk-symbol ${product.risk_asset_ratio > 0 ? 'risky' : 'safe'}">${product.risk_asset_ratio > 0 ? '▲' : '●'}</span>${product.shortName}<small>${product.riskLabel}</small></td><td>${formatShortWon(amount)}</td><td>${total ? percent(amount / total) : '0%'}</td><td class="${!hideReturns && ret < 0 ? 'neg' : ''}">${hideReturns ? '???' : signedPercent(ret)}</td></tr>`;
     }).join('');
     const orders = this.game.pendingOrders.length ? this.game.pendingOrders.map((order) => `<li>${order.side === 'buy' ? '매수' : '환매'} · ${products.find((item) => item.id === order.productId)?.shortName} · ${order.stage === 'received' ? '주문 접수' : '기준가 확정'} → ${order.settlesTurn}턴 반영</li>`).join('') : '<li>대기 주문 없음</li>';
@@ -605,8 +632,17 @@ export class PensionRoadApp {
   }
 
   private renderMarketModal(): string {
-    const currentTurn = this.game?.turn || 1;
-    return `<p class="eyebrow">시장 흐름 · 금리의 두 얼굴</p><h2>12턴 타임라인</h2><div class="timeline">${marketScenario.map((step) => `<div class="${step.turn === currentTurn ? 'current' : step.turn < currentTurn ? 'past' : ''}${step.shock ? ' shock' : ''}"><span>${step.turn}</span><p><strong>${step.phase}${step.shock ? ' · 충격' : ''}</strong>${step.headline}<small>${step.signal}</small></p></div>`).join('')}</div><div class="why-box"><strong>교육용 단순화</strong><p>실제 시장은 여러 요인이 동시에 작용합니다. 이 흐름은 전망이나 투자 권유가 아니라 금리·채권 관계를 체험하기 위한 가정입니다.</p></div>`;
+    const currentTurn = this.game?.turn ?? 0;
+    const waiting = Boolean(this.game && (canRevealNextTurn(this.game) || this.diceRolling));
+    return `<p class="eyebrow">시장 흐름 · 금리의 두 얼굴</p><h2>12턴 타임라인</h2><div class="timeline">${marketScenario.map((step) => {
+      const current = isRevealedTurn(step.turn, currentTurn, waiting);
+      const past = isCompletedTurn(step.turn, currentTurn, waiting);
+      const spoiler = isUpcomingSpoiler(step.turn, currentTurn);
+      const body = spoiler
+        ? `<p><strong>${step.turn}턴</strong>시장은 주사위가 멈춘 뒤에 공개됩니다.</p>`
+        : `<p><strong>${step.phase}${step.shock ? ' · 충격' : ''}</strong>${step.headline}<small>${step.signal}</small></p>`;
+      return `<div class="${current ? 'current' : past ? 'past' : ''}${step.shock ? ' shock' : ''}"><span>${step.turn}</span>${body}</div>`;
+    }).join('')}</div><div class="why-box"><strong>교육용 단순화</strong><p>실제 시장은 여러 요인이 동시에 작용합니다. 이 흐름은 전망이나 투자 권유가 아니라 금리·채권 관계를 체험하기 위한 가정입니다.</p></div>`;
   }
 
   private renderCardsModal(): string {
