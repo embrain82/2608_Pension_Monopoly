@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { balanceConfig, lifeEvents, policyRules } from '../src/data/content';
-import { autoplay, createGame, performAction, resolveLifeEvent, rollAndMove } from '../src/engine/game-engine';
+import { balanceConfig, lifeEvents, marketScenario, policyRules } from '../src/data/content';
+import { autoplay, createGame, performAction, resolveActionAmount, resolveLifeEvent, startTurn } from '../src/engine/game-engine';
 import { applyMarketStep, rateShockReturn } from '../src/engine/market-engine';
 import { buyProduct, portfolioValue, rebalancePortfolio, sellProduct } from '../src/engine/portfolio-engine';
 import { canBuyRiskAsset, contributionCredit, effectiveRiskRatio, riskAssetRatio } from '../src/engine/policy-engine';
@@ -11,7 +11,7 @@ describe('재현 가능한 게임', () => {
   it('동일 시드는 동일한 결과를 만든다', () => {
     const a = autoplay('same-seed');
     const b = autoplay('same-seed');
-    expect(a.diceHistory).toEqual(b.diceHistory);
+    expect(a.lifeEventSchedule).toEqual(b.lifeEventSchedule);
     expect(a.eventHistory).toEqual(b.eventHistory);
     expect(portfolioValue(a)).toBeCloseTo(portfolioValue(b), 6);
   });
@@ -20,6 +20,54 @@ describe('재현 가능한 게임', () => {
     const state = autoplay('finish');
     expect(state.turn).toBe(12);
     expect(state.status).toBe('finished');
+  });
+});
+
+describe('시장 우선 턴 루프', () => {
+  it('주사위 없이 턴을 시작하고 이번 턴 수익률을 미리 보여 준다', () => {
+    const started = startTurn(createGame('loop'));
+    expect(started.ok).toBe(true);
+    expect(started.state.turn).toBe(1);
+    expect(started.state.awaitingAction || Boolean(started.state.currentEventId)).toBe(true);
+    expect(started.state.lastMarket.turn).toBe(1);
+    expect(started.state.lastMarket.returns.equityEtf).toBeDefined();
+  });
+
+  it('한 판에 생활사건을 시드당 3회만 넣는다', () => {
+    const created = createGame('life-three');
+    expect(created.lifeEventSchedule).toHaveLength(3);
+    const turns = created.lifeEventSchedule.map((item) => item.turn);
+    expect(new Set(turns).size).toBe(3);
+    expect(turns.every((turn) => turn >= 2 && turn <= 11)).toBe(true);
+
+    let state = created;
+    let events = 0;
+    while (state.status === 'playing') {
+      state = startTurn(state).state;
+      if (state.currentEventId) {
+        events += 1;
+        state = resolveLifeEvent(state, 'cash').state;
+      }
+      const acted = performAction(state, { kind: 'hold' });
+      state = acted.ok ? acted.state : performAction(state, { kind: 'hold' }).state;
+    }
+    expect(events).toBe(3);
+  });
+
+  it('학습 카드는 턴을 막지 않고 해금만 한다', () => {
+    const started = startTurn(createGame('cards'));
+    expect(started.state.unlockedCards.length).toBeGreaterThan(0);
+    if (!started.state.currentEventId) {
+      expect(started.state.awaitingAction).toBe(true);
+      expect(performAction(started.state, { kind: 'hold' }).ok).toBe(true);
+    }
+  });
+
+  it('금액 프리셋은 기본·절반·가능액을 계산한다', () => {
+    const state = { ...createGame('amount'), irpCash: 8_000_000 };
+    expect(resolveActionAmount(state, 'buy', 'default')).toBe(balanceConfig.tradeAmount);
+    expect(resolveActionAmount(state, 'buy', 'half')).toBe(4_000_000);
+    expect(resolveActionAmount(state, 'buy', 'max')).toBe(8_000_000);
   });
 });
 
@@ -127,11 +175,47 @@ describe('점수와 저장 복구', () => {
   });
 
   it('모든 기본 행동이 실제 상태를 바꾼다', () => {
-    let state = rollAndMove(createGame('actions')).state;
+    let state = startTurn(createGame('actions')).state;
     if (state.currentEventId) state = resolveLifeEvent(state, 'cash').state;
     const result = performAction(state, { kind: 'contribute', amount: balanceConfig.contributionAmount });
     expect(result.ok).toBe(true);
     expect(result.state.turn).toBe(1);
     expect(result.state.contributionTotal).toBeGreaterThan(0);
+  });
+
+  it('시작 대비 수익률과 납입 제외 운용수익률을 구분한다', () => {
+    const score = calculateScore(autoplay('returns'));
+    expect(Number.isFinite(score.returnRate)).toBe(true);
+    expect(Number.isFinite(score.investmentReturnRate)).toBe(true);
+    expect(score.returnRate).toBeGreaterThan(score.investmentReturnRate - 1e-9);
+  });
+
+  it('v1 저장 데이터를 v2 기본값으로 복구한다', () => {
+    const legacy = {
+      getItem: (key: string) => key === STORAGE_KEY
+        ? JSON.stringify({ version: 1, settings: { reducedMotion: true, sound: false }, unlockedCards: ['rate-bond'], bestScore: 88, lastSeed: 'abc' })
+        : null
+    };
+    const loaded = loadSave(legacy);
+    expect(loaded.version).toBe(2);
+    expect(loaded.settings.reducedMotion).toBe(true);
+    expect(loaded.disclaimerAccepted).toBe(false);
+    expect(loaded.bestScore).toBe(88);
+    expect(loaded.unlockedCards).toEqual(['rate-bond']);
+    expect(loaded.playCount).toBe(0);
+  });
+});
+
+describe('시장 진폭과 충격 턴', () => {
+  it('충격 턴이 6턴과 8턴에 있다', () => {
+    const shocks = marketScenario.filter((step) => step.shock).map((step) => step.turn);
+    expect(shocks).toEqual([6, 8]);
+  });
+
+  it('충격 턴의 대표 자산 움직임이 기존보다 크다', () => {
+    const hike = marketScenario.find((step) => step.turn === 6)!;
+    const vol = marketScenario.find((step) => step.turn === 8)!;
+    expect(hike.returns.longBond).toBeLessThan(-0.08);
+    expect(vol.returns.equityEtf).toBeLessThan(-0.07);
   });
 });

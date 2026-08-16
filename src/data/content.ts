@@ -45,8 +45,11 @@ const tileKinds: Array<Omit<BoardTile, 'index'>> = [
 export const boardTiles: BoardTile[] = tileKinds.map((tile, index) => ({ ...tile, index }));
 
 export function validateContent(): void {
-  if (products.length !== 6 || marketScenario.length !== 12 || boardTiles.length !== 24) {
+  if (products.length !== 6 || marketScenario.length !== 12) {
     throw new Error('필수 콘텐츠 수가 올바르지 않습니다.');
+  }
+  if (marketScenario.filter((step) => step.shock).map((step) => step.turn).join() !== '6,8') {
+    throw new Error('충격 턴은 6턴과 8턴이어야 합니다.');
   }
   if (marketScenario.length + lifeEvents.length + learningCards.length < 30) {
     throw new Error('콘텐츠 항목은 최소 30개여야 합니다.');

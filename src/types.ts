@@ -31,6 +31,7 @@ export interface MarketStep {
   inflation: number;
   stocks: number;
   returns: Record<ProductId, number>;
+  shock?: boolean;
 }
 
 export interface LifeEvent {
@@ -156,12 +157,11 @@ export interface GameState {
   safeActionCount: number;
   unlockedCards: string[];
   eventHistory: string[];
-  diceHistory: number[];
   logs: GameLog[];
   lastMarket: MarketStep;
   awaitingAction: boolean;
   currentEventId: string | null;
-  lastTileIndex: number;
+  lifeEventSchedule: Array<{ turn: number; eventId: string }>;
 }
 
 export interface ActionResult {
@@ -190,12 +190,18 @@ export interface ScoreResult {
   bestDecision: string;
   improvement: string;
   relatedCardIds: string[];
+  returnRate: number;
+  investmentReturnRate: number;
 }
 
 export interface SaveData {
-  version: 1;
+  version: 2;
   settings: { reducedMotion: boolean; sound: boolean };
   unlockedCards: string[];
   bestScore: number;
   lastSeed: string;
+  disclaimerAccepted: boolean;
+  bestReturnRate: number;
+  bestGoalRate: number;
+  playCount: number;
 }
