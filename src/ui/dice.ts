@@ -1,8 +1,8 @@
 import { hashSeed, rollDie } from '../engine/random-engine';
 import type { GameState } from '../types';
 
-export const DICE_ROLL_DURATION_MS = 1300;
-export const DICE_LAND_HOLD_MS = 350;
+export const DICE_ROLL_DURATION_MS = 560;
+export const DICE_LAND_HOLD_MS = 140;
 
 const FACE_TRANSFORMS: Record<number, string> = {
   1: 'rotateX(0deg) rotateY(0deg)',
@@ -13,9 +13,12 @@ const FACE_TRANSFORMS: Record<number, string> = {
   6: 'rotateX(0deg) rotateY(180deg)'
 };
 
-export function diceLandTransform(face: number): string {
+export function diceLandTransform(face: number, variant = 0): string {
   const pose = FACE_TRANSFORMS[face] ?? FACE_TRANSFORMS[1];
-  return `rotateX(720deg) rotateY(360deg) ${pose}`;
+  const spin = variant === 0
+    ? 'rotateX(360deg) rotateY(360deg)'
+    : 'rotateX(-360deg) rotateY(360deg)';
+  return `${spin} ${pose}`;
 }
 
 export function shouldSkipDiceAnimation(reducedMotion: boolean, prefersReducedMotion = false): boolean {
@@ -26,12 +29,14 @@ export function canRevealNextTurn(state: GameState): boolean {
   return state.status === 'playing' && !state.awaitingAction && !state.currentEventId;
 }
 
-export function diceFaceForTurn(seed: string, turn: number): number {
-  return rollDie(hashSeed(`${seed}:dice:${turn}`)).value;
+export function dicePairForTurn(seed: string, turn: number): [number, number] {
+  const left = rollDie(hashSeed(`${seed}:dice:${turn}:a`)).value;
+  const right = rollDie(hashSeed(`${seed}:dice:${turn}:b`)).value;
+  return [left, right];
 }
 
-export function diceFaceParticle(face: number): '이' | '가' {
-  return face === 1 || face === 3 || face === 6 ? '이' : '가';
+export function dicePairLabel(left: number, right: number): string {
+  return `${left} · ${right}`;
 }
 
 export function isUpcomingSpoiler(stepTurn: number, currentTurn: number): boolean {
@@ -61,13 +66,19 @@ function facePips(face: number): string {
   return Array.from({ length: 9 }, (_, index) => `<i class="pip${active.has(index + 1) ? ' on' : ''}"></i>`).join('');
 }
 
-export function renderDiceMarkup(face: number, rolling: boolean): string {
+function cubeMarkup(face: number, variant: 0 | 1, rolling: boolean): string {
   const faces = [1, 2, 3, 4, 5, 6].map((value) => `<div class="dice-face n${value}">${facePips(value)}</div>`).join('');
-  const particle = diceFaceParticle(face);
-  return `<div class="dice-overlay" role="status" aria-live="assertive" aria-label="${rolling ? '주사위를 굴리는 중입니다' : `${face}${particle} 나왔습니다`}">
-    <div class="dice-scene">
-      <div class="dice ${rolling ? 'rolling' : 'landed'}" style="--land:${diceLandTransform(face)};--dice-ms:${DICE_ROLL_DURATION_MS}ms">${faces}</div>
+  const alt = variant === 1 ? ' alt' : '';
+  return `<div class="dice-slot${alt}"><div class="dice ${rolling ? `rolling${alt}` : 'landed'}" style="--land:${diceLandTransform(face, variant)};--dice-ms:${DICE_ROLL_DURATION_MS}ms">${faces}</div></div>`;
+}
+
+export function renderDiceMarkup(faces: [number, number], rolling: boolean): string {
+  const label = dicePairLabel(faces[0], faces[1]);
+  return `<div class="dice-overlay" role="status" aria-live="assertive" aria-label="${rolling ? '주사위 두 개를 굴리는 중입니다' : `주사위 결과 ${label}`}">
+    <div class="dice-scene" style="--dice-ms:${DICE_ROLL_DURATION_MS}ms">
+      ${cubeMarkup(faces[0], 0, rolling)}
+      ${cubeMarkup(faces[1], 1, rolling)}
     </div>
-    <p>${rolling ? '주사위를 굴리는 중' : `${face} · 이번 턴 시장을 확인하세요`}</p>
+    <p>${rolling ? '주사위를 굴리는 중' : `${label} · 이번 턴 시장을 확인하세요`}</p>
   </div>`;
 }

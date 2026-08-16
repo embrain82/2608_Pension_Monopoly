@@ -6,7 +6,7 @@ import { expectedRiskAfterBuy, riskAssetRatio } from '../engine/policy-engine';
 import { randomSeed } from '../engine/random-engine';
 import { calculateScore } from '../engine/scoring-engine';
 import type { ActionKind, GameState, ProfileId, ProductId, SaveData } from '../types';
-import { DICE_LAND_HOLD_MS, DICE_ROLL_DURATION_MS, canRevealNextTurn, diceFaceForTurn, diceFaceParticle, isCompletedTurn, isRevealedTurn, isUpcomingSpoiler, renderDiceMarkup, shouldSkipDiceAnimation } from './dice';
+import { DICE_LAND_HOLD_MS, DICE_ROLL_DURATION_MS, canRevealNextTurn, dicePairForTurn, dicePairLabel, isCompletedTurn, isRevealedTurn, isUpcomingSpoiler, renderDiceMarkup, shouldSkipDiceAnimation } from './dice';
 import { loadSave, saveData } from './ui-state';
 
 type Screen = 'title' | 'diagnosis' | 'goal' | 'game' | 'result';
@@ -53,7 +53,7 @@ export class PensionRoadApp {
   private tipDismissed = false;
   private feedback = '';
   private diceRolling = false;
-  private diceFace = 1;
+  private diceFaces: [number, number] = [1, 1];
   private diceTimer = 0;
 
   constructor(private readonly root: HTMLElement) {
@@ -227,7 +227,7 @@ export class PensionRoadApp {
 
   private beginDiceRoll(): void {
     if (!this.game || this.diceRolling || !canRevealNextTurn(this.game)) return;
-    this.diceFace = diceFaceForTurn(this.game.seed, this.game.turn);
+    this.diceFaces = dicePairForTurn(this.game.seed, this.game.turn);
     this.modal = null;
 
     const reveal = (): void => {
@@ -236,7 +236,7 @@ export class PensionRoadApp {
       this.game = next.state;
       this.diceRolling = false;
       this.modal = this.game.currentEventId ? 'life' : null;
-      this.announce(`${this.diceFace} · ${next.message}`);
+      this.announce(`${dicePairLabel(this.diceFaces[0], this.diceFaces[1])} · ${next.message}`);
       this.persist(true);
       this.render();
     };
@@ -255,13 +255,15 @@ export class PensionRoadApp {
     this.clearDiceTimer();
     this.diceTimer = window.setTimeout(() => {
       const overlay = this.root.querySelector('.dice-overlay');
-      const die = overlay?.querySelector('.dice');
-      die?.classList.remove('rolling');
-      die?.classList.add('landed');
+      overlay?.querySelectorAll('.dice').forEach((die) => {
+        die.classList.remove('rolling', 'alt');
+        die.classList.add('landed');
+      });
       if (overlay) {
-        overlay.setAttribute('aria-label', `${this.diceFace}${diceFaceParticle(this.diceFace)} 나왔습니다`);
+        const label = dicePairLabel(this.diceFaces[0], this.diceFaces[1]);
+        overlay.setAttribute('aria-label', `주사위 결과 ${label}`);
         const caption = overlay.querySelector('p');
-        if (caption) caption.textContent = `${this.diceFace} · 이번 턴 시장을 확인하세요`;
+        if (caption) caption.textContent = `${label} · 이번 턴 시장을 확인하세요`;
       }
       this.diceTimer = window.setTimeout(reveal, DICE_LAND_HOLD_MS);
     }, DICE_ROLL_DURATION_MS);
@@ -308,7 +310,7 @@ export class PensionRoadApp {
     this.root.innerHTML = `<main id="main" class="app-shell">${screenHtml}</main>${this.renderModal()}`;
     if (this.diceRolling) {
       if (existingOverlay) this.root.appendChild(existingOverlay);
-      else this.root.insertAdjacentHTML('beforeend', renderDiceMarkup(this.diceFace, true));
+      else this.root.insertAdjacentHTML('beforeend', renderDiceMarkup(this.diceFaces, true));
       const main = this.root.querySelector('#main');
       main?.setAttribute('aria-hidden', 'true');
       main?.setAttribute('inert', '');
