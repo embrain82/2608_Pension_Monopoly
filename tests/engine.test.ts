@@ -281,6 +281,27 @@ describe('시드 기반 시장 경로', () => {
     expect(created.lastMarket.returns.deposit).toBe(0);
   });
 
+  it('충격 턴은 큰 움직임과 같은 방향의 문구를 갖는다', () => {
+    for (let index = 0; index < 20; index += 1) {
+      const shocks = generateMarketPath(`shock-copy-${index}`).filter((step) => step.shock);
+      expect(shocks).toHaveLength(2);
+      for (const step of shocks) {
+        const text = `${step.headline} ${step.reason} ${step.signal}`;
+        const rateShock = step.returns.longBond <= -0.06;
+        const equityShock = step.returns.equityEtf <= -0.06;
+        expect(rateShock || equityShock).toBe(true);
+        if (rateShock) {
+          expect(step.returns.longBond).toBeLessThan(step.returns.shortBond);
+          expect(text).toMatch(/장기채|금리/);
+        }
+        if (equityShock && !rateShock) {
+          expect(step.returns.equityEtf).toBeLessThan(0);
+          expect(text).toMatch(/주식|변동/);
+        }
+      }
+    }
+  });
+
   it('턴 시작과 정산은 고정 JSON이 아니라 시드 경로를 읽는다', () => {
     const created = createGame('path-read');
     const started = startTurn(created);

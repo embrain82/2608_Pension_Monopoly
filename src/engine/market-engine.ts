@@ -1,8 +1,10 @@
-import { balanceConfig, marketScenario, policyRules, products } from '../data/content';
+import { balanceConfig, policyRules, products } from '../data/content';
 import type { GameState, MarketStep, ProductId } from '../types';
 import { hashSeed, nextRandom } from './random-engine';
 import { portfolioValue } from './portfolio-engine';
 import { riskAssetRatio } from './policy-engine';
+
+type ShockKind = 'rate-hike' | 'equity-drop';
 
 const ZERO_RETURNS: Record<ProductId, number> = {
   deposit: 0,
@@ -47,20 +49,7 @@ function clampReturn(value: number): number {
   return clamp(value, -0.15, 0.15);
 }
 
-function arrow(delta: number): string {
-  if (delta > 0) return '↗';
-  if (delta < 0) return '↘';
-  return '→';
-}
-
-function classifyPhase(rate: number, inflation: number, stocks: number): string {
-  if (rate <= 2 && stocks >= 3) return '저금리·경기회복';
-  if (rate >= 4 && stocks <= 3) return '기준금리 인상';
-  if (inflation >= 4 || (rate >= 3 && inflation >= 3)) return '물가상승';
-  return '경기둔화·전환 기대';
-}
-
-function pickShockTurns(rngState: number): { rngState: number; turns: number[] } {
+function pickShockPlan(rngState: number): { rngState: number; kinds: Map<number, ShockKind> } {
   const chosen: number[] = [];
   let state = rngState;
   while (chosen.length < 2) {
@@ -70,60 +59,106 @@ function pickShockTurns(rngState: number): { rngState: number; turns: number[] }
     if (!chosen.includes(turn)) chosen.push(turn);
   }
   chosen.sort((left, right) => left - right);
-  return { rngState: state, turns: chosen };
+  const flip = nextRandom(state);
+  const kinds = new Map<number, ShockKind>(
+    flip.value < 0.5
+      ? [[chosen[0], 'rate-hike'], [chosen[1], 'equity-drop']]
+      : [[chosen[0], 'equity-drop'], [chosen[1], 'rate-hike']]
+  );
+  return { rngState: flip.state, kinds };
 }
 
-function pickTemplate(rngState: number, phase: string, shock: boolean): { rngState: number; template: MarketStep } {
-  const matched = marketScenario.filter((step) => step.phase === phase && Boolean(step.shock) === shock);
-  const fallback = marketScenario.filter((step) => Boolean(step.shock) === shock);
-  const pool = matched.length ? matched : fallback;
-  const roll = nextRandom(rngState);
-  return { rngState: roll.state, template: pool[Math.floor(roll.value * pool.length)] };
+function briefingFor(
+  kind: ShockKind | undefined,
+  rateChange: number,
+  stockChange: number
+): Pick<MarketStep, 'phase' | 'headline' | 'signal' | 'reason'> {
+  if (kind === 'rate-hike' || (rateChange > 0 && Math.abs(rateChange) >= Math.abs(stockChange))) {
+    return {
+      phase: kind ? '기준금리 인상' : '물가상승',
+      headline: kind ? '기준금리 인상이 한 번에 크게 반영됩니다' : '물가와 금리 상승 압력이 커집니다',
+      signal: '신규 예금 ↗ · 장기채 ↘',
+      reason: '금리가 오르면 새로 드는 예금 조건은 나아지지만, 만기가 긴 채권 가격은 더 크게 떨어질 수 있습니다.'
+    };
+  }
+  if (kind === 'equity-drop' || stockChange < 0) {
+    return {
+      phase: kind ? '기준금리 인상' : '경기둔화·전환 기대',
+      headline: kind ? '긴축과 변동성이 위험자산을 흔듭니다' : '위험자산이 숨을 고릅니다',
+      signal: '금리 → · 주식 ↘',
+      reason: '높은 금리와 불확실성이 겹치면 주식형 자산이 채권보다 크게 흔들릴 수 있습니다.'
+    };
+  }
+  if (rateChange < 0) {
+    return {
+      phase: '경기둔화·전환 기대',
+      headline: '금리 인하 기대가 채권을 받칩니다',
+      signal: '금리 ↘ · 장기채 ↗',
+      reason: '앞으로 금리가 낮아질 것이라는 기대는 만기 긴 채권 가격에 더 크게 반영됩니다.'
+    };
+  }
+  if (stockChange > 0) {
+    return {
+      phase: '저금리·경기회복',
+      headline: '위험자산이 회복 기대를 반영합니다',
+      signal: '주식 ↗ · 금리 →',
+      reason: '낮은 조달비용과 회복 기대가 주식형 자산에 힘을 보탭니다.'
+    };
+  }
+  return {
+    phase: '경기둔화·전환 기대',
+    headline: '방향이 뚜렷하지 않아 분산을 점검할 때입니다',
+    signal: '금리 → · 주식 →',
+    reason: '한 방향을 예측하기보다 목표 위험비중을 점검할 시점입니다.'
+  };
 }
 
 export function generateMarketPath(seed: string): MarketStep[] {
   let rngState = hashSeed(`${seed}:market`);
-  const picked = pickShockTurns(rngState);
-  rngState = picked.rngState;
-  const shockSet = new Set(picked.turns);
+  const plan = pickShockPlan(rngState);
+  rngState = plan.rngState;
   let rate = 2;
   let inflation = 2;
   let stocks = 3;
   const path: MarketStep[] = [];
 
   for (let turn = 1; turn <= balanceConfig.maxTurns; turn += 1) {
-    const shock = shockSet.has(turn);
+    const kind = plan.kinds.get(turn);
     const prevRate = rate;
     const prevStocks = stocks;
-    const rateRoll = nextRandom(rngState);
-    const infRoll = nextRandom(rateRoll.state);
-    const stockRoll = nextRandom(infRoll.state);
-    rngState = stockRoll.state;
-    rate = clampLevel(rate + (rateRoll.value - 0.45) * (shock ? 2.2 : 1.1));
-    inflation = clampLevel(inflation + (infRoll.value - 0.48) * (shock ? 1.6 : 0.9));
-    stocks = clampLevel(stocks + (stockRoll.value - 0.5) * (shock ? 2.4 : 1.2));
+    if (kind === 'rate-hike') {
+      rate = clampLevel(rate + 1);
+      inflation = clampLevel(inflation + 1);
+      stocks = clampLevel(stocks - 1);
+    } else if (kind === 'equity-drop') {
+      stocks = clampLevel(stocks - 2);
+      inflation = clampLevel(inflation);
+    } else {
+      const rateRoll = nextRandom(rngState);
+      const infRoll = nextRandom(rateRoll.state);
+      const stockRoll = nextRandom(infRoll.state);
+      rngState = stockRoll.state;
+      rate = clampLevel(rate + (rateRoll.value - 0.48) * 1.1);
+      inflation = clampLevel(inflation + (infRoll.value - 0.5) * 0.9);
+      stocks = clampLevel(stocks + (stockRoll.value - 0.5) * 1.2);
+    }
     const rateChange = rate - prevRate;
     const stockChange = stocks - prevStocks;
     const noise = (): number => {
       const roll = nextRandom(rngState);
       rngState = roll.state;
-      return (roll.value - 0.5) * 0.008;
+      return (roll.value - 0.5) * 0.006;
     };
     let deposit = 0.003 + rate * 0.002 + noise();
     let shortBond = rateShockReturn('shortBond', rateChange) + 0.004 + noise();
     let longBond = rateShockReturn('longBond', rateChange) + 0.006 + noise();
-    let equityEtf = 0.01 * stockChange + (stocks - 3) * 0.012 + noise();
-    if (shock) {
-      if (rateChange > 0) {
-        longBond -= 0.04;
-        shortBond -= 0.01;
-      } else if (rateChange < 0) {
-        longBond += 0.04;
-        shortBond += 0.01;
-      }
-      if (stockChange < 0) equityEtf -= 0.05;
-      else if (stockChange > 0) equityEtf += 0.04;
-      else equityEtf -= 0.03;
+    let equityEtf = 0.012 * stockChange + (stocks - 3) * 0.01 + noise();
+    if (kind === 'rate-hike') {
+      longBond = Math.min(longBond, -0.08);
+      shortBond = Math.min(shortBond, -0.012);
+      deposit = Math.max(deposit, 0.01);
+    } else if (kind === 'equity-drop') {
+      equityEtf = Math.min(equityEtf, -0.07);
     }
     deposit = clampReturn(deposit);
     shortBond = clampReturn(shortBond);
@@ -131,20 +166,15 @@ export function generateMarketPath(seed: string): MarketStep[] {
     equityEtf = clampReturn(equityEtf);
     const balanced = clampReturn(0.25 * shortBond + 0.25 * longBond + 0.5 * equityEtf);
     const tdf = clampReturn(0.2 * shortBond + 0.2 * longBond + 0.45 * equityEtf + 0.15 * deposit);
-    const phase = classifyPhase(rate, inflation, stocks);
-    const template = pickTemplate(rngState, phase, shock);
-    rngState = template.rngState;
+    const briefing = briefingFor(kind, rateChange, stockChange);
     path.push({
       turn,
-      phase,
-      headline: template.template.headline,
-      signal: `금리 ${arrow(rateChange)} · 주식 ${arrow(stockChange)}`,
-      reason: template.template.reason,
+      ...briefing,
       rate,
       inflation,
       stocks,
       returns: { deposit, shortBond, longBond, balanced, equityEtf, tdf },
-      ...(shock ? { shock: true } : {})
+      ...(kind ? { shock: true } : {})
     });
   }
   return path;

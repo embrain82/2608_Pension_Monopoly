@@ -1,4 +1,4 @@
-import { products } from '../data/content';
+import { balanceConfig, products } from '../data/content';
 import { portfolioValue } from '../engine/portfolio-engine';
 import type { GameState, MarketStep } from '../types';
 import { isCompletedTurn, isRevealedTurn, isUpcomingSpoiler } from './dice';
@@ -40,7 +40,7 @@ export function renderMarketCard(state: GameState, pending: boolean): string {
           </article>`;
   }
   if (pending) {
-    const nextTurn = Math.min(state.turn + 1, 12);
+    const nextTurn = Math.min(state.turn + 1, balanceConfig.maxTurns);
     return `<article class="market-card">
             <div class="card-label">TURN ${String(state.turn).padStart(2, '0')} · 정산 완료</div>
             <h2>${state.lastMarket.headline}</h2>
@@ -76,9 +76,9 @@ export function renderTurnTrack(state: GameState, waiting: boolean): string {
       current ? 'current' : '',
       past ? 'past' : '',
       showShock ? 'shock' : '',
-      lifeTurns.has(step.turn) ? 'life' : ''
+      !spoiler && lifeTurns.has(step.turn) ? 'life' : ''
     ].filter(Boolean).join(' ');
-    const label = waiting && spoiler
+    const label = spoiler
       ? `${step.turn}턴`
       : `${step.phase}${showShock ? ' · 충격' : ''}`;
     return `<i class="${classes}" title="${label}">${step.turn}</i>`;

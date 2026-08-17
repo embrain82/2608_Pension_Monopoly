@@ -58,5 +58,10 @@ describe('시드 경로 트랙', () => {
     }
     const revealed = renderTurnTrack(state, false);
     expect(revealed).toContain('shock');
+
+    const future = created.marketPath.find((step) => step.turn > state.turn);
+    if (future) {
+      expect(revealed).toContain(`title="${future.turn}턴">${future.turn}</i>`);
+    }
   });
 });
