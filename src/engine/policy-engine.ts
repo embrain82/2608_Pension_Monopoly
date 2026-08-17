@@ -55,6 +55,41 @@ export function canBuyForProfile(profileId: ProfileId, productId: ProductId): { 
   };
 }
 
+export type BuyLimitDecision =
+  | { kind: 'execute'; amount: number }
+  | {
+    kind: 'confirm';
+    requested: number;
+    capped: number;
+    leftover: number;
+    fullRatio: number;
+    cappedRatio: number;
+    message: string;
+  }
+  | { kind: 'reject'; message: string; ratio?: number };
+
+/** 대기자금 매수가 한도를 넘으면 70%까지 금액을 제안하고, 넘지 않으면 바로 실행한다. */
+export function decideBuyAgainstRiskLimit(state: GameState, productId: ProductId, requested: number): BuyLimitDecision {
+  const amount = Math.min(Math.floor(requested), Math.floor(state.irpCash));
+  if (amount < 100000) return { kind: 'reject', message: 'IRP 대기자금이 부족합니다.' };
+  const suitability = canBuyForProfile(state.profileId, productId);
+  if (!suitability.ok) return { kind: 'reject', message: suitability.reason };
+  const full = canBuyRiskAsset(state, productId, amount);
+  if (full.ok) return { kind: 'execute', amount };
+  const capped = maxBuyWithinRiskLimit(state, productId, amount);
+  if (capped < 100000) return { kind: 'reject', message: full.reason, ratio: full.ratio };
+  const leftover = amount - capped;
+  return {
+    kind: 'confirm',
+    requested: amount,
+    capped,
+    leftover,
+    fullRatio: full.ratio,
+    cappedRatio: canBuyRiskAsset(state, productId, capped).ratio,
+    message: `요청액은 위험비중 ${(full.ratio * 100).toFixed(1)}%로 교육용 한도 ${(policyRules.riskAssetLimit * 100).toFixed(0)}%를 넘습니다. 한도까지는 ${Math.round(capped).toLocaleString('ko-KR')}원입니다. 거기까지만 매수할까요?`
+  };
+}
+
 /** 위험자산 한도를 넘지 않고 살 수 있는 최대 금액. 한도가 없거나 최소 단위 미만이면 0. */
 export function maxBuyWithinRiskLimit(state: GameState, productId: ProductId, requested: number): number {
   const want = Math.floor(requested);

@@ -3,7 +3,7 @@ import { balanceConfig, boardTiles, lifeEvents, marketScenario, policyRules } fr
 import { autoplay, createGame, performAction, resolveActionAmount, resolveLifeEvent, startTurn } from '../src/engine/game-engine';
 import { applyMarketStep, generateMarketPath, rateShockReturn } from '../src/engine/market-engine';
 import { buyProduct, portfolioValue, rebalancePortfolio, rebalanceShares, sellProduct, settleOrders, switchProduct } from '../src/engine/portfolio-engine';
-import { canBuyForProfile, canBuyRiskAsset, contributionCredit, effectiveRiskRatio, maxBuyWithinRiskLimit, riskAssetRatio } from '../src/engine/policy-engine';
+import { canBuyForProfile, canBuyRiskAsset, contributionCredit, decideBuyAgainstRiskLimit, effectiveRiskRatio, maxBuyWithinRiskLimit, riskAssetRatio } from '../src/engine/policy-engine';
 import { calculateScore, monthlyPension } from '../src/engine/scoring-engine';
 import { applyProfileToGame, profileFromScore } from '../src/engine/profile-engine';
 import { defaultSave, loadSave, STORAGE_KEY } from '../src/ui/ui-state';
@@ -191,6 +191,61 @@ describe('정책과 주문', () => {
     expect(canBuyRiskAsset(state, 'equityEtf', 80_000_000).ok).toBe(false);
     expect(maxBuyWithinRiskLimit(state, 'equityEtf', 50_000_000)).toBe(50_000_000);
     expect(maxBuyWithinRiskLimit(state, 'deposit', 80_000_000)).toBe(80_000_000);
+  });
+
+  it('대기자금 매수가 한도를 넘으면 70% 금액을 제안하고 수락 시에만 그 금액만 산다', () => {
+    const state = {
+      ...createGame('buy-cap-ask', 'growth'),
+      awaitingAction: true,
+      currentEventId: null,
+      irpCash: 80_000_000,
+      holdings: [{ productId: 'deposit' as const, amount: 20_000_000, principal: 20_000_000, depositTurnsHeld: 4 }]
+    };
+    const decision = decideBuyAgainstRiskLimit(state, 'equityEtf', 80_000_000);
+    expect(decision.kind).toBe('confirm');
+    if (decision.kind !== 'confirm') return;
+    expect(decision.capped).toBe(70_000_000);
+    expect(decision.leftover).toBe(10_000_000);
+    expect(decision.message).toMatch(/한도까지는 70,000,000원/);
+    expect(decision.message).toMatch(/거기까지만 매수할까요/);
+
+    const rejected = buyProduct(state, 'equityEtf', decision.requested);
+    expect(rejected.ok).toBe(false);
+    expect(rejected.state.irpCash).toBe(80_000_000);
+
+    const bought = buyProduct(state, 'equityEtf', decision.capped);
+    expect(bought.ok).toBe(true);
+    expect(bought.state.irpCash).toBe(10_000_000);
+    expect(bought.state.holdings.find((item) => item.productId === 'equityEtf')?.amount).toBe(70_000_000);
+    expect(riskAssetRatio(bought.state)).toBeLessThanOrEqual(policyRules.riskAssetLimit + 0.00001);
+
+    const acted = performAction(state, { kind: 'buy', productId: 'equityEtf', amount: decision.capped });
+    expect(acted.ok).toBe(true);
+    expect(acted.state.awaitingAction).toBe(false);
+    expect(acted.state.irpCash).toBeGreaterThanOrEqual(10_000_000);
+  });
+
+  it('한도 안 매수와 이미 한도를 넘긴 매수는 확인 없이 처리한다', () => {
+    const inside = {
+      ...createGame('buy-cap-ok', 'growth'),
+      irpCash: 5_000_000,
+      holdings: [{ productId: 'deposit' as const, amount: 20_000_000, principal: 20_000_000, depositTurnsHeld: 4 }]
+    };
+    expect(decideBuyAgainstRiskLimit(inside, 'equityEtf', 5_000_000)).toEqual({ kind: 'execute', amount: 5_000_000 });
+
+    const over = applyMarketStep({
+      ...createGame('buy-cap-over', 'growth'),
+      holdings: [
+        { productId: 'deposit' as const, amount: 30_000_000, principal: 30_000_000, depositTurnsHeld: 0 },
+        { productId: 'equityEtf' as const, amount: 70_000_000, principal: 70_000_000, depositTurnsHeld: 0 }
+      ]
+    }, {
+      ...createGame('buy-cap-over', 'growth').lastMarket,
+      returns: { ...createGame('buy-cap-over', 'growth').lastMarket.returns, deposit: 0, equityEtf: 0.5 }
+    });
+    const blocked = decideBuyAgainstRiskLimit({ ...over, irpCash: 5_000_000 }, 'equityEtf', 5_000_000);
+    expect(blocked.kind).toBe('reject');
+    if (blocked.kind === 'reject') expect(blocked.message).toMatch(/한도|넘/);
   });
 
   it('펀드 교체 정산도 위험 한도까지만 매수하고 나머지는 대기자금으로 남긴다', () => {

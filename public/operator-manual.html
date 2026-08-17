@@ -57,7 +57,7 @@
           <tr><td>칸 설명 24×5</td><td>구현</td><td><code>tile-briefings.json</code></td></tr>
           <tr><td>생활사건 3회</td><td>구현</td><td>2~11턴, 중도인출 가능/불가 분리. 생활자금 부족 시 대기자금·보유 즉시 매도</td></tr>
           <tr><td>상품 6·행동 6</td><td>구현</td><td>펀드 시차, ETF·예금 즉시</td></tr>
-          <tr><td>70% 위험한도</td><td>구현</td><td>직접 매수는 전액 거절, 바꾸기는 한도까지 부분 체결</td></tr>
+          <tr><td>70% 위험한도</td><td>구현</td><td>직접 매수는 한도 금액을 묻고 진행/보류. 바꾸기는 한도까지 부분 체결</td></tr>
           <tr><td>성향 적합성</td><td>구현</td><td>등급 1~5. 바꾸기는 성향 밖이면 매도 전 거절</td></tr>
           <tr><td>진단 → 현재 판</td><td>구현</td><td><code>applyProfileToGame</code>, LocalStorage <code>profileId</code></td></tr>
           <tr><td>리밸런싱 재정규화</td><td>구현</td><td>미리보기 = 엔진 <code>rebalanceShares</code></td></tr>
@@ -190,6 +190,7 @@ npm run build</code></pre>
           <tr><td>Q8</td><td>생활사건 중 이사 등 불가 사유에서 인출</td><td>거절. 생활자금 해결은 성공</td></tr>
           <tr><td>Q17</td><td>생활자금 0에서 이사 등 비용을 생활자금으로 해결</td><td>예금 등 보유가 줄고 지급 완료. 부족 횟수는 그대로. 매도 문구</td></tr>
           <tr><td>Q18</td><td>시장 뉴스 칸 도착 + 시드 사건 턴</td><td>칸 설명 닫은 뒤 생활사건 창. 칸이 사건을 만든 것이 아님</td></tr>
+          <tr><td>Q19</td><td>성장 성향, 대기자금 가능액으로 ETF 매수(한도 초과)</td><td>한도 금액 확인. 진행 시 부분 매수+대기자금+턴 종료. 보류 시 턴 유지</td></tr>
           <tr><td>Q9</td><td>안정형 리밸런싱 미리보기</td><td>예금·단기채만, 퍼센트 합 100. 실행 후 ETF/혼합 0</td></tr>
           <tr><td>Q10</td><td>운용 모달 열고 닫기</td><td>턴 유지. 그대로 두기 하면 정산</td></tr>
           <tr><td>Q11</td><td>같은 시드 재시작</td><td>시장 헤드라인·충격 턴 동일</td></tr>
@@ -200,7 +201,7 @@ npm run build</code></pre>
           <tr><td>Q16</td><td>Tab만으로 타이틀→설정→진단→게임</td><td>포커스 가능, 44px 터치 영역</td></tr>
         </tbody>
       </table>
-      <p class="note">엔진 단위: <code>교체매매는 위험 한도까지만</code>, <code>성향보다 높은 위험등급</code>, <code>진행 중 게임의 성향을 진단 결과로 바로 바꾼다</code>, <code>리밸런싱은 성향 밖 상품을 담지 않는다</code>.</p>
+      <p class="note">엔진 단위: <code>교체매매는 위험 한도까지만</code>, <code>대기자금 매수가 한도를 넘으면 70% 금액을 제안</code>, <code>성향보다 높은 위험등급</code>, <code>진행 중 게임의 성향을 진단 결과로 바로 바꾼다</code>, <code>리밸런싱은 성향 밖 상품을 담지 않는다</code>.</p>
     </section>
 
     <section id="save">

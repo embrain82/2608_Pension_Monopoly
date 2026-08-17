@@ -2,7 +2,7 @@ import { balanceConfig, boardTiles, investorProfiles, learningCards, policyRules
 import { createGame, performAction, resolveActionAmount, resolveLifeEvent, startTurn, type AmountPreset, type GameAction } from '../engine/game-engine';
 import { getLifeEvent, getLearningCard } from '../engine/content-engine';
 import { portfolioValue, rebalanceShares, sellProduct } from '../engine/portfolio-engine';
-import { canBuyForProfile, expectedRiskAfterBuy, maxBuyWithinRiskLimit, riskAssetRatio } from '../engine/policy-engine';
+import { canBuyForProfile, decideBuyAgainstRiskLimit, expectedRiskAfterBuy, maxBuyWithinRiskLimit, riskAssetRatio, type BuyLimitDecision } from '../engine/policy-engine';
 import { randomSeed } from '../engine/random-engine';
 import { applyProfileToGame, profileFromScore } from '../engine/profile-engine';
 import { pickTileBriefing } from '../engine/tile-briefing';
@@ -46,6 +46,7 @@ export class PensionRoadApp {
   private switchFrom: ProductId = 'balanced';
   private switchTo: ProductId = 'shortBond';
   private amountPreset: AmountPreset = 'default';
+  private buyLimitConfirm: Extract<BuyLimitDecision, { kind: 'confirm' }> | null = null;
   private actionView: ActionView = 'menu';
   private setupReturn: Screen = 'title';
   private tipDismissed = false;
@@ -89,7 +90,10 @@ export class PensionRoadApp {
     if (!(target instanceof HTMLInputElement || target instanceof HTMLSelectElement)) return;
     if (target.id === 'disclaimer' && target instanceof HTMLInputElement) this.disclaimerChecked = target.checked;
     if (target.id === 'goal-range') this.goalMonthly = Number(target.value);
-    if (target.id === 'buy-product') this.selectedBuy = target.value as ProductId;
+    if (target.id === 'buy-product') {
+      this.selectedBuy = target.value as ProductId;
+      this.buyLimitConfirm = null;
+    }
     if (target.id === 'sell-product') this.selectedSell = target.value as ProductId;
     if (target.id === 'switch-from') this.switchFrom = target.value as ProductId;
     if (target.id === 'switch-to') this.switchTo = target.value as ProductId;
@@ -136,8 +140,10 @@ export class PensionRoadApp {
       this.modal = 'action';
     } else if (action === 'action-view') {
       this.actionView = (button.dataset.view as ActionView) || 'menu';
+      this.buyLimitConfirm = null;
     } else if (action === 'amount-preset') {
       this.amountPreset = (button.dataset.preset as AmountPreset) || 'default';
+      this.buyLimitConfirm = null;
     } else if (action === 'resolve-cash' || action === 'resolve-withdraw') {
       if (this.game) {
         const result = resolveLifeEvent(this.game, action === 'resolve-cash' ? 'cash' : 'withdraw');
@@ -149,7 +155,16 @@ export class PensionRoadApp {
     } else if (action === 'do-contribute') {
       this.runAction({ kind: 'contribute', amount: this.currentAmount('contribute') });
     } else if (action === 'do-buy') {
-      this.runAction({ kind: 'buy', productId: this.selectedBuy, amount: this.currentAmount('buy', this.selectedBuy) });
+      this.requestBuy();
+    } else if (action === 'confirm-buy-cap') {
+      if (this.buyLimitConfirm) {
+        const capped = this.buyLimitConfirm.capped;
+        this.buyLimitConfirm = null;
+        this.runAction({ kind: 'buy', productId: this.selectedBuy, amount: capped });
+      }
+    } else if (action === 'cancel-buy-cap') {
+      this.buyLimitConfirm = null;
+      this.announce('한도 초과 매수를 보류했습니다. 금액이나 상품을 바꿔 다시 고를 수 있습니다.');
     } else if (action === 'do-sell') {
       this.runAction({ kind: 'sell', productId: this.selectedSell, amount: this.currentAmount('sell', this.selectedSell) });
     } else if (action === 'do-switch') {
@@ -235,6 +250,24 @@ export class PensionRoadApp {
       return `${formatWon(amount)} 교체. 매도 후 새 상품 주문을 접수하고 다음 턴에 잔고에 반영합니다.`;
     }
     return `${formatWon(amount)} 교체. 매도 후 새 상품을 바로 삽니다.`;
+  }
+
+  private requestBuy(): void {
+    if (!this.game) return;
+    const amount = this.currentAmount('buy', this.selectedBuy);
+    const decision = decideBuyAgainstRiskLimit(this.game, this.selectedBuy, amount);
+    if (decision.kind === 'confirm') {
+      this.buyLimitConfirm = decision;
+      this.announce(decision.message);
+      this.render();
+      return;
+    }
+    if (decision.kind === 'reject') {
+      this.announce(decision.message);
+      this.render();
+      return;
+    }
+    this.runAction({ kind: 'buy', productId: this.selectedBuy, amount: decision.amount });
   }
 
   private runAction(action: GameAction): void {
@@ -646,12 +679,28 @@ export class PensionRoadApp {
       const expected = expectedRiskAfterBuy(game, this.selectedBuy, amount);
       const pending = product.kind === 'fund' ? '펀드·TDF는 다음 턴에 잔고 반영' : '예금·ETF는 즉시 체결';
       const suitability = canBuyForProfile(game.profileId, this.selectedBuy);
+      const decision = suitability.ok ? decideBuyAgainstRiskLimit(game, this.selectedBuy, amount) : null;
+      const preview = !suitability.ok
+        ? suitability.reason
+        : decision?.kind === 'confirm'
+          ? `${formatWon(decision.requested)} 매수 시 예상 위험비중 ${percent(decision.fullRatio)}로 한도 70%를 넘습니다. 한도까지는 ${formatWon(decision.capped)}입니다. 나머지는 대기자금으로 남습니다.`
+          : decision?.kind === 'reject'
+            ? decision.message
+            : `${formatWon(amount)} 매수 후 예상 위험비중 ${percent(expected)}. 대기자금이 없으면 먼저 납입하세요.`;
+      const confirm = this.buyLimitConfirm;
+      const actions = confirm
+        ? `<div class="preview-box"><strong>한도 확인</strong><p>${confirm.message}</p></div>
+        <div class="button-stack">
+          <button class="primary jumbo" data-action="confirm-buy-cap">진행 · 한도까지 매수</button>
+          <button class="secondary" data-action="cancel-buy-cap">보류</button>
+        </div>`
+        : `<button class="primary jumbo" data-action="do-buy" ${suitability.ok && decision?.kind !== 'reject' ? '' : 'disabled'}>매수 실행</button>`;
       return `<button class="text-button" data-action="action-view" data-view="menu">← 행동 목록</button>
         <p class="eyebrow">매수 · ${pending}</p><h2>무엇을 살까요?</h2>
         <label for="buy-product">상품</label><select id="buy-product">${this.productOptions(this.selectedBuy, false, true)}</select>
         ${this.amountButtons('buy', this.selectedBuy)}
-        <div class="preview-box"><strong>미리보기</strong><p>${suitability.ok ? `${formatWon(amount)} 매수 후 예상 위험비중 ${percent(expected)}. 대기자금이 없으면 먼저 납입하세요.` : suitability.reason}</p></div>
-        <button class="primary jumbo" data-action="do-buy" ${suitability.ok ? '' : 'disabled'}>매수 실행</button>`;
+        <div class="preview-box ${decision?.kind === 'confirm' || decision?.kind === 'reject' ? 'warning' : ''}"><strong>미리보기</strong><p>${preview}</p></div>
+        ${actions}`;
     }
     if (this.actionView === 'sell') {
       const amount = this.currentAmount('sell', this.selectedSell);

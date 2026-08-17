@@ -129,6 +129,8 @@ a { color: var(--green); text-underline-offset: 3px; }
 .amount-presets small { color: var(--muted); font-weight: 650; }
 .preview-box { margin: 12px 0 18px; padding: 14px; background: var(--cream); border-radius: 12px; }
 .preview-box p { margin: 6px 0 0; color: var(--muted); font-size: .84rem; line-height: 1.5; }
+.preview-box.warning { background: #fff0e7; }
+.preview-box.warning p { color: #9a471f; }
 .modal-sheet label { display: block; margin: 10px 0 4px; color: var(--muted); font-size: .75rem; }
 .modal-sheet select { width: 100%; margin-bottom: 8px; padding: 0 10px; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
 .button-stack.compact { margin: 12px 0; }

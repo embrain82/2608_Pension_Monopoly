@@ -12,8 +12,10 @@ describe('배포용 매뉴얼', () => {
     expect(user).toContain('안정형');
     expect(user).toContain('70%');
     expect(user).toContain('C18');
-    expect(user).toContain('전액 거절');
-    expect(user).toContain('한도까지만');
+    expect(user).toContain('진행');
+    expect(user).toContain('보류');
+    expect(user).toContain('한도까지');
+    expect(user).toContain('C21');
     expect(user).toContain('지금 판에 바로');
     expect(user).toContain('다음 판을 시작할 때');
     expect(user).toContain('모든 매수');
@@ -31,5 +33,6 @@ describe('배포용 매뉴얼', () => {
     expect(operator).toContain('안전자산 매수도');
     expect(operator).toContain('Q17');
     expect(operator).toContain('Q18');
+    expect(operator).toContain('Q19');
   });
 });
