@@ -230,6 +230,10 @@ export class PensionRoadApp {
     if (cap < affordable) {
       return `${formatWon(amount)} 매도 후 위험한도까지 ${formatWon(cap)}만 사고, 나머지 ${formatWon(Math.max(0, sold.state.irpCash - cap))}는 대기자금으로 남습니다.`;
     }
+    const to = products.find((item) => item.id === this.switchTo);
+    if (to?.kind === 'fund') {
+      return `${formatWon(amount)} 교체. 매도 후 새 상품 주문을 접수하고 다음 턴에 잔고에 반영합니다.`;
+    }
     return `${formatWon(amount)} 교체. 매도 후 새 상품을 바로 삽니다.`;
   }
 

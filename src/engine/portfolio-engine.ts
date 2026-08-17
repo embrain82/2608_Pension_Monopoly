@@ -133,9 +133,21 @@ export function settleOrders(state: GameState): GameState {
     } else {
       next.irpCash += order.amount;
       if (order.targetProductId) {
-        const buyAmount = maxBuyWithinRiskLimit(next, order.targetProductId, Math.min(order.amount, next.irpCash));
+        const targetName = products.find((item) => item.id === order.targetProductId)?.shortName ?? '새 상품';
+        const affordable = Math.min(order.amount, next.irpCash);
+        const buyAmount = maxBuyWithinRiskLimit(next, order.targetProductId, affordable);
         if (buyAmount >= 100000) {
           next = buyProduct(next, order.targetProductId, buyAmount).state;
+        }
+        if (buyAmount < affordable) {
+          next = {
+            ...next,
+            logs: [...next.logs, {
+              turn: state.turn,
+              type: 'settle',
+              message: `${targetName} 매수는 위험한도까지 ${Math.round(buyAmount).toLocaleString('ko-KR')}원만 반영하고, 나머지는 대기자금으로 남겼습니다.`
+            }]
+          };
         }
       }
     }

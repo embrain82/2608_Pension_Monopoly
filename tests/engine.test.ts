@@ -186,6 +186,7 @@ describe('정책과 주문', () => {
     expect(etf).toBeLessThan(80_000_000);
     expect(settled.irpCash).toBeGreaterThan(100000);
     expect(riskAssetRatio(settled)).toBeLessThanOrEqual(policyRules.riskAssetLimit + 0.00001);
+    expect(settled.logs.some((log) => /대기자금/.test(log.message))).toBe(true);
   });
 
   it('예금 중도해지 불이익을 반영한다', () => {
