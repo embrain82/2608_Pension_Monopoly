@@ -52,6 +52,8 @@ export function calculateScore(state: GameState): ScoreResult {
   ));
   const knowledgeScore = Math.min(20, Math.max(0, 8 + state.understandingPoints + state.rebalanceCount * 2 - state.ruleBreaches * 5));
   const totalScore = Math.round(Math.min(100, Math.max(0, incomeScore + stabilityScore + knowledgeScore)));
+  const returnRate = balanceConfig.startingIrp <= 0 ? 0 : (irpValue - balanceConfig.startingIrp) / balanceConfig.startingIrp;
+  const investmentReturnRate = balanceConfig.startingIrp <= 0 ? 0 : (irpValue - balanceConfig.startingIrp - state.contributionTotal) / balanceConfig.startingIrp;
 
   const bestDecision = state.rebalanceCount > 0
     ? '시장 변화 뒤 목표비중을 다시 맞춰 위험을 관리한 결정'
@@ -63,16 +65,17 @@ export function calculateScore(state: GameState): ScoreResult {
     : !diversified
       ? '서로 다르게 움직이는 자산 3종 이상으로 분산해보세요.'
       : state.rebalanceCount === 0
-        ? '마지막 국면에서 리밸런싱으로 목표 위험비중을 회복해보세요.'
+        ? '시장 국면이 바뀐 뒤 리밸런싱으로 목표 위험비중을 회복해보세요.'
         : !profileAligned
           ? '진단 성향과 실제 위험비중의 차이를 줄여보세요.'
-          : '목표와 생활자금 기준을 함께 유지하는 납입 속도를 실험해보세요.';
+          : '목표 월 연금을 지키면서 시장에 맞게 매매 타이밍을 실험해보세요.';
 
   return {
     monthlyPension: pension, goalRate, goalMet, irpValue, cash: state.cash, riskRatio,
     diversification, maxDrawdown: state.maxDrawdown, stars, totalScore,
     incomeScore: Math.round(incomeScore), stabilityScore: Math.round(stabilityScore), knowledgeScore: Math.round(knowledgeScore),
     behaviorProfile: actualProfile, profileAligned, bestDecision, improvement,
-    relatedCardIds: ['pension-assumption', !safeCash ? 'emergency-cash' : !diversified ? 'diversification' : 'rebalance']
+    relatedCardIds: ['pension-assumption', !safeCash ? 'emergency-cash' : !diversified ? 'diversification' : 'rebalance'],
+    returnRate, investmentReturnRate
   };
 }

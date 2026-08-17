@@ -33,7 +33,7 @@ npm run build
 src/
   data/                 정책·상품·시장·사건·학습·성향·밸런스 JSON
   engine/
-    game-engine.ts      12턴 흐름, 보드 이동, 생활사건, 행동 정산
+    game-engine.ts      12턴 시장 우선 루프, 생활사건, 행동 정산
     market-engine.ts    시장 수익률, 금리 민감도, 최대 낙폭
     portfolio-engine.ts 보유자산, 즉시/대기 주문, 교체, 리밸런싱
     policy-engine.ts    납입·세액공제·위험자산·중도인출 규칙
@@ -41,7 +41,7 @@ src/
     content-engine.ts   타입 보장 콘텐츠 조회
     random-engine.ts    시드 기반 재현 가능한 난수
   ui/
-    app.ts              전체 DOM/SVG 화면과 접근 가능한 상호작용
+    app.ts              전체 DOM 화면과 접근 가능한 상호작용
     ui-state.ts         안전한 LocalStorage 로드·복구
   styles/main.css       모바일 우선 반응형 시각 체계
 scripts/simulate.ts     헤드리스 대량 시뮬레이터
@@ -50,15 +50,16 @@ tests/engine.test.ts    핵심 규칙 단위·통합 테스트
 
 ## 구현된 MVP 범위
 
-- “금리의 두 얼굴” 1개 시나리오, 12턴, 24칸 순환형 SVG 보드, 1인용
-- 5문항 투자자성향 진단과 월 연금 목표 설정
+- “금리의 두 얼굴” 1개 시나리오, 12턴, 1인용. 매 턴 시장 브리핑과 상품별 수익률을 본 뒤 운용 1회
+- 바로 시작이 기본. 5문항 성향 진단과 월 연금 목표는 설정에서 선택
+- 12턴 진행 트랙이 턴을 진행하고, 24칸 보드는 주사위 합만큼 말이 움직이는 연출입니다. 생활사건은 시드당 3회 삽입
 - 원리금보장형 예금, 단기채권형, 장기채권형, 혼합형, 국내주식형 ETF, TDF의 6개 교육용 상품
 - 추가납입, 매수, 매도, 교체매매, 리밸런싱, 행동하지 않기
 - 위험자산 한도 사전 검사와 시장 상승에 의한 사후 초과 구분
 - 적격 TDF 예외 속성, 납입한도와 세액공제 한도 분리
 - 펀드/TDF의 주문 접수→기준가 확정→잔고 반영, ETF 즉시 체결
 - 예금 만기 전 해지 불이익, IRP 중도인출 가능·불가능 생활사건
-- 최종 자산·월 연금·목표 달성·위험·분산·행동성향·점수·별 등급 리포트
+- 최종 자산·월 연금·목표 달성·시작 대비 수익률·위험·분산·점수·별 등급 리포트
 - 36개 시장·생활·학습 콘텐츠 항목과 학습 카드 도감
 - 설정·도감·최고기록·마지막 시드 LocalStorage 저장
 - 모바일/데스크톱 반응형, 키보드 완주, 포커스 트랩, aria-live, 동작 줄이기
@@ -88,6 +89,13 @@ tests/engine.test.ts    핵심 규칙 단위·통합 테스트
 
 출시 전에는 시행 중인 법령·감독규정과 공식 최신 공지를 다시 확인하고 전문가 검수를 받아야 합니다.
 
+## 매뉴얼
+
+빌드에 포함되는 HTML입니다.
+
+- 사용자: [`public/user-manual.html`](./public/user-manual.html) → 배포 후 `/user-manual.html`
+- 운영자: [`public/operator-manual.html`](./public/operator-manual.html) → 배포 후 `/operator-manual.html`
+
 ## 정적 배포
 
 ```bash
@@ -95,6 +103,23 @@ npm run build
 ```
 
 생성된 `dist/` 디렉터리를 정적 호스팅에 그대로 배포할 수 있습니다. Vite `base`가 상대경로로 설정되어 하위 경로 정적 호스팅도 지원합니다. 별도 환경변수나 서버 함수는 없습니다.
+
+### Vercel
+
+운영 주소: [https://pension-road.vercel.app/](https://pension-road.vercel.app/)
+
+프로젝트 `nonsleepers-projects/pension-road`에 GitHub 저장소가 연결되어 있습니다. Framework는 Vite, Output은 `dist`입니다. `vercel.json`이 같은 값을 고정합니다.
+
+```bash
+npx vercel login
+npx vercel --yes --prod
+```
+
+`.vercel/`과 `.env.local`은 커밋하지 않습니다.
+
+### GitHub Pages
+
+`.github/workflows/pages.yml`이 `main` 푸시에서 `dist/`를 배포합니다. 저장소 Settings → Pages → Source를 GitHub Actions로 켜면 됩니다.
 
 ## 후속 확장 후보
 

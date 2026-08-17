@@ -1,23 +1,58 @@
+import { isProfileId } from '../engine/profile-engine';
 import type { SaveData } from '../types';
 
 export const STORAGE_KEY = 'pension-road-save-v1';
 
 export const defaultSave: SaveData = {
-  version: 1,
+  version: 2,
   settings: { reducedMotion: false, sound: false },
   unlockedCards: [],
   bestScore: 0,
-  lastSeed: ''
+  lastSeed: '',
+  disclaimerAccepted: false,
+  bestReturnRate: 0,
+  bestGoalRate: 0,
+  playCount: 0,
+  howtoSeen: false,
+  profileId: 'balanced'
 };
 
-function validSave(value: unknown): value is SaveData {
-  if (!value || typeof value !== 'object') return false;
-  const data = value as Partial<SaveData>;
-  return data.version === 1 &&
-    typeof data.bestScore === 'number' && Number.isFinite(data.bestScore) &&
-    typeof data.lastSeed === 'string' &&
-    Array.isArray(data.unlockedCards) && data.unlockedCards.every((item) => typeof item === 'string') &&
-    Boolean(data.settings) && typeof data.settings?.reducedMotion === 'boolean' && typeof data.settings?.sound === 'boolean';
+function finiteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value);
+}
+
+function migrateSave(value: unknown): SaveData | null {
+  if (!value || typeof value !== 'object') return null;
+  const data = value as {
+    version?: number;
+    settings?: SaveData['settings'];
+    unlockedCards?: unknown;
+    bestScore?: unknown;
+    lastSeed?: unknown;
+    disclaimerAccepted?: unknown;
+    bestReturnRate?: unknown;
+    bestGoalRate?: unknown;
+    playCount?: unknown;
+    howtoSeen?: unknown;
+    profileId?: unknown;
+  };
+  if (!finiteNumber(data.bestScore) || typeof data.lastSeed !== 'string') return null;
+  if (!Array.isArray(data.unlockedCards) || !data.unlockedCards.every((item) => typeof item === 'string')) return null;
+  if (!data.settings || typeof data.settings.reducedMotion !== 'boolean' || typeof data.settings.sound !== 'boolean') return null;
+  if (data.version !== 1 && data.version !== 2) return null;
+  return {
+    version: 2,
+    settings: data.settings,
+    unlockedCards: data.unlockedCards,
+    bestScore: data.bestScore,
+    lastSeed: data.lastSeed,
+    disclaimerAccepted: Boolean(data.disclaimerAccepted),
+    bestReturnRate: finiteNumber(data.bestReturnRate) ? data.bestReturnRate : 0,
+    bestGoalRate: finiteNumber(data.bestGoalRate) ? data.bestGoalRate : 0,
+    playCount: finiteNumber(data.playCount) ? data.playCount : 0,
+    howtoSeen: data.howtoSeen === true,
+    profileId: isProfileId(data.profileId) ? data.profileId : 'balanced'
+  };
 }
 
 export function loadSave(storage: Pick<Storage, 'getItem'> = localStorage): SaveData {
@@ -25,7 +60,7 @@ export function loadSave(storage: Pick<Storage, 'getItem'> = localStorage): Save
     const raw = storage.getItem(STORAGE_KEY);
     if (!raw) return structuredClone(defaultSave);
     const parsed: unknown = JSON.parse(raw);
-    return validSave(parsed) ? parsed : structuredClone(defaultSave);
+    return migrateSave(parsed) ?? structuredClone(defaultSave);
   } catch {
     return structuredClone(defaultSave);
   }

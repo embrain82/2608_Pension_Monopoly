@@ -1,5 +1,5 @@
-import { policyRules, products } from '../data/content';
-import type { GameState, LifeEvent, ProductId } from '../types';
+import { investorProfiles, policyRules, products } from '../data/content';
+import type { GameState, LifeEvent, ProductId, ProfileId } from '../types';
 import { portfolioValue } from './portfolio-engine';
 
 export function effectiveRiskRatio(productId: ProductId): number {
@@ -40,6 +40,79 @@ export function canBuyRiskAsset(state: GameState, productId: ProductId, amount: 
     return { ok: false, ratio, reason: `예상 위험자산 비중이 ${(ratio * 100).toFixed(1)}%로 교육용 한도 ${(policyRules.riskAssetLimit * 100).toFixed(0)}%를 넘습니다.` };
   }
   return { ok: true, ratio, reason: `매수 후 예상 위험자산 비중 ${(ratio * 100).toFixed(1)}%` };
+}
+
+export function canBuyForProfile(profileId: ProfileId, productId: ProductId): { ok: boolean; reason: string } {
+  const profile = investorProfiles.find((item) => item.id === profileId);
+  const product = products.find((item) => item.id === productId);
+  if (!profile || !product) return { ok: false, reason: '성향 또는 상품을 찾을 수 없습니다.' };
+  if (product.riskGrade <= profile.maxRiskGrade) {
+    return { ok: true, reason: `${profile.name} 성향은 ${profile.maxRiskGrade}등급까지 매수할 수 있습니다.` };
+  }
+  return {
+    ok: false,
+    reason: `${profile.name} 성향은 ${profile.maxRiskGrade}등급까지 매수할 수 있습니다. ${product.shortName}(${product.riskGrade}등급)은 교육용 적합성 확인에서 제한됩니다.`
+  };
+}
+
+export type BuyLimitDecision =
+  | { kind: 'execute'; amount: number }
+  | {
+    kind: 'confirm';
+    requested: number;
+    capped: number;
+    leftover: number;
+    fullRatio: number;
+    cappedRatio: number;
+    message: string;
+  }
+  | { kind: 'reject'; message: string; ratio?: number };
+
+/** 대기자금 매수가 한도를 넘으면 70%까지 금액을 제안하고, 넘지 않으면 바로 실행한다. */
+export function decideBuyAgainstRiskLimit(state: GameState, productId: ProductId, requested: number): BuyLimitDecision {
+  const amount = Math.min(Math.floor(requested), Math.floor(state.irpCash));
+  if (amount < 100000) return { kind: 'reject', message: 'IRP 대기자금이 부족합니다.' };
+  const suitability = canBuyForProfile(state.profileId, productId);
+  if (!suitability.ok) return { kind: 'reject', message: suitability.reason };
+  const full = canBuyRiskAsset(state, productId, amount);
+  if (full.ok) return { kind: 'execute', amount };
+  const capped = maxBuyWithinRiskLimit(state, productId, amount);
+  if (capped < 100000) return { kind: 'reject', message: full.reason, ratio: full.ratio };
+  const leftover = amount - capped;
+  return {
+    kind: 'confirm',
+    requested: amount,
+    capped,
+    leftover,
+    fullRatio: full.ratio,
+    cappedRatio: canBuyRiskAsset(state, productId, capped).ratio,
+    message: `요청액은 위험비중 ${(full.ratio * 100).toFixed(1)}%로 교육용 한도 ${(policyRules.riskAssetLimit * 100).toFixed(0)}%를 넘습니다. 한도까지는 ${Math.round(capped).toLocaleString('ko-KR')}원입니다. 거기까지만 매수할까요?`
+  };
+}
+
+/** 위험자산 한도를 넘지 않고 살 수 있는 최대 금액. 한도가 없거나 최소 단위 미만이면 0. */
+export function maxBuyWithinRiskLimit(state: GameState, productId: ProductId, requested: number): number {
+  const want = Math.floor(requested);
+  if (want < 100000) return 0;
+  if (canBuyRiskAsset(state, productId, want).ok) return want;
+
+  const risk = effectiveRiskRatio(productId);
+  if (risk <= 0) return 0;
+  const room = policyRules.riskAssetLimit * portfolioValue(state) - riskAssetValue(state);
+  if (room <= 0) return 0;
+
+  let capped = Math.min(want, Math.floor(room / risk));
+  if (capped >= 100000 && !canBuyRiskAsset(state, productId, capped).ok) {
+    let lo = 0;
+    let hi = capped;
+    while (lo < hi) {
+      const mid = Math.ceil((lo + hi) / 2);
+      if (canBuyRiskAsset(state, productId, mid).ok) lo = mid;
+      else hi = mid - 1;
+    }
+    capped = lo;
+  }
+  return capped < 100000 ? 0 : capped;
 }
 
 export function contributionCredit(currentContribution: number, amount: number): { eligible: number; benefit: number } {

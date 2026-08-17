@@ -1,9 +1,10 @@
-import { balanceConfig, boardTiles, learningCards, lifeEvents, marketScenario, policyRules, products } from '../data/content';
+import { balanceConfig, learningCards, lifeEvents, marketScenario, policyRules, products } from '../data/content';
 import type { ActionKind, ActionResult, GameState, ProfileId, ProductId } from '../types';
-import { applyMarketStep } from './market-engine';
-import { buyProduct, portfolioValue, rebalancePortfolio, sellProduct, settleOrders, switchProduct } from './portfolio-engine';
+import { applyMarketStep, emptyMarketStep, generateMarketPath, marketPathOf } from './market-engine';
+import { pickTileBriefing } from './tile-briefing';
+import { buyProduct, liquidateForLivingCost, portfolioValue, rebalancePortfolio, sellProduct, settleOrders, switchProduct } from './portfolio-engine';
 import { contributionCredit } from './policy-engine';
-import { hashSeed, nextRandom, rollDie } from './random-engine';
+import { diceStepsForTurn, hashSeed, nextRandom } from './random-engine';
 
 export interface GameAction {
   kind: ActionKind;
@@ -12,6 +13,8 @@ export interface GameAction {
   toProductId?: ProductId;
   amount?: number;
 }
+
+export type AmountPreset = 'default' | 'half' | 'max';
 
 function initialHoldings() {
   return products
@@ -24,11 +27,42 @@ function initialHoldings() {
     }));
 }
 
+function scheduleLifeEvents(rngState: number): { rngState: number; schedule: Array<{ turn: number; eventId: string }> } {
+  const pool = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+  const chosen: number[] = [];
+  let state = rngState;
+  while (chosen.length < 3) {
+    const roll = nextRandom(state);
+    state = roll.state;
+    const turn = pool[Math.floor(roll.value * pool.length)];
+    if (!chosen.includes(turn)) chosen.push(turn);
+  }
+  chosen.sort((a, b) => a - b);
+  const schedule = chosen.map((turn) => {
+    const roll = nextRandom(state);
+    state = roll.state;
+    const event = lifeEvents[Math.floor(roll.value * lifeEvents.length)];
+    return { turn, eventId: event.id };
+  });
+  return { rngState: state, schedule };
+}
+
+function cardForTurn(turn: number, path: GameState['marketPath']): string {
+  const shockTurns = path.filter((step) => step.shock).map((step) => step.turn);
+  const laterShock = shockTurns.at(-1);
+  if (laterShock === turn) return 'etf-order';
+  if (turn <= 4) return 'rate-bond';
+  if (turn <= 8) return 'duration';
+  return 'rebalance';
+}
+
 export function createGame(seed: string, profileId: ProfileId = 'balanced', goalMonthly = balanceConfig.defaultGoal): GameState {
-  const market = marketScenario[0];
+  const scheduled = scheduleLifeEvents(hashSeed(seed));
+  const marketPath = generateMarketPath(seed);
+  const market = emptyMarketStep();
   return {
     seed,
-    rngState: hashSeed(seed),
+    rngState: scheduled.rngState,
     status: 'playing',
     turn: 0,
     position: 0,
@@ -53,12 +87,12 @@ export function createGame(seed: string, profileId: ProfileId = 'balanced', goal
     safeActionCount: 0,
     unlockedCards: ['rate-bond'],
     eventHistory: [],
-    diceHistory: [],
     logs: [{ turn: 0, type: 'start', message: '원리금보장형 60%, 혼합형 40%로 출발했습니다.' }],
     lastMarket: market,
+    marketPath,
     awaitingAction: false,
     currentEventId: null,
-    lastTileIndex: 0
+    lifeEventSchedule: scheduled.schedule
   };
 }
 
@@ -66,43 +100,52 @@ function unlock(state: GameState, cardId: string): GameState {
   return state.unlockedCards.includes(cardId) ? state : { ...state, unlockedCards: [...state.unlockedCards, cardId] };
 }
 
-export function rollAndMove(state: GameState): ActionResult {
-  if (state.status === 'finished' || state.turn >= balanceConfig.maxTurns) return { ok: false, message: '이미 종료된 경기입니다.', state };
-  if (state.awaitingAction || state.currentEventId) return { ok: false, message: '현재 카드와 운용 행동을 먼저 완료하세요.', state };
+export function startTurn(state: GameState, steps = 0): ActionResult {
+  if (state.status === 'finished' || state.turn >= balanceConfig.maxTurns) {
+    return { ok: false, message: '이미 종료된 경기입니다.', state };
+  }
+  if (state.awaitingAction || state.currentEventId) {
+    return { ok: false, message: '이번 턴의 생활사건과 운용 행동을 먼저 완료하세요.', state };
+  }
   const turn = state.turn + 1;
-  const die = rollDie(state.rngState);
-  const position = (state.position + die.value) % balanceConfig.boardSize;
-  const tile = boardTiles[position];
-  const market = marketScenario[turn - 1];
+  const path = marketPathOf(state);
+  const market = path[turn - 1] ?? emptyMarketStep();
+  const scheduled = state.lifeEventSchedule.find((item) => item.turn === turn);
+  const boardSize = balanceConfig.boardSize;
+  const position = ((state.position + Math.max(0, steps)) % boardSize + boardSize) % boardSize;
   let next: GameState = {
     ...state,
     turn,
-    rngState: die.state,
     position,
-    lastTileIndex: position,
     phase: market.phase,
     lastMarket: market,
+    marketPath: path,
     cash: state.cash + balanceConfig.salarySurplusPerTurn,
-    diceHistory: [...state.diceHistory, die.value],
-    eventHistory: [...state.eventHistory, `${tile.kind}:${position}`],
-    logs: [...state.logs, { turn, type: 'roll', message: `${die.value}칸 이동해 ‘${tile.label}’에 도착했습니다.` }],
-    awaitingAction: true,
-    currentEventId: null
+    logs: [...state.logs, { turn, type: 'market', message: `${market.headline} · ${market.signal}` }],
+    awaitingAction: !scheduled,
+    currentEventId: scheduled?.eventId ?? null
   };
-
-  if (tile.kind === 'life') {
-    const pick = nextRandom(next.rngState);
-    const event = lifeEvents[Math.floor(pick.value * lifeEvents.length)];
-    next = { ...next, rngState: pick.state, currentEventId: event.id, awaitingAction: false, eventHistory: [...next.eventHistory, event.id] };
-  } else {
-    const cardByTile: Record<string, string> = {
-      market: turn <= 4 ? 'rate-bond' : turn <= 8 ? 'duration' : 'rebalance',
-      product: position % 2 === 0 ? 'fund-order' : 'deposit-rate',
-      trade: 'etf-order', policy: 'risk-limit', rebalance: 'rebalance', profile: 'profile', outlook: 'pension-assumption', start: 'tax-credit'
-    };
-    next = unlock(next, cardByTile[tile.kind] ?? 'diversification');
+  next = unlock(next, cardForTurn(turn, path));
+  next = unlock(next, pickTileBriefing(state.seed, turn, position).cardId);
+  if (scheduled) {
+    next = { ...next, eventHistory: [...next.eventHistory, scheduled.eventId] };
+    return { ok: true, message: '생활사건이 발생했습니다.', state: next };
   }
-  return { ok: true, message: `${die.value}칸 이동했습니다.`, state: next };
+  return { ok: true, message: `${turn}턴 시장을 확인하세요.`, state: next };
+}
+
+export function resolveActionAmount(state: GameState, kind: ActionKind, preset: AmountPreset, productId?: ProductId): number {
+  const holdingAmount = productId
+    ? state.holdings.find((holding) => holding.productId === productId)?.amount ?? 0
+    : 0;
+  const available = kind === 'contribute' ? state.cash
+    : kind === 'buy' ? state.irpCash
+      : kind === 'sell' || kind === 'switch' ? holdingAmount
+        : 0;
+  const base = kind === 'contribute' ? balanceConfig.contributionAmount : balanceConfig.tradeAmount;
+  if (preset === 'max') return Math.floor(available);
+  if (preset === 'half') return Math.floor(Math.min(base, available) / 2);
+  return Math.min(base, available);
 }
 
 function reduceIrpProportionally(state: GameState, amount: number): GameState {
@@ -131,11 +174,39 @@ export function resolveLifeEvent(state: GameState, choice: 'cash' | 'withdraw'):
   if (choice === 'withdraw') {
     const withdrawal = event.cost * (1 + policyRules.allowedWithdrawalFeeRate);
     next = reduceIrpProportionally(state, withdrawal);
-    message = `허용 사유를 가정해 IRP에서 비용과 단순화 수수료를 인출했습니다.`;
+    message = '허용 사유를 가정해 IRP에서 비용과 단순화 수수료를 인출했습니다.';
   } else {
-    const shortage = state.cash < event.cost;
-    next = { ...state, cash: Math.max(0, state.cash - event.cost), cashShortages: state.cashShortages + (shortage ? 1 : 0), safeActionCount: state.safeActionCount + (shortage ? 0 : 1) };
-    message = shortage ? '생활자금이 부족해 비용과 안정성 점수에 영향이 생겼습니다.' : '생활자금으로 해결해 IRP를 지켰습니다.';
+    const fromCash = Math.min(state.cash, event.cost);
+    let remaining = event.cost - fromCash;
+    next = { ...state, cash: state.cash - fromCash };
+    const usedIrpOrHoldings = remaining > 0;
+    if (remaining > 0) {
+      const covered = liquidateForLivingCost(next, remaining);
+      next = covered.state;
+      remaining = covered.remaining;
+      if (covered.sales.length) {
+        const sold = covered.sales.map((sale) => {
+          const name = products.find((item) => item.id === sale.productId)?.shortName ?? sale.productId;
+          return `${name} ${Math.round(sale.amount).toLocaleString('ko-KR')}원`;
+        }).join(', ');
+        message = remaining > 0
+          ? '보유 상품을 매도해도 생활자금이 부족해 비용과 안정성 점수에 영향이 생겼습니다.'
+          : `생활자금이 부족해 ${sold}을 매도해 비용을 지급했습니다.`;
+      } else if (covered.usedIrpCash > 0 && remaining <= 0) {
+        message = '생활자금이 부족해 IRP 대기자금으로 비용을 지급했습니다.';
+      }
+    }
+    if (!message) {
+      message = remaining > 0
+        ? '생활자금이 부족해 비용과 안정성 점수에 영향이 생겼습니다.'
+        : '생활자금으로 해결해 IRP를 지켰습니다.';
+    }
+    const shortage = remaining > 0;
+    next = {
+      ...next,
+      cashShortages: next.cashShortages + (shortage ? 1 : 0),
+      safeActionCount: next.safeActionCount + (!shortage && !usedIrpOrHoldings ? 1 : 0)
+    };
   }
   next = unlock({ ...next, currentEventId: null, awaitingAction: true, logs: [...next.logs, { turn: state.turn, type: 'life', message: `${event.title}: ${message}`, impact: -event.cost }] }, event.learningCardId);
   return { ok: true, message, state: next };
@@ -158,7 +229,9 @@ function contribute(state: GameState, amount: number): ActionResult {
 }
 
 export function performAction(state: GameState, action: GameAction): ActionResult {
-  if (!state.awaitingAction || state.currentEventId) return { ok: false, message: '먼저 주사위를 굴리고 도착 카드를 해결하세요.', state };
+  if (!state.awaitingAction || state.currentEventId) {
+    return { ok: false, message: '먼저 이번 턴 시장을 확인하고 생활사건을 해결하세요.', state };
+  }
   let result: ActionResult;
   switch (action.kind) {
     case 'contribute': result = contribute(state, action.amount ?? balanceConfig.contributionAmount); break;
@@ -173,7 +246,7 @@ export function performAction(state: GameState, action: GameAction): ActionResul
 }
 
 export function finalizeTurn(state: GameState): GameState {
-  let next = applyMarketStep(state, marketScenario[state.turn - 1]);
+  let next = applyMarketStep(state, marketPathOf(state)[state.turn - 1] ?? emptyMarketStep());
   if (state.turn === balanceConfig.maxTurns) {
     next = { ...next, pendingOrders: next.pendingOrders.map((order) => ({ ...order, settlesTurn: state.turn })) };
   }
@@ -191,7 +264,7 @@ export type AutoStrategy = 'balanced' | 'passive' | 'contributor' | 'growth';
 export function autoplay(seed: string, strategy: AutoStrategy = 'balanced'): GameState {
   let state = createGame(seed);
   while (state.status === 'playing') {
-    state = rollAndMove(state).state;
+    state = startTurn(state, diceStepsForTurn(state.seed, state.turn)).state;
     if (state.currentEventId) state = resolveLifeEvent(state, 'cash').state;
     let action: GameAction;
     if (strategy === 'passive') action = { kind: 'hold' };

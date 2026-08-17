@@ -19,6 +19,7 @@ export interface Product {
   duration: number;
   feeRate: number;
   riskLabel: string;
+  riskGrade: number;
 }
 
 export interface MarketStep {
@@ -31,6 +32,7 @@ export interface MarketStep {
   inflation: number;
   stocks: number;
   returns: Record<ProductId, number>;
+  shock?: boolean;
 }
 
 export interface LifeEvent {
@@ -93,6 +95,7 @@ export interface InvestorProfile {
   maxScore: number;
   expectedRiskRatio: number;
   maxDrawdown: number;
+  maxRiskGrade: number;
   description: string;
 }
 
@@ -100,6 +103,19 @@ export interface BoardTile {
   index: number;
   kind: TileKind;
   label: string;
+}
+
+export interface TileBriefing {
+  title: string;
+  body: string;
+  cardId: string;
+}
+
+export interface TileBriefingSet {
+  index: number;
+  label: string;
+  kind: TileKind;
+  pool: TileBriefing[];
 }
 
 export interface Holding {
@@ -156,12 +172,12 @@ export interface GameState {
   safeActionCount: number;
   unlockedCards: string[];
   eventHistory: string[];
-  diceHistory: number[];
   logs: GameLog[];
   lastMarket: MarketStep;
+  marketPath: MarketStep[];
   awaitingAction: boolean;
   currentEventId: string | null;
-  lastTileIndex: number;
+  lifeEventSchedule: Array<{ turn: number; eventId: string }>;
 }
 
 export interface ActionResult {
@@ -190,12 +206,20 @@ export interface ScoreResult {
   bestDecision: string;
   improvement: string;
   relatedCardIds: string[];
+  returnRate: number;
+  investmentReturnRate: number;
 }
 
 export interface SaveData {
-  version: 1;
+  version: 2;
   settings: { reducedMotion: boolean; sound: boolean };
   unlockedCards: string[];
   bestScore: number;
   lastSeed: string;
+  disclaimerAccepted: boolean;
+  bestReturnRate: number;
+  bestGoalRate: number;
+  playCount: number;
+  howtoSeen: boolean;
+  profileId: ProfileId;
 }

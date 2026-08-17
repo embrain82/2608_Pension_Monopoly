@@ -21,6 +21,17 @@ export function rollDie(state: number): { value: number; state: number } {
   return { value: Math.floor(next.value * 6) + 1, state: next.state };
 }
 
+export function dicePairForTurn(seed: string, turn: number): [number, number] {
+  const left = rollDie(hashSeed(`${seed}:dice:${turn}:a`)).value;
+  const right = rollDie(hashSeed(`${seed}:dice:${turn}:b`)).value;
+  return [left, right];
+}
+
+export function diceStepsForTurn(seed: string, turn: number): number {
+  const [left, right] = dicePairForTurn(seed, turn);
+  return left + right;
+}
+
 export function randomSeed(): string {
   const bytes = crypto.getRandomValues(new Uint32Array(2));
   return `${bytes[0].toString(36)}-${bytes[1].toString(36)}`;
