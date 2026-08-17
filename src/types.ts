@@ -103,6 +103,19 @@ export interface BoardTile {
   label: string;
 }
 
+export interface TileBriefing {
+  title: string;
+  body: string;
+  cardId: string;
+}
+
+export interface TileBriefingSet {
+  index: number;
+  label: string;
+  kind: TileKind;
+  pool: TileBriefing[];
+}
+
 export interface Holding {
   productId: ProductId;
   amount: number;

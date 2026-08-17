@@ -1,6 +1,7 @@
 import { balanceConfig, learningCards, lifeEvents, marketScenario, policyRules, products } from '../data/content';
 import type { ActionKind, ActionResult, GameState, ProfileId, ProductId } from '../types';
 import { applyMarketStep, emptyMarketStep, generateMarketPath, marketPathOf } from './market-engine';
+import { pickTileBriefing } from './tile-briefing';
 import { buyProduct, portfolioValue, rebalancePortfolio, sellProduct, settleOrders, switchProduct } from './portfolio-engine';
 import { contributionCredit } from './policy-engine';
 import { diceStepsForTurn, hashSeed, nextRandom } from './random-engine';
@@ -125,6 +126,7 @@ export function startTurn(state: GameState, steps = 0): ActionResult {
     currentEventId: scheduled?.eventId ?? null
   };
   next = unlock(next, cardForTurn(turn, path));
+  next = unlock(next, pickTileBriefing(state.seed, turn, position).cardId);
   if (scheduled) {
     next = { ...next, eventHistory: [...next.eventHistory, scheduled.eventId] };
     return { ok: true, message: '생활사건이 발생했습니다.', state: next };

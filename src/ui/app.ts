@@ -1,19 +1,21 @@
-import { balanceConfig, investorProfiles, learningCards, policyRules, products } from '../data/content';
+import { balanceConfig, boardTiles, investorProfiles, learningCards, policyRules, products } from '../data/content';
 import { createGame, performAction, resolveActionAmount, resolveLifeEvent, startTurn, type AmountPreset, type GameAction } from '../engine/game-engine';
 import { getLifeEvent, getLearningCard } from '../engine/content-engine';
 import { portfolioValue } from '../engine/portfolio-engine';
 import { expectedRiskAfterBuy, riskAssetRatio } from '../engine/policy-engine';
 import { randomSeed } from '../engine/random-engine';
+import { pickTileBriefing } from '../engine/tile-briefing';
 import { calculateScore } from '../engine/scoring-engine';
 import type { ActionKind, GameState, ProfileId, ProductId, SaveData } from '../types';
 import { DICE_LAND_HOLD_MS, DICE_ROLL_DURATION_MS, canRevealNextTurn, dicePairForTurn, dicePairLabel, diceSteps, renderDiceMarkup, shouldSkipDiceAnimation } from './dice';
 import { TOKEN_STEP_MS, movePath, renderBoardMarkup } from './board';
 import { renderHowToModal, renderSettingsHowToButton, shouldShowHowTo, shouldShowLearningTip } from './howto';
+import { renderTileBriefing } from './tile-briefing';
 import { percent, renderMarketCard, renderMarketTimeline, renderSettingsEntry, renderTurnTrack, signedPercent } from './market-view';
 import { loadSave, saveData } from './ui-state';
 
 type Screen = 'title' | 'diagnosis' | 'goal' | 'game' | 'result';
-type Modal = 'life' | 'action' | 'portfolio' | 'market' | 'cards' | 'settings' | 'howto' | null;
+type Modal = 'life' | 'action' | 'portfolio' | 'market' | 'cards' | 'settings' | 'howto' | 'tile' | null;
 type ActionView = 'menu' | ActionKind;
 
 const questions = [
@@ -169,6 +171,8 @@ export class PensionRoadApp {
     } else if (action === 'dismiss-howto') {
       this.markHowToSeen();
       this.modal = null;
+    } else if (action === 'dismiss-tile') {
+      this.afterTileBriefing();
     } else if (action === 'open-diagnosis') {
       this.clearDiceTimer();
       this.diceRolling = false;
@@ -190,7 +194,8 @@ export class PensionRoadApp {
     } else if (action === 'close-modal') {
       if (!['life', 'action'].includes(this.modal ?? '')) {
         if (this.modal === 'howto') this.markHowToSeen();
-        this.modal = null;
+        if (this.modal === 'tile') this.afterTileBriefing();
+        else this.modal = null;
       }
     } else if (action === 'same-seed') {
       this.startGame((this.game?.seed ?? this.save.lastSeed) || randomSeed());
@@ -249,7 +254,7 @@ export class PensionRoadApp {
       this.diceRolling = false;
       this.tokenHopping = false;
       this.tokenFocus = this.game.position;
-      this.modal = this.game.currentEventId ? 'life' : null;
+      this.modal = 'tile';
       this.announce(`${label} 이동 · ${next.message}`);
       this.persist(true);
       this.render();
@@ -326,10 +331,15 @@ export class PensionRoadApp {
     this.persist();
   }
 
+  private afterTileBriefing(): void {
+    this.modal = this.game?.currentEventId ? 'life' : null;
+  }
+
   private onKeydown(event: KeyboardEvent): void {
     if (event.key === 'Escape' && this.modal && !['life', 'action'].includes(this.modal)) {
       if (this.modal === 'howto') this.markHowToSeen();
-      this.modal = null;
+      if (this.modal === 'tile') this.afterTileBriefing();
+      else this.modal = null;
       this.render();
       return;
     }
@@ -526,7 +536,19 @@ export class PensionRoadApp {
     if (this.modal === 'cards') content = this.renderCardsModal();
     if (this.modal === 'settings') content = this.renderSettingsModal();
     if (this.modal === 'howto') content = renderHowToModal();
-    const label = this.modal === 'action' ? '운용 행동 선택' : this.modal === 'life' ? '생활사건' : this.modal === 'howto' ? '게임 방법' : '게임 정보';
+    if (this.modal === 'tile' && this.game) {
+      const tile = boardTiles[this.game.position];
+      content = renderTileBriefing(
+        pickTileBriefing(this.game.seed, this.game.turn, this.game.position),
+        tile.label,
+        tile.index + 1
+      );
+    }
+    const label = this.modal === 'action' ? '운용 행동 선택'
+      : this.modal === 'life' ? '생활사건'
+        : this.modal === 'howto' ? '게임 방법'
+          : this.modal === 'tile' ? '도착 칸 설명'
+            : '게임 정보';
     return `<div class="modal-backdrop"><section class="modal-sheet modal-${this.modal}" role="dialog" aria-modal="true" aria-label="${label}">${close}${content}<p class="modal-feedback" aria-live="polite">${this.feedback}</p></section></div>`;
   }
 
