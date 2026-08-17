@@ -133,6 +133,7 @@ a { color: var(--green); text-underline-offset: 3px; }
 .tile-policy rect, .tile-trade rect { fill: #efe9d4; }
 .tile-rebalance rect { fill: #d8e9d8; }
 .tile.active rect { stroke: var(--orange); stroke-width: 6; filter: drop-shadow(0 7px 5px rgba(78,70,45,.18)); }
+.tile.hopping rect { animation: tile-focus .16s ease-out; }
 .tile.past rect { fill: #e4eee6; }
 .tile text { fill: var(--ink); pointer-events: none; }
 .tile-icon { font-size: 22px; font-weight: 800; }
@@ -290,7 +291,7 @@ td small { display: block; margin: 3px 0 0 20px; color: var(--muted); font-size:
 .result-actions { grid-template-columns: 1fr 1fr; margin-top: 18px; }
 .result-actions .text-button { grid-column: auto; }
 
-@keyframes modal-in { from { opacity: 0; transform: translateY(14px) scale(.98); } }
+@keyframes tile-focus { from { filter: drop-shadow(0 0 0 rgba(216,110,61,0)); } to { filter: drop-shadow(0 7px 5px rgba(78,70,45,.18)); } }
 @keyframes dice-cta-pulse { 50% { filter: brightness(1.08); box-shadow: 0 10px 22px rgba(30, 91, 84, .32); } }
 @keyframes dice-tumble {
   0% { transform: rotateX(0deg) rotateY(0deg) rotateX(0deg) rotateY(0deg); }

@@ -33,6 +33,17 @@ describe('시장 우선 턴 루프', () => {
     expect(started.state.lastMarket.returns.equityEtf).toBeDefined();
   });
 
+  it('말은 주사위 칸 수만큼 이동하고 턴 번호와 분리된다', () => {
+    const started = startTurn(createGame('token-steps'), 7);
+    expect(started.state.turn).toBe(1);
+    expect(started.state.position).toBe(7);
+    const second = startTurn(
+      { ...started.state, awaitingAction: false, currentEventId: null },
+      6
+    );
+    if (second.ok) expect(second.state.position).toBe(13);
+  });
+
   it('한 판에 생활사건을 시드당 3회만 넣는다', () => {
     const created = createGame('life-three');
     expect(created.lifeEventSchedule).toHaveLength(3);

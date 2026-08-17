@@ -1,4 +1,3 @@
-import { hashSeed, rollDie } from '../engine/random-engine';
 import type { GameState } from '../types';
 
 export const DICE_ROLL_DURATION_MS = 1120;
@@ -29,10 +28,10 @@ export function canRevealNextTurn(state: GameState): boolean {
   return state.status === 'playing' && !state.awaitingAction && !state.currentEventId;
 }
 
-export function dicePairForTurn(seed: string, turn: number): [number, number] {
-  const left = rollDie(hashSeed(`${seed}:dice:${turn}:a`)).value;
-  const right = rollDie(hashSeed(`${seed}:dice:${turn}:b`)).value;
-  return [left, right];
+export { dicePairForTurn } from '../engine/random-engine';
+
+export function diceSteps(faces: [number, number]): number {
+  return faces[0] + faces[1];
 }
 
 export function dicePairLabel(left: number, right: number): string {

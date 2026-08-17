@@ -6,8 +6,8 @@ import { expectedRiskAfterBuy, riskAssetRatio } from '../engine/policy-engine';
 import { randomSeed } from '../engine/random-engine';
 import { calculateScore } from '../engine/scoring-engine';
 import type { ActionKind, GameState, ProfileId, ProductId, SaveData } from '../types';
-import { DICE_LAND_HOLD_MS, DICE_ROLL_DURATION_MS, canRevealNextTurn, dicePairForTurn, dicePairLabel, isCompletedTurn, isRevealedTurn, isUpcomingSpoiler, renderDiceMarkup, shouldSkipDiceAnimation } from './dice';
-import { renderBoardMarkup } from './board';
+import { DICE_LAND_HOLD_MS, DICE_ROLL_DURATION_MS, canRevealNextTurn, dicePairForTurn, dicePairLabel, diceSteps, isCompletedTurn, isRevealedTurn, isUpcomingSpoiler, renderDiceMarkup, shouldSkipDiceAnimation } from './dice';
+import { TOKEN_STEP_MS, movePath, renderBoardMarkup } from './board';
 import { loadSave, saveData } from './ui-state';
 
 type Screen = 'title' | 'diagnosis' | 'goal' | 'game' | 'result';
@@ -54,6 +54,8 @@ export class PensionRoadApp {
   private tipDismissed = false;
   private feedback = '';
   private diceRolling = false;
+  private tokenHopping = false;
+  private tokenFocus = 0;
   private diceFaces: [number, number] = [1, 1];
   private diceTimer = 0;
 
@@ -107,7 +109,7 @@ export class PensionRoadApp {
     if (!button) return;
     const action = button.dataset.action;
     if (!action) return;
-    if (this.diceRolling && action !== 'to-title') return;
+    if ((this.diceRolling || this.tokenHopping) && action !== 'to-title') return;
 
     if (action === 'begin' && this.canStart()) {
       this.save.disclaimerAccepted = true;
@@ -167,6 +169,7 @@ export class PensionRoadApp {
     } else if (action === 'open-diagnosis') {
       this.clearDiceTimer();
       this.diceRolling = false;
+      this.tokenHopping = false;
       this.setupReturn = this.game ? 'game' : 'title';
       this.questionIndex = 0;
       this.diagnosisScore = 0;
@@ -175,6 +178,7 @@ export class PensionRoadApp {
     } else if (action === 'open-goal') {
       this.clearDiceTimer();
       this.diceRolling = false;
+      this.tokenHopping = false;
       this.setupReturn = this.game ? 'game' : 'title';
       this.modal = null;
       this.screen = 'goal';
@@ -190,7 +194,7 @@ export class PensionRoadApp {
       this.startGame(randomSeed());
     } else if (action === 'to-title') {
       this.clearDiceTimer();
-      this.screen = 'title'; this.modal = null; this.game = null; this.coachDismissed = false; this.tipDismissed = false; this.diceRolling = false;
+      this.screen = 'title'; this.modal = null; this.game = null; this.coachDismissed = false; this.tipDismissed = false; this.diceRolling = false; this.tokenHopping = false;
     }
     this.render();
   }
@@ -227,19 +231,48 @@ export class PensionRoadApp {
   }
 
   private beginDiceRoll(): void {
-    if (!this.game || this.diceRolling || !canRevealNextTurn(this.game)) return;
+    if (!this.game || this.diceRolling || this.tokenHopping || !canRevealNextTurn(this.game)) return;
     this.diceFaces = dicePairForTurn(this.game.seed, this.game.turn);
+    const steps = diceSteps(this.diceFaces);
+    const origin = this.game.position;
+    const label = dicePairLabel(this.diceFaces[0], this.diceFaces[1]);
     this.modal = null;
 
     const reveal = (): void => {
       if (!this.game) return;
-      const next = startTurn(this.game);
+      const next = startTurn(this.game, steps);
       this.game = next.state;
       this.diceRolling = false;
+      this.tokenHopping = false;
+      this.tokenFocus = this.game.position;
       this.modal = this.game.currentEventId ? 'life' : null;
-      this.announce(`${dicePairLabel(this.diceFaces[0], this.diceFaces[1])} · ${next.message}`);
+      this.announce(`${label} · ${steps}칸 이동 · ${next.message}`);
       this.persist(true);
       this.render();
+    };
+
+    const hop = (): void => {
+      if (!this.game) return;
+      const path = movePath(origin, steps);
+      this.diceRolling = false;
+      this.tokenHopping = true;
+      this.tokenFocus = origin;
+      this.announce(`${label} · ${steps}칸 이동합니다`);
+      this.render();
+      let index = 0;
+      const tick = (): void => {
+        if (!this.game || !this.tokenHopping) return;
+        this.tokenFocus = path[index];
+        this.announce(`${label} · ${index + 1}/${steps}칸`);
+        this.render();
+        index += 1;
+        if (index >= path.length) {
+          this.diceTimer = window.setTimeout(reveal, TOKEN_STEP_MS);
+          return;
+        }
+        this.diceTimer = window.setTimeout(tick, TOKEN_STEP_MS);
+      };
+      this.diceTimer = window.setTimeout(tick, TOKEN_STEP_MS);
     };
 
     if (shouldSkipDiceAnimation(
@@ -261,12 +294,11 @@ export class PensionRoadApp {
         die.classList.add('landed');
       });
       if (overlay) {
-        const label = dicePairLabel(this.diceFaces[0], this.diceFaces[1]);
-        overlay.setAttribute('aria-label', `주사위 결과 ${label}`);
+        overlay.setAttribute('aria-label', `주사위 결과 ${label} · ${steps}칸`);
         const caption = overlay.querySelector('p');
-        if (caption) caption.textContent = `${label} · 이번 턴 시장을 확인하세요`;
+        if (caption) caption.textContent = `${label} · ${steps}칸 이동합니다`;
       }
-      this.diceTimer = window.setTimeout(reveal, DICE_LAND_HOLD_MS);
+      this.diceTimer = window.setTimeout(hop, DICE_LAND_HOLD_MS);
     }, DICE_ROLL_DURATION_MS);
   }
 
@@ -278,6 +310,8 @@ export class PensionRoadApp {
     this.coachDismissed = false;
     this.tipDismissed = false;
     this.diceRolling = false;
+    this.tokenHopping = false;
+    this.tokenFocus = 0;
     this.modal = null;
     this.persist(true);
     this.announce('주사위를 굴려 이번 턴 시장을 확인하세요.');
@@ -389,7 +423,10 @@ export class PensionRoadApp {
   }
 
   private renderBoard(state: GameState, waiting: boolean): string {
-    return renderBoardMarkup(state, waiting);
+    return renderBoardMarkup(state, waiting, {
+      focusIndex: this.tokenHopping ? this.tokenFocus : state.position,
+      hopping: this.tokenHopping
+    });
   }
 
   private renderProductReturns(state: GameState, hidden = false): string {
@@ -411,8 +448,8 @@ export class PensionRoadApp {
       return `<article class="market-card pending">
             <div class="card-label">TURN ${String(nextTurn).padStart(2, '0')} · 시장 대기</div>
             <h2>주사위를 굴려 시장을 확인하세요</h2>
-            <p class="signal">이번 턴 브리핑은 주사위가 멈춘 뒤에 공개됩니다.</p>
-            <p>나온 숫자는 연출이며, 시장 국면은 12턴 시나리오를 따릅니다.</p>
+            <p class="signal">주사위 눈의 합만큼 말이 이동한 뒤 브리핑이 공개됩니다.</p>
+            <p>시장 국면은 12턴 시나리오를 따르고, 말은 나온 숫자만큼 보드를 돕니다.</p>
             <div class="market-bars muted"><span>금리 <i></i>—</span><span>물가 <i></i>—</span><span>주가 <i></i>—</span></div>
             ${this.renderProductReturns(state, true)}
           </article>`;
@@ -430,6 +467,9 @@ export class PensionRoadApp {
   private renderGameCta(state: GameState): string {
     if (this.diceRolling) {
       return `<button class="dice-button" disabled><span>⚄</span>주사위 굴리는 중</button>`;
+    }
+    if (this.tokenHopping) {
+      return `<button class="dice-button" disabled><span>↗</span>이동 중</button>`;
     }
     if (canRevealNextTurn(state)) {
       return `<button class="dice-button ready" data-action="roll-dice"><span>⚄</span>주사위 굴리기</button>`;
@@ -449,9 +489,9 @@ export class PensionRoadApp {
     const score = calculateScore(state);
     const pending = state.pendingOrders.length;
     const latestCard = getLearningCard(state.unlockedCards.at(-1) ?? '');
-    const waitingForDice = canRevealNextTurn(state) || this.diceRolling;
+    const waitingForDice = canRevealNextTurn(state) || this.diceRolling || this.tokenHopping;
     const coach = !this.coachDismissed && waitingForDice && state.turn === 0
-      ? '<p class="coach-tip">주사위를 굴리면 이번 턴 시장이 공개됩니다. 숫자는 연출이고, 시장은 12턴 이야기를 따릅니다. <button class="text-button" data-action="dismiss-coach">숨기기</button></p>'
+      ? '<p class="coach-tip">주사위를 굴리면 나온 숫자만큼 말이 이동한 뒤 이번 턴 시장이 공개됩니다. <button class="text-button" data-action="dismiss-coach">숨기기</button></p>'
       : !this.coachDismissed && state.turn === 1 && !waitingForDice
         ? '<p class="coach-tip">숫자를 보고 한 가지만 고르세요. 선택하면 이번 턴 수익률이 반영됩니다. <button class="text-button" data-action="dismiss-coach">숨기기</button></p>'
         : '';

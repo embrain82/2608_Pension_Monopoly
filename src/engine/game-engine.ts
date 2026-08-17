@@ -3,7 +3,7 @@ import type { ActionKind, ActionResult, GameState, ProfileId, ProductId } from '
 import { applyMarketStep } from './market-engine';
 import { buyProduct, portfolioValue, rebalancePortfolio, sellProduct, settleOrders, switchProduct } from './portfolio-engine';
 import { contributionCredit } from './policy-engine';
-import { hashSeed, nextRandom } from './random-engine';
+import { diceStepsForTurn, hashSeed, nextRandom } from './random-engine';
 
 export interface GameAction {
   kind: ActionKind;
@@ -95,7 +95,7 @@ function unlock(state: GameState, cardId: string): GameState {
   return state.unlockedCards.includes(cardId) ? state : { ...state, unlockedCards: [...state.unlockedCards, cardId] };
 }
 
-export function startTurn(state: GameState): ActionResult {
+export function startTurn(state: GameState, steps = 0): ActionResult {
   if (state.status === 'finished' || state.turn >= balanceConfig.maxTurns) {
     return { ok: false, message: '이미 종료된 경기입니다.', state };
   }
@@ -105,10 +105,12 @@ export function startTurn(state: GameState): ActionResult {
   const turn = state.turn + 1;
   const market = marketScenario[turn - 1];
   const scheduled = state.lifeEventSchedule.find((item) => item.turn === turn);
+  const boardSize = balanceConfig.boardSize;
+  const position = ((state.position + Math.max(0, steps)) % boardSize + boardSize) % boardSize;
   let next: GameState = {
     ...state,
     turn,
-    position: turn,
+    position,
     phase: market.phase,
     lastMarket: market,
     cash: state.cash + balanceConfig.salarySurplusPerTurn,
@@ -226,7 +228,7 @@ export type AutoStrategy = 'balanced' | 'passive' | 'contributor' | 'growth';
 export function autoplay(seed: string, strategy: AutoStrategy = 'balanced'): GameState {
   let state = createGame(seed);
   while (state.status === 'playing') {
-    state = startTurn(state).state;
+    state = startTurn(state, diceStepsForTurn(state.seed, state.turn)).state;
     if (state.currentEventId) state = resolveLifeEvent(state, 'cash').state;
     let action: GameAction;
     if (strategy === 'passive') action = { kind: 'hold' };

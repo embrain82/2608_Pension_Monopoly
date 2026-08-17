@@ -6,6 +6,7 @@ import {
   canRevealNextTurn,
   dicePairForTurn,
   dicePairLabel,
+  diceSteps,
   diceLandTransform,
   isCompletedTurn,
   isRevealedTurn,
@@ -72,6 +73,8 @@ describe('주사위 연출', () => {
   it('두 눈 안내 문구는 숫자만 나란히 적는다', () => {
     expect(dicePairLabel(3, 5)).toBe('3 · 5');
     expect(dicePairLabel(1, 6)).toBe('1 · 6');
+    expect(diceSteps([3, 5])).toBe(8);
+    expect(diceSteps([1, 6])).toBe(7);
   });
 
   it('대기 중에는 아직 공개되지 않은 턴 브리핑을 스포일러로 본다', () => {

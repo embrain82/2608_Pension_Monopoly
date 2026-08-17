@@ -1,6 +1,8 @@
 import { boardTiles } from '../data/content';
 import type { GameState, TileKind } from '../types';
 
+export const TOKEN_STEP_MS = 170;
+
 const TILE_ICONS: Record<TileKind, string> = {
   start: '↻',
   product: '◆',
@@ -21,17 +23,25 @@ export function boardPosition(index: number): { x: number; y: number } {
 }
 
 export function tokenTileIndex(position: number): number {
-  return Math.min(23, Math.max(0, position));
+  const size = 24;
+  return ((position % size) + size) % size;
 }
 
-export function renderBoardMarkup(state: GameState, waiting: boolean): string {
-  const token = tokenTileIndex(state.position);
+export function movePath(from: number, steps: number): number[] {
+  return Array.from({ length: Math.max(0, steps) }, (_, index) => tokenTileIndex(from + index + 1));
+}
+
+export function renderBoardMarkup(
+  state: GameState,
+  waiting: boolean,
+  view: { focusIndex?: number; hopping?: boolean } = {}
+): string {
+  const token = tokenTileIndex(view.focusIndex ?? state.position);
   const tile = boardTiles[token];
   const tiles = boardTiles.map((item) => {
     const { x, y } = boardPosition(item.index);
     const active = item.index === token;
-    const past = item.index < token;
-    return `<g class="tile tile-${item.kind}${active ? ' active' : ''}${past ? ' past' : ''}" transform="translate(${x} ${y})">
+    return `<g class="tile tile-${item.kind}${active ? ' active' : ''}${view.hopping && active ? ' hopping' : ''}" transform="translate(${x} ${y})">
         <rect x="3" y="3" width="94" height="94" rx="15"></rect>
         <text class="tile-icon" x="14" y="30">${TILE_ICONS[item.kind]}</text>
         <text class="tile-number" x="84" y="24" text-anchor="end">${String(item.index + 1).padStart(2, '0')}</text>
@@ -39,13 +49,19 @@ export function renderBoardMarkup(state: GameState, waiting: boolean): string {
         ${active ? '<circle class="player" cx="50" cy="45" r="13"></circle><text class="player-mark" x="50" y="50" text-anchor="middle">나</text>' : ''}
       </g>`;
   }).join('');
-  const center = waiting
+  const center = view.hopping
     ? `<text x="350" y="286" text-anchor="middle">TURN ${String(Math.min(state.turn + 1, 12)).padStart(2, '0')} / 12</text>
+      <text class="phase" x="350" y="338" text-anchor="middle">${token + 1}번</text>
+      <path d="M260 368H440"></path>
+      <text x="350" y="410" text-anchor="middle">이동 중</text>
+      <text x="350" y="438" text-anchor="middle">${tile.label}</text>`
+    : waiting
+      ? `<text x="350" y="286" text-anchor="middle">TURN ${String(Math.min(state.turn + 1, 12)).padStart(2, '0')} / 12</text>
       <text class="phase" x="350" y="338" text-anchor="middle">대기</text>
       <path d="M260 368H440"></path>
       <text x="350" y="410" text-anchor="middle">주사위를 굴려</text>
       <text x="350" y="438" text-anchor="middle">시장을 확인하세요</text>`
-    : `<text x="350" y="286" text-anchor="middle">현재 시장 국면</text>
+      : `<text x="350" y="286" text-anchor="middle">현재 시장 국면</text>
       <text class="phase" x="350" y="330" text-anchor="middle">${state.phase}</text>
       <path d="M260 368H440"></path>
       <text x="350" y="406" text-anchor="middle">${state.lastMarket.signal}</text>
