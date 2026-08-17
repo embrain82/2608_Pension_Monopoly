@@ -70,11 +70,15 @@ describe('주사위 연출', () => {
     expect(new Set(pairs.flat()).size).toBeGreaterThan(1);
   });
 
-  it('두 눈 안내 문구는 숫자만 나란히 적는다', () => {
-    expect(dicePairLabel(3, 5)).toBe('3 · 5');
-    expect(dicePairLabel(1, 6)).toBe('1 · 6');
+  it('안내 문구는 두 눈의 합만 칸 수로 적는다', () => {
+    expect(dicePairLabel(3, 5)).toBe('8칸');
+    expect(dicePairLabel(1, 6)).toBe('7칸');
     expect(diceSteps([3, 5])).toBe(8);
     expect(diceSteps([1, 6])).toBe(7);
+    const landed = renderDiceMarkup([6, 1], false);
+    expect(landed).toContain('7칸');
+    expect(landed).not.toContain('6 · 1');
+    expect(landed).not.toContain('6 · 1 · 7');
   });
 
   it('대기 중에는 아직 공개되지 않은 턴 브리핑을 스포일러로 본다', () => {

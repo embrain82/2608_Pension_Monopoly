@@ -35,7 +35,7 @@ export function diceSteps(faces: [number, number]): number {
 }
 
 export function dicePairLabel(left: number, right: number): string {
-  return `${left} · ${right}`;
+  return `${left + right}칸`;
 }
 
 export function isUpcomingSpoiler(stepTurn: number, currentTurn: number): boolean {
@@ -78,6 +78,6 @@ export function renderDiceMarkup(faces: [number, number], rolling: boolean): str
       ${cubeMarkup(faces[0], 0, rolling)}
       ${cubeMarkup(faces[1], 1, rolling)}
     </div>
-    <p>${rolling ? '주사위를 굴리는 중' : `${label} · 이번 턴 시장을 확인하세요`}</p>
+    <p>${rolling ? '주사위를 굴리는 중' : `${label} 이동 · 이번 턴 시장을 확인하세요`}</p>
   </div>`;
 }

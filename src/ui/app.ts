@@ -250,7 +250,7 @@ export class PensionRoadApp {
       this.tokenHopping = false;
       this.tokenFocus = this.game.position;
       this.modal = this.game.currentEventId ? 'life' : null;
-      this.announce(`${label} · ${steps}칸 이동 · ${next.message}`);
+      this.announce(`${label} 이동 · ${next.message}`);
       this.persist(true);
       this.render();
     };
@@ -261,13 +261,13 @@ export class PensionRoadApp {
       this.diceRolling = false;
       this.tokenHopping = true;
       this.tokenFocus = origin;
-      this.announce(`${label} · ${steps}칸 이동합니다`);
+      this.announce(`${label} 이동합니다`);
       this.render();
       let index = 0;
       const tick = (): void => {
         if (!this.game || !this.tokenHopping) return;
         this.tokenFocus = path[index];
-        this.announce(`${label} · ${index + 1}/${steps}칸`);
+        this.announce(`${index + 1}/${steps}칸`);
         this.render();
         index += 1;
         if (index >= path.length) {
@@ -298,9 +298,9 @@ export class PensionRoadApp {
         die.classList.add('landed');
       });
       if (overlay) {
-        overlay.setAttribute('aria-label', `주사위 결과 ${label} · ${steps}칸`);
+        overlay.setAttribute('aria-label', `주사위 결과 ${label}`);
         const caption = overlay.querySelector('p');
-        if (caption) caption.textContent = `${label} · ${steps}칸 이동합니다`;
+        if (caption) caption.textContent = `${label} 이동합니다`;
       }
       this.diceTimer = window.setTimeout(hop, DICE_LAND_HOLD_MS);
     }, DICE_ROLL_DURATION_MS);
