@@ -4,6 +4,7 @@ import { getLifeEvent, getLearningCard } from '../engine/content-engine';
 import { portfolioValue, rebalanceShares, sellProduct } from '../engine/portfolio-engine';
 import { canBuyForProfile, expectedRiskAfterBuy, maxBuyWithinRiskLimit, riskAssetRatio } from '../engine/policy-engine';
 import { randomSeed } from '../engine/random-engine';
+import { applyProfileToGame, profileFromScore } from '../engine/profile-engine';
 import { pickTileBriefing } from '../engine/tile-briefing';
 import { calculateScore } from '../engine/scoring-engine';
 import type { ActionKind, GameState, ProfileId, ProductId, SaveData } from '../types';
@@ -30,10 +31,6 @@ const formatWon = (value: number) => `${Math.round(value).toLocaleString('ko-KR'
 const formatShortWon = (value: number) => value >= 100_000_000
   ? `${(value / 100_000_000).toFixed(2)}억원`
   : `${Math.round(value / 10_000).toLocaleString('ko-KR')}만원`;
-function profileFromScore(score: number): ProfileId {
-  return investorProfiles.find((profile) => score >= profile.minScore && score <= profile.maxScore)?.id ?? 'balanced';
-}
-
 export class PensionRoadApp {
   private screen: Screen = 'title';
   private modal: Modal = null;
@@ -42,7 +39,7 @@ export class PensionRoadApp {
   private disclaimerChecked = this.save.disclaimerAccepted;
   private questionIndex = 0;
   private diagnosisScore = 0;
-  private profileId: ProfileId = 'balanced';
+  private profileId: ProfileId = this.save.profileId;
   private goalMonthly = balanceConfig.defaultGoal;
   private selectedBuy: ProductId = 'shortBond';
   private selectedSell: ProductId = 'deposit';
@@ -121,8 +118,11 @@ export class PensionRoadApp {
       this.questionIndex += 1;
       if (this.questionIndex >= questions.length) {
         this.profileId = profileFromScore(this.diagnosisScore);
+        this.save.profileId = this.profileId;
+        if (this.game) this.game = applyProfileToGame(this.game, this.profileId);
+        this.persist();
         this.screen = this.setupReturn === 'game' && this.game ? 'game' : 'title';
-        this.announce(`성향이 ${investorProfiles.find((item) => item.id === this.profileId)?.name ?? ''}으로 반영됩니다. 다음 판부터 적용됩니다.`);
+        this.announce(`성향이 ${investorProfiles.find((item) => item.id === this.profileId)?.name ?? ''}으로 반영되었습니다.`);
       }
     } else if (action === 'goal-next') {
       this.screen = this.setupReturn === 'game' && this.game ? 'game' : 'title';
@@ -423,7 +423,7 @@ export class PensionRoadApp {
     return `<section class="setup-screen narrow">
       <header class="step-header"><span>투자자성향 진단</span><strong>${this.questionIndex + 1} / 5</strong></header>
       <div class="progress" aria-label="진행률 ${this.questionIndex + 1}/5"><i style="width:${(this.questionIndex + 1) * 20}%"></i></div>
-      <p class="eyebrow">정답은 없습니다 · 다음 판부터 적용</p><h1>${question.text}</h1>
+      <p class="eyebrow">정답은 없습니다 · 결과는 바로 반영됩니다</p><h1>${question.text}</h1>
       <div class="choice-stack">${question.options.map(([label, score], index) => `<button data-action="answer" data-score="${score}"><span class="choice-index">${String.fromCharCode(65 + index)}</span>${label}<span aria-hidden="true">→</span></button>`).join('')}</div>
       <p class="hint">입력 내용은 브라우저 밖으로 전송되지 않습니다.</p>
     </section>`;
@@ -432,7 +432,7 @@ export class PensionRoadApp {
   private renderGoal(): string {
     const profile = investorProfiles.find((item) => item.id === this.profileId)!;
     return `<section class="setup-screen narrow">
-      <div class="profile-stamp">${profile.name} · 다음 판부터 적용</div>
+      <div class="profile-stamp">${profile.name}</div>
       <h1>월 연금 목표를 정하세요</h1>
       <p>${profile.description} 성향은 서열이 아니라 감당 가능한 변동을 확인하는 기준입니다.</p>
       <div class="goal-display"><small>목표 월 연금</small><strong>${formatWon(this.goalMonthly)}</strong></div>
@@ -716,8 +716,8 @@ export class PensionRoadApp {
     const playing = this.game ? investorProfiles.find((item) => item.id === this.game!.profileId) : null;
     const nextProfile = investorProfiles.find((item) => item.id === this.profileId);
     const profileNote = playing
-      ? `이번 판 성향은 <strong>${playing.name}</strong>이며 ${playing.maxRiskGrade}등급까지 매수할 수 있습니다. 성향을 바꾸면 다음 판부터 적용됩니다.`
-      : `다음 판 성향은 <strong>${nextProfile?.name ?? '위험중립형'}</strong>이며 ${nextProfile?.maxRiskGrade ?? 4}등급까지 매수할 수 있습니다.`;
+      ? `이번 판 성향은 <strong>${playing.name}</strong>이며 ${playing.maxRiskGrade}등급까지 매수할 수 있습니다. 다시 진단하면 지금 판부터 바로 바뀝니다.`
+      : `저장된 성향은 <strong>${nextProfile?.name ?? '위험중립형'}</strong>이며 ${nextProfile?.maxRiskGrade ?? 4}등급까지 매수할 수 있습니다.`;
     return `<p class="eyebrow">설정 · 면책 · 출처</p><h2>교육용 게임 안내</h2>
       <p class="profile-note">${profileNote}</p>
       <label class="setting-row" for="reduced-motion"><span><strong>동작 줄이기</strong><small>전환·주사위 애니메이션을 즉시 표시합니다.</small></span><input id="reduced-motion" type="checkbox" ${this.save.settings.reducedMotion ? 'checked' : ''}></label>

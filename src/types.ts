@@ -221,4 +221,5 @@ export interface SaveData {
   bestGoalRate: number;
   playCount: number;
   howtoSeen: boolean;
+  profileId: ProfileId;
 }

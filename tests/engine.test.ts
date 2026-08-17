@@ -5,6 +5,7 @@ import { applyMarketStep, generateMarketPath, rateShockReturn } from '../src/eng
 import { buyProduct, portfolioValue, rebalancePortfolio, rebalanceShares, sellProduct, settleOrders, switchProduct } from '../src/engine/portfolio-engine';
 import { canBuyForProfile, canBuyRiskAsset, contributionCredit, effectiveRiskRatio, maxBuyWithinRiskLimit, riskAssetRatio } from '../src/engine/policy-engine';
 import { calculateScore, monthlyPension } from '../src/engine/scoring-engine';
+import { applyProfileToGame, profileFromScore } from '../src/engine/profile-engine';
 import { defaultSave, loadSave, STORAGE_KEY } from '../src/ui/ui-state';
 
 describe('재현 가능한 게임', () => {
@@ -324,6 +325,33 @@ describe('점수와 저장 복구', () => {
     expect(loaded.unlockedCards).toEqual(['rate-bond']);
     expect(loaded.playCount).toBe(0);
     expect(loaded.howtoSeen).toBe(false);
+    expect(loaded.profileId).toBe('balanced');
+  });
+
+  it('저장 데이터의 투자자성향을 복구한다', () => {
+    const stored = {
+      getItem: (key: string) => key === STORAGE_KEY
+        ? JSON.stringify({ ...defaultSave, profileId: 'stable' })
+        : null
+    };
+    expect(loadSave(stored).profileId).toBe('stable');
+  });
+});
+
+describe('투자자성향 진단', () => {
+  it('보수적 답변 합계 5~7점은 안정형이다', () => {
+    expect(profileFromScore(5)).toBe('stable');
+    expect(profileFromScore(6)).toBe('stable');
+    expect(profileFromScore(7)).toBe('stable');
+    expect(profileFromScore(8)).toBe('stableGrowth');
+    expect(profileFromScore(11)).toBe('balanced');
+  });
+
+  it('진행 중 게임의 성향을 진단 결과로 바로 바꾼다', () => {
+    const game = createGame('diag-now', 'balanced');
+    const next = applyProfileToGame(game, profileFromScore(5));
+    expect(next.profileId).toBe('stable');
+    expect(game.profileId).toBe('balanced');
   });
 });
 

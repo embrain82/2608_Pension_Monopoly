@@ -1,3 +1,4 @@
+import { isProfileId } from '../engine/profile-engine';
 import type { SaveData } from '../types';
 
 export const STORAGE_KEY = 'pension-road-save-v1';
@@ -12,7 +13,8 @@ export const defaultSave: SaveData = {
   bestReturnRate: 0,
   bestGoalRate: 0,
   playCount: 0,
-  howtoSeen: false
+  howtoSeen: false,
+  profileId: 'balanced'
 };
 
 function finiteNumber(value: unknown): value is number {
@@ -32,6 +34,7 @@ function migrateSave(value: unknown): SaveData | null {
     bestGoalRate?: unknown;
     playCount?: unknown;
     howtoSeen?: unknown;
+    profileId?: unknown;
   };
   if (!finiteNumber(data.bestScore) || typeof data.lastSeed !== 'string') return null;
   if (!Array.isArray(data.unlockedCards) || !data.unlockedCards.every((item) => typeof item === 'string')) return null;
@@ -47,7 +50,8 @@ function migrateSave(value: unknown): SaveData | null {
     bestReturnRate: finiteNumber(data.bestReturnRate) ? data.bestReturnRate : 0,
     bestGoalRate: finiteNumber(data.bestGoalRate) ? data.bestGoalRate : 0,
     playCount: finiteNumber(data.playCount) ? data.playCount : 0,
-    howtoSeen: data.howtoSeen === true
+    howtoSeen: data.howtoSeen === true,
+    profileId: isProfileId(data.profileId) ? data.profileId : 'balanced'
   };
 }
 
