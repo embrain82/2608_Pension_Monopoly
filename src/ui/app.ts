@@ -8,11 +8,12 @@ import { calculateScore } from '../engine/scoring-engine';
 import type { ActionKind, GameState, ProfileId, ProductId, SaveData } from '../types';
 import { DICE_LAND_HOLD_MS, DICE_ROLL_DURATION_MS, canRevealNextTurn, dicePairForTurn, dicePairLabel, diceSteps, renderDiceMarkup, shouldSkipDiceAnimation } from './dice';
 import { TOKEN_STEP_MS, movePath, renderBoardMarkup } from './board';
+import { renderHowToModal, renderSettingsHowToButton, shouldShowHowTo, shouldShowLearningTip } from './howto';
 import { percent, renderMarketCard, renderMarketTimeline, renderSettingsEntry, renderTurnTrack, signedPercent } from './market-view';
 import { loadSave, saveData } from './ui-state';
 
 type Screen = 'title' | 'diagnosis' | 'goal' | 'game' | 'result';
-type Modal = 'life' | 'action' | 'portfolio' | 'market' | 'cards' | 'settings' | null;
+type Modal = 'life' | 'action' | 'portfolio' | 'market' | 'cards' | 'settings' | 'howto' | null;
 type ActionView = 'menu' | ActionKind;
 
 const questions = [
@@ -48,7 +49,6 @@ export class PensionRoadApp {
   private amountPreset: AmountPreset = 'default';
   private actionView: ActionView = 'menu';
   private setupReturn: Screen = 'title';
-  private coachDismissed = false;
   private tipDismissed = false;
   private feedback = '';
   private diceRolling = false;
@@ -164,6 +164,11 @@ export class PensionRoadApp {
       this.modal = 'cards';
     } else if (action === 'open-settings') {
       this.modal = 'settings';
+    } else if (action === 'open-howto') {
+      this.modal = 'howto';
+    } else if (action === 'dismiss-howto') {
+      this.markHowToSeen();
+      this.modal = null;
     } else if (action === 'open-diagnosis') {
       this.clearDiceTimer();
       this.diceRolling = false;
@@ -180,19 +185,20 @@ export class PensionRoadApp {
       this.setupReturn = this.game ? 'game' : 'title';
       this.modal = null;
       this.screen = 'goal';
-    } else if (action === 'dismiss-coach') {
-      this.coachDismissed = true;
     } else if (action === 'dismiss-tip') {
       this.tipDismissed = true;
     } else if (action === 'close-modal') {
-      if (!['life', 'action'].includes(this.modal ?? '')) this.modal = null;
+      if (!['life', 'action'].includes(this.modal ?? '')) {
+        if (this.modal === 'howto') this.markHowToSeen();
+        this.modal = null;
+      }
     } else if (action === 'same-seed') {
       this.startGame((this.game?.seed ?? this.save.lastSeed) || randomSeed());
     } else if (action === 'new-seed') {
       this.startGame(randomSeed());
     } else if (action === 'to-title') {
       this.clearDiceTimer();
-      this.screen = 'title'; this.modal = null; this.game = null; this.coachDismissed = false; this.tipDismissed = false; this.diceRolling = false; this.tokenHopping = false;
+      this.screen = 'title'; this.modal = null; this.game = null; this.tipDismissed = false; this.diceRolling = false; this.tokenHopping = false;
     }
     this.render();
   }
@@ -305,18 +311,24 @@ export class PensionRoadApp {
     this.game = createGame(seed, this.profileId, this.goalMonthly);
     this.screen = 'game';
     this.actionView = 'menu';
-    this.coachDismissed = false;
     this.tipDismissed = false;
     this.diceRolling = false;
     this.tokenHopping = false;
     this.tokenFocus = 0;
-    this.modal = null;
+    this.modal = shouldShowHowTo(this.save.howtoSeen) ? 'howto' : null;
     this.persist(true);
-    this.announce('주사위를 굴려 이번 턴 시장을 확인하세요.');
+    this.announce(this.modal === 'howto' ? '한 턴은 주사위, 시장 확인, 운용 지시 순서로 진행됩니다.' : '주사위를 굴려 이번 턴 시장을 확인하세요.');
+  }
+
+  private markHowToSeen(): void {
+    if (this.save.howtoSeen) return;
+    this.save.howtoSeen = true;
+    this.persist();
   }
 
   private onKeydown(event: KeyboardEvent): void {
     if (event.key === 'Escape' && this.modal && !['life', 'action'].includes(this.modal)) {
+      if (this.modal === 'howto') this.markHowToSeen();
       this.modal = null;
       this.render();
       return;
@@ -431,11 +443,9 @@ export class PensionRoadApp {
     const pending = state.pendingOrders.length;
     const latestCard = getLearningCard(state.unlockedCards.at(-1) ?? '');
     const waitingForDice = canRevealNextTurn(state) || this.diceRolling || this.tokenHopping;
-    const coach = !this.coachDismissed && waitingForDice && state.turn === 0
-      ? '<p class="coach-tip">주사위를 굴리면 나온 숫자만큼 말이 이동한 뒤 이번 턴 시장이 공개됩니다. <button class="text-button" data-action="dismiss-coach">숨기기</button></p>'
-      : !this.coachDismissed && state.turn === 1 && !waitingForDice
-        ? '<p class="coach-tip">숫자를 보고 한 가지만 고르세요. 선택하면 이번 턴 수익률이 반영됩니다. <button class="text-button" data-action="dismiss-coach">숨기기</button></p>'
-        : '';
+    const learningTip = shouldShowLearningTip(state, this.tipDismissed, waitingForDice) && latestCard
+      ? `<p class="card-tip"><strong>${latestCard.title}</strong>${latestCard.key}<button class="text-button" data-action="dismiss-tip">닫기</button></p>`
+      : '';
     return `<section class="game-screen">
       <header class="game-topbar">
         <div class="brand-small"><span>연금로드</span><small>금리의 두 얼굴</small></div>
@@ -452,8 +462,7 @@ export class PensionRoadApp {
           ${this.renderBoard(state, waitingForDice)}
         </div>
         <aside class="dashboard">
-          ${coach}
-          ${!this.tipDismissed && latestCard ? `<p class="card-tip"><strong>${latestCard.title}</strong>${latestCard.key}<button class="text-button" data-action="dismiss-tip">닫기</button></p>` : ''}
+          ${learningTip}
           ${!waitingForDice && state.lastMarket.shock ? '<p class="shock-banner">충격 턴 · 신호를 보고 비중을 조정하세요</p>' : ''}
           ${renderMarketCard(state, waitingForDice)}
           <article class="asset-card"><div class="card-label">나의 은퇴설계</div>
@@ -516,7 +525,9 @@ export class PensionRoadApp {
     if (this.modal === 'market') content = this.renderMarketModal();
     if (this.modal === 'cards') content = this.renderCardsModal();
     if (this.modal === 'settings') content = this.renderSettingsModal();
-    return `<div class="modal-backdrop"><section class="modal-sheet modal-${this.modal}" role="dialog" aria-modal="true" aria-label="${this.modal === 'action' ? '운용 행동 선택' : this.modal === 'life' ? '생활사건' : '게임 정보'}">${close}${content}<p class="modal-feedback" aria-live="polite">${this.feedback}</p></section></div>`;
+    if (this.modal === 'howto') content = renderHowToModal();
+    const label = this.modal === 'action' ? '운용 행동 선택' : this.modal === 'life' ? '생활사건' : this.modal === 'howto' ? '게임 방법' : '게임 정보';
+    return `<div class="modal-backdrop"><section class="modal-sheet modal-${this.modal}" role="dialog" aria-modal="true" aria-label="${label}">${close}${content}<p class="modal-feedback" aria-live="polite">${this.feedback}</p></section></div>`;
   }
 
   private renderLifeModal(): string {
@@ -633,6 +644,7 @@ export class PensionRoadApp {
     return `<p class="eyebrow">설정 · 면책 · 출처</p><h2>교육용 게임 안내</h2>
       <label class="setting-row" for="reduced-motion"><span><strong>동작 줄이기</strong><small>전환·주사위 애니메이션을 즉시 표시합니다.</small></span><input id="reduced-motion" type="checkbox" ${this.save.settings.reducedMotion ? 'checked' : ''}></label>
       <div class="button-stack compact">
+        ${renderSettingsHowToButton()}
         <button class="secondary" data-action="open-diagnosis">성향 다시 진단</button>
         <button class="secondary" data-action="open-goal">월 연금 목표 바꾸기</button>
       </div>

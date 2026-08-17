@@ -214,6 +214,7 @@ describe('점수와 저장 복구', () => {
     expect(loaded.bestScore).toBe(88);
     expect(loaded.unlockedCards).toEqual(['rate-bond']);
     expect(loaded.playCount).toBe(0);
+    expect(loaded.howtoSeen).toBe(false);
   });
 });
 

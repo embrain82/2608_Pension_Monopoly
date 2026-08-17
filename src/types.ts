@@ -205,4 +205,5 @@ export interface SaveData {
   bestReturnRate: number;
   bestGoalRate: number;
   playCount: number;
+  howtoSeen: boolean;
 }

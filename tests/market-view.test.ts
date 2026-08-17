@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createGame, performAction, resolveLifeEvent, startTurn } from '../src/engine/game-engine';
+import { renderHowToModal, renderSettingsHowToButton, shouldShowHowTo, shouldShowLearningTip } from '../src/ui/howto';
 import { renderMarketCard, renderProductReturns, renderSettingsEntry, renderTurnTrack } from '../src/ui/market-view';
 
 function signedPercent(value: number): string {
@@ -39,6 +40,35 @@ describe('투자자성향 진입점', () => {
     expect(markup).toContain('성향');
     expect(markup).toContain('data-action="open-settings"');
     expect(markup).not.toContain('⋮');
+  });
+});
+
+describe('게임 방법 팝업', () => {
+  it('주사위·시장·운용 루프를 한 번에 설명한다', () => {
+    const markup = renderHowToModal();
+    expect(markup).toContain('주사위');
+    expect(markup).toContain('시장');
+    expect(markup).toContain('운용');
+    expect(markup).toContain('data-action="dismiss-howto"');
+  });
+
+  it('이 브라우저에서 이미 본 뒤에는 자동으로 열지 않는다', () => {
+    expect(shouldShowHowTo(false)).toBe(true);
+    expect(shouldShowHowTo(true)).toBe(false);
+  });
+
+  it('설정에서 게임 방법을 다시 볼 수 있다', () => {
+    const button = renderSettingsHowToButton();
+    expect(button).toContain('게임 방법');
+    expect(button).toContain('data-action="open-howto"');
+  });
+
+  it('학습 카드 팁은 시장이 열리기 전에는 숨긴다', () => {
+    const created = createGame('howto-tip');
+    expect(shouldShowLearningTip(created, false, true)).toBe(false);
+    const started = startTurn(created).state;
+    expect(shouldShowLearningTip(started, false, false)).toBe(true);
+    expect(shouldShowLearningTip(started, true, false)).toBe(false);
   });
 });
 

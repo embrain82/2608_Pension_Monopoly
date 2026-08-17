@@ -114,6 +114,10 @@ a { color: var(--green); text-underline-offset: 3px; }
 .product-returns .down b { color: var(--orange); }
 .coach-tip, .card-tip { display: grid; gap: 4px; margin: 0; padding: 12px 14px; background: #fff7e8; border: 1px solid #f0d2b0; border-radius: 14px; font-size: .8rem; line-height: 1.45; }
 .card-tip { background: #eef5f1; border-color: #c5d9ce; }
+.howto-steps { display: grid; gap: 12px; margin: 8px 0 18px; padding: 0; list-style: none; }
+.howto-steps li { display: grid; grid-template-columns: 32px minmax(0, 1fr); gap: 12px; align-items: start; }
+.howto-steps b { display: grid; place-items: center; width: 32px; height: 32px; color: #fff; background: var(--green); border-radius: 50%; font-size: .85rem; }
+.howto-steps p { margin: 4px 0 0; color: var(--muted); font-size: .9rem; line-height: 1.5; }
 .neg { color: var(--orange) !important; }
 .amount-presets { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 14px 0; }
 .amount-presets button { display: grid; gap: 2px; min-height: 52px; border: 1px solid var(--line); border-radius: 12px; background: #fff; font-weight: 800; }
