@@ -20,6 +20,8 @@ describe('배포용 매뉴얼', () => {
     expect(user).toContain('3별의 성향 정렬');
     expect(user).toContain('즉시 매도해 지급');
     expect(user).toContain('C19');
+    expect(user).toContain('C20');
+    expect(user).toContain('도착 칸이');
     expect(operator).toContain('구현된 기능');
     expect(operator).toContain('QA 케이스 매트릭스');
     expect(operator).toContain('vercel');
@@ -28,5 +30,6 @@ describe('배포용 매뉴얼', () => {
     expect(operator).toContain('pages.yml');
     expect(operator).toContain('안전자산 매수도');
     expect(operator).toContain('Q17');
+    expect(operator).toContain('Q18');
   });
 });

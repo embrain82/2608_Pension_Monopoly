@@ -100,7 +100,7 @@ npm run typecheck
 npm run test
 npm run simulate -- --runs=1000
 npm run build</code></pre>
-      <p>테스트는 Vitest입니다. 매뉴얼 문자열 검사를 포함해 회귀 68개 전후입니다. 콘텐츠 검사는 <code>validateContent()</code>가 상품 6개, 시장 템플릿 12턴, 칸 설명 24×5, 위험등급 1~5를 확인합니다.</p>
+      <p>테스트는 Vitest입니다. 매뉴얼 문자열 검사를 포함해 회귀 70개 전후입니다. 콘텐츠 검사는 <code>validateContent()</code>가 상품 6개, 시장 템플릿 12턴, 칸 설명 24×5, 위험등급 1~5를 확인합니다.</p>
       <p>개발 서버에서 매뉴얼은 <code>/user-manual.html</code>, <code>/operator-manual.html</code>입니다.</p>
     </section>
 
@@ -189,6 +189,7 @@ npm run build</code></pre>
           <tr><td>Q7</td><td>1턴에 예금 매도</td><td>1.2% 불이익 문구</td></tr>
           <tr><td>Q8</td><td>생활사건 중 이사 등 불가 사유에서 인출</td><td>거절. 생활자금 해결은 성공</td></tr>
           <tr><td>Q17</td><td>생활자금 0에서 이사 등 비용을 생활자금으로 해결</td><td>예금 등 보유가 줄고 지급 완료. 부족 횟수는 그대로. 매도 문구</td></tr>
+          <tr><td>Q18</td><td>시장 뉴스 칸 도착 + 시드 사건 턴</td><td>칸 설명 닫은 뒤 생활사건 창. 칸이 사건을 만든 것이 아님</td></tr>
           <tr><td>Q9</td><td>안정형 리밸런싱 미리보기</td><td>예금·단기채만, 퍼센트 합 100. 실행 후 ETF/혼합 0</td></tr>
           <tr><td>Q10</td><td>운용 모달 열고 닫기</td><td>턴 유지. 그대로 두기 하면 정산</td></tr>
           <tr><td>Q11</td><td>같은 시드 재시작</td><td>시장 헤드라인·충격 턴 동일</td></tr>

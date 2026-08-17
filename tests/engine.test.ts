@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { balanceConfig, lifeEvents, marketScenario, policyRules } from '../src/data/content';
+import { balanceConfig, boardTiles, lifeEvents, marketScenario, policyRules } from '../src/data/content';
 import { autoplay, createGame, performAction, resolveActionAmount, resolveLifeEvent, startTurn } from '../src/engine/game-engine';
 import { applyMarketStep, generateMarketPath, rateShockReturn } from '../src/engine/market-engine';
 import { buyProduct, portfolioValue, rebalancePortfolio, rebalanceShares, sellProduct, settleOrders, switchProduct } from '../src/engine/portfolio-engine';
@@ -64,6 +64,35 @@ describe('시장 우선 턴 루프', () => {
       state = acted.ok ? acted.state : performAction(state, { kind: 'hold' }).state;
     }
     expect(events).toBe(3);
+  });
+
+  it('생활사건은 도착 칸이 시장 뉴스여도 시드 스케줄이면 발생한다', () => {
+    const created = createGame('news-life-overlap');
+    const first = created.lifeEventSchedule[0];
+    let state = created;
+    while (state.turn < first.turn - 1) {
+      state = startTurn(state, 1).state;
+      if (state.currentEventId) state = resolveLifeEvent(state, 'cash').state;
+      const acted = performAction(state, { kind: 'hold' });
+      state = acted.ok ? acted.state : performAction(state, { kind: 'hold' }).state;
+    }
+    const marketIndex = boardTiles.find((tile) => tile.kind === 'market')!.index;
+    const steps = (marketIndex - state.position + boardTiles.length) % boardTiles.length || boardTiles.length;
+    const started = startTurn(state, steps);
+    expect(started.state.turn).toBe(first.turn);
+    expect(boardTiles[started.state.position]).toMatchObject({ kind: 'market', label: '시장 뉴스' });
+    expect(started.state.currentEventId).toBe(first.eventId);
+    expect(started.message).toBe('생활사건이 발생했습니다.');
+  });
+
+  it('생활 사건 칸에 도착해도 스케줄이 없으면 실제 사건이 열리지 않는다', () => {
+    const lifeIndex = boardTiles.find((tile) => tile.kind === 'life')!.index;
+    const started = startTurn(createGame('life-tile-only'), lifeIndex);
+    expect(started.state.turn).toBe(1);
+    expect(boardTiles[started.state.position].kind).toBe('life');
+    expect(started.state.currentEventId).toBeNull();
+    expect(started.state.awaitingAction).toBe(true);
+    expect(started.message).not.toBe('생활사건이 발생했습니다.');
   });
 
   it('학습 카드는 턴을 막지 않고 해금만 한다', () => {
