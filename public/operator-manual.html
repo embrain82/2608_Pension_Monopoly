@@ -115,10 +115,10 @@ npm run build</code></pre>
         <li>CLI를 쓰려면 로컬에서 <code>npx vercel login</code> 후 <code>npx vercel --yes --prod</code>.</li>
       </ol>
       <h3>Vercel — 에이전트 임시 배포 클레임</h3>
-      <p>에이전트 환경에는 Vercel 계정이 없습니다. <code>npx vercel deploy --temporary --yes</code>로 올린 주소는 <strong>약 60분</strong> 뒤 내려갈 수 있습니다. 소유자가 클레임하면 그 프로젝트가 계정으로 옮겨지고 URL이 유지됩니다.</p>
+      <p>에이전트 환경에는 Vercel 계정이 없습니다. 로그아웃 상태의 CLI는 익명 미리보기와 Claim URL을 만듭니다. 미리보기 만료 시각은 배포 응답의 <code>expiresAt</code>을 따르며, 클레임 코드는 보통 24시간입니다. 소유자가 클레임하면 프로젝트가 계정으로 옮겨지고 URL이 유지됩니다. 영구 운영의 정본은 위의 GitHub Import입니다.</p>
       <ol>
         <li>PR 본문의 <strong>Claim URL</strong>을 엽니다. 형식은 <code>https://vercel.com/claim-deployment?code=…</code>입니다.</li>
-        <li>Vercel에 로그인한 뒤 팀을 고르고 Transfer를 누릅니다. 클레임 코드는 보통 24시간입니다.</li>
+        <li>Vercel에 로그인한 뒤 팀을 고르고 Transfer를 누릅니다.</li>
         <li>이후 같은 프로젝트를 GitHub 저장소와 연결하면 푸시마다 Preview가 붙습니다.</li>
       </ol>
       <p class="warn"><code>.vercel/</code>에는 익명 배포 토큰이 생길 수 있습니다. 저장소에 커밋하지 마세요. <code>.gitignore</code>에 <code>.vercel</code>이 있습니다.</p>
@@ -190,7 +190,7 @@ npm run build</code></pre>
           <tr><td>Q3</td><td>적극투자형 진단 후 예금 가능액 → ETF 바꾸기</td><td>부분 매수 + 대기자금 + 턴 종료. 다시 운용 요구 없음</td></tr>
           <tr><td>Q4</td><td>위험중립형으로 예금 → ETF 바꾸기 시도</td><td>거절. 예금 수량 유지</td></tr>
           <tr><td>Q5</td><td>대기자금 없이 ETF 매수(성장 성향)</td><td>대기자금 부족</td></tr>
-          <tr><td>Q6</td><td>납입 후 장기채 매수</td><td>주문 접수, 다음 턴 잔고</td></tr>
+          <tr><td>Q6</td><td>1턴 납입 → 정산 → 다음 턴 장기채 매수</td><td>주문 접수, 그다음 턴 잔고</td></tr>
           <tr><td>Q7</td><td>1턴에 예금 매도</td><td>1.2% 불이익 문구</td></tr>
           <tr><td>Q8</td><td>생활사건 중 이사 등 불가 사유에서 인출</td><td>거절. 생활자금 해결은 성공</td></tr>
           <tr><td>Q9</td><td>안정형 리밸런싱 미리보기</td><td>예금·단기채만, 퍼센트 합 100. 실행 후 ETF/혼합 0</td></tr>
