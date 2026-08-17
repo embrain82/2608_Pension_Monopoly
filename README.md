@@ -106,13 +106,18 @@ npm run build
 
 ### Vercel
 
-GitHub 저장소를 Vercel에 Import하거나, 로그인 후 아래를 실행합니다.
+영구 주소는 GitHub 저장소를 [Vercel Import](https://vercel.com/new)에 연결하는 것이 가장 확실합니다. Framework는 Vite, Output은 `dist`입니다. `vercel.json`이 같은 값을 고정합니다.
 
 ```bash
+npx vercel login
 npx vercel --yes --prod
 ```
 
-Framework는 Vite, Output은 `dist`입니다. `vercel.json`이 같은 값을 고정합니다.
+에이전트가 만든 익명 미리보기는 약 60분 뒤 만료될 수 있습니다. PR 본문의 Claim URL(`vercel.com/claim-deployment`)로 소유자 계정에 옮기면 유지됩니다. `.vercel/`은 커밋하지 않습니다.
+
+### GitHub Pages
+
+`.github/workflows/pages.yml`이 `main` 푸시에서 `dist/`를 배포합니다. 저장소 Settings → Pages → Source를 GitHub Actions로 켜면 됩니다.
 
 ## 후속 확장 후보
 
