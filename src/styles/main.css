@@ -173,8 +173,12 @@ a { color: var(--green); text-underline-offset: 3px; }
 abbr { text-decoration: underline dotted; text-underline-offset: 3px; cursor: help; }
 .goal-meter { height: 9px; margin-top: 18px; overflow: hidden; background: #dce5df; border-radius: 99px; }
 .goal-meter span { display: block; height: 100%; background: linear-gradient(90deg, var(--green-2), var(--lime)); border-radius: inherit; }
-.goal-caption, .risk-line { display: flex; justify-content: space-between; margin-top: 6px; color: var(--muted); font-size: .72rem; }
-.risk-line { margin-top: 17px; padding-top: 13px; border-top: 1px solid var(--line); }
+.goal-caption, .risk-line, .profile-line { display: flex; justify-content: space-between; margin-top: 6px; color: var(--muted); font-size: .72rem; }
+.profile-line { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+.profile-line b { color: var(--ink); }
+.risk-line { margin-top: 8px; padding-top: 0; border-top: 0; }
+.profile-note { margin: 0 0 16px; color: var(--ink); font-size: .86rem; line-height: 1.45; }
+button.primary.jumbo:disabled { opacity: .45; cursor: not-allowed; }
 .warning, .order-note { padding: 10px; border-radius: 9px; font-size: .72rem; line-height: 1.4; }
 .warning { background: #fff0e7; color: #9a471f; }
 .order-note { background: #e8f0f2; color: #315f6b; }

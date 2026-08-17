@@ -1,5 +1,5 @@
-import { policyRules, products } from '../data/content';
-import type { GameState, LifeEvent, ProductId } from '../types';
+import { investorProfiles, policyRules, products } from '../data/content';
+import type { GameState, LifeEvent, ProductId, ProfileId } from '../types';
 import { portfolioValue } from './portfolio-engine';
 
 export function effectiveRiskRatio(productId: ProductId): number {
@@ -40,6 +40,19 @@ export function canBuyRiskAsset(state: GameState, productId: ProductId, amount: 
     return { ok: false, ratio, reason: `예상 위험자산 비중이 ${(ratio * 100).toFixed(1)}%로 교육용 한도 ${(policyRules.riskAssetLimit * 100).toFixed(0)}%를 넘습니다.` };
   }
   return { ok: true, ratio, reason: `매수 후 예상 위험자산 비중 ${(ratio * 100).toFixed(1)}%` };
+}
+
+export function canBuyForProfile(profileId: ProfileId, productId: ProductId): { ok: boolean; reason: string } {
+  const profile = investorProfiles.find((item) => item.id === profileId);
+  const product = products.find((item) => item.id === productId);
+  if (!profile || !product) return { ok: false, reason: '성향 또는 상품을 찾을 수 없습니다.' };
+  if (product.riskGrade <= profile.maxRiskGrade) {
+    return { ok: true, reason: `${profile.name} 성향은 ${profile.maxRiskGrade}등급까지 매수할 수 있습니다.` };
+  }
+  return {
+    ok: false,
+    reason: `${profile.name} 성향은 ${profile.maxRiskGrade}등급까지 매수할 수 있습니다. ${product.shortName}(${product.riskGrade}등급)은 교육용 적합성 확인에서 제한됩니다.`
+  };
 }
 
 /** 위험자산 한도를 넘지 않고 살 수 있는 최대 금액. 한도가 없거나 최소 단위 미만이면 0. */

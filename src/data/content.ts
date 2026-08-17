@@ -63,4 +63,10 @@ export function validateContent(): void {
   if (tileBriefings.some((set) => set.pool.some((item) => !item.title || !item.body || !cardIds.has(item.cardId)))) {
     throw new Error('도착 칸 설명의 제목·본문·학습 카드가 올바르지 않습니다.');
   }
+  if (products.some((product) => product.riskGrade < 1 || product.riskGrade > 5)) {
+    throw new Error('상품 위험등급은 1~5여야 합니다.');
+  }
+  if (investorProfiles.some((profile) => profile.maxRiskGrade < 1 || profile.maxRiskGrade > 5)) {
+    throw new Error('성향별 매수 가능 등급이 올바르지 않습니다.');
+  }
 }

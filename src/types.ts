@@ -19,6 +19,7 @@ export interface Product {
   duration: number;
   feeRate: number;
   riskLabel: string;
+  riskGrade: number;
 }
 
 export interface MarketStep {
@@ -94,6 +95,7 @@ export interface InvestorProfile {
   maxScore: number;
   expectedRiskRatio: number;
   maxDrawdown: number;
+  maxRiskGrade: number;
   description: string;
 }
 

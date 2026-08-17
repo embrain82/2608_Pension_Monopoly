@@ -2,7 +2,7 @@ import { balanceConfig, boardTiles, investorProfiles, learningCards, policyRules
 import { createGame, performAction, resolveActionAmount, resolveLifeEvent, startTurn, type AmountPreset, type GameAction } from '../engine/game-engine';
 import { getLifeEvent, getLearningCard } from '../engine/content-engine';
 import { portfolioValue, sellProduct } from '../engine/portfolio-engine';
-import { expectedRiskAfterBuy, maxBuyWithinRiskLimit, riskAssetRatio } from '../engine/policy-engine';
+import { canBuyForProfile, expectedRiskAfterBuy, maxBuyWithinRiskLimit, riskAssetRatio } from '../engine/policy-engine';
 import { randomSeed } from '../engine/random-engine';
 import { pickTileBriefing } from '../engine/tile-briefing';
 import { calculateScore } from '../engine/scoring-engine';
@@ -473,6 +473,7 @@ export class PensionRoadApp {
     const pending = state.pendingOrders.length;
     const latestCard = getLearningCard(state.unlockedCards.at(-1) ?? '');
     const waitingForDice = canRevealNextTurn(state) || this.diceRolling || this.tokenHopping;
+    const profile = investorProfiles.find((item) => item.id === state.profileId);
     const learningTip = shouldShowLearningTip(state, this.tipDismissed, waitingForDice) && latestCard
       ? `<p class="card-tip"><strong>${latestCard.title}</strong>${latestCard.key}<button class="text-button" data-action="dismiss-tip">닫기</button></p>`
       : '';
@@ -484,7 +485,7 @@ export class PensionRoadApp {
           <div><small>예상 월 연금</small><strong>${formatShortWon(score.monthlyPension)}</strong></div>
           <div><small>수익률</small><strong class="${score.returnRate < 0 ? 'neg' : ''}">${signedPercent(score.returnRate)}</strong></div>
         </div>
-        ${renderSettingsEntry()}
+        ${renderSettingsEntry(profile?.name)}
       </header>
       <div class="game-layout">
         <div class="board-wrap">
@@ -499,6 +500,7 @@ export class PensionRoadApp {
             <div class="big-number"><span>IRP 평가액</span><strong>${formatShortWon(score.irpValue)}</strong></div>
             <div class="metric-row"><span><abbr title="최종 IRP 평가액을 240개월로 나눈 교육용 값">예상 월 연금</abbr><strong>${formatWon(score.monthlyPension)}</strong></span><span>시작 대비<strong class="${score.returnRate < 0 ? 'neg' : ''}">${signedPercent(score.returnRate)}</strong></span></div>
             <div class="goal-meter"><span style="width:${Math.min(100, score.goalRate * 100)}%"></span></div><div class="goal-caption"><span>목표 ${formatShortWon(state.goalMonthly)}</span><strong>${Math.round(score.goalRate * 100)}%</strong></div>
+            <div class="profile-line"><span>투자 성향 <b>${profile?.name ?? ''}</b></span><span>${profile?.maxRiskGrade ?? 0}등급까지 매수</span></div>
             <div class="risk-line"><span>위험자산 비중 <b>${percent(score.riskRatio)}</b></span><span>생활자금 ${formatShortWon(state.cash)}</span></div>
             ${state.marketLimitExceeded ? '<p class="warning">시장 상승으로 한도 초과 · 위험매수 제한, 리밸런싱 권장</p>' : ''}
             ${pending ? `<p class="order-note">주문 ${pending}건이 다음 턴 기준가·결제를 기다리는 중</p>` : ''}
@@ -579,10 +581,18 @@ export class PensionRoadApp {
     return `<div class="modal-icon life">♥</div><p class="eyebrow">생활 사건 · ${event.eligibleWithdrawal ? '중도인출 가능 사유 가정' : '중도인출 제한 체험'}</p><h2>${event.title}</h2><p class="modal-lead">${event.body}</p><div class="event-cost">필요 금액 <strong>${formatWon(Math.abs(event.cost))}</strong></div>${event.cost < 0 ? '<button class="primary" data-action="resolve-cash">생활자금에 반영</button>' : `<div class="button-stack"><button class="primary" data-action="resolve-cash">생활자금으로 해결</button><button class="secondary" data-action="resolve-withdraw">IRP 중도인출 요청${event.eligibleWithdrawal ? '' : ' (제한 확인)'}</button></div>`}`;
   }
 
-  private productOptions(selected: ProductId, holdingsOnly = false): string {
+  private allowedProductId(preferred: ProductId): ProductId {
+    if (!this.game || canBuyForProfile(this.game.profileId, preferred).ok) return preferred;
+    return products.find((product) => canBuyForProfile(this.game!.profileId, product.id).ok)?.id ?? 'deposit';
+  }
+
+  private productOptions(selected: ProductId, holdingsOnly = false, forBuy = false): string {
     if (!this.game) return '';
     return products.filter((product) => !holdingsOnly || (this.game!.holdings.find((holding) => holding.productId === product.id)?.amount ?? 0) >= 100000)
-      .map((product) => `<option value="${product.id}" ${selected === product.id ? 'selected' : ''}>${product.name}</option>`).join('');
+      .map((product) => {
+        const blocked = forBuy && !canBuyForProfile(this.game!.profileId, product.id).ok;
+        return `<option value="${product.id}" ${selected === product.id ? 'selected' : ''} ${blocked ? 'disabled' : ''}>${product.name} · ${product.riskGrade}등급${blocked ? ' · 성향 밖' : ''}</option>`;
+      }).join('');
   }
 
   private amountButtons(kind: ActionKind, productId?: ProductId): string {
@@ -596,20 +606,21 @@ export class PensionRoadApp {
 
   private renderActionModal(): string {
     if (!this.game) return '';
+    const game = this.game;
     if (this.actionView === 'menu') {
-      return `<p class="eyebrow">TURN ${this.game.turn} · 행동은 한 번</p><h2>무엇을 할까요?</h2><p>이번 턴 상품 수익률을 보고 한 가지만 고르세요. 선택하면 시장이 반영됩니다.</p>
+      return `<p class="eyebrow">TURN ${game.turn} · 행동은 한 번</p><h2>무엇을 할까요?</h2><p>이번 턴 상품 수익률을 보고 한 가지만 고르세요. 선택하면 시장이 반영됩니다.</p>
         <div class="action-list">
           <article><div><strong>추가납입</strong><small>생활자금 → IRP 대기자금</small></div><button data-action="action-view" data-view="contribute">선택</button></article>
           <article><div><strong>매수</strong><small>대기자금으로 상품 매수</small></div><button data-action="action-view" data-view="buy">선택</button></article>
           <article><div><strong>매도</strong><small>보유 상품을 줄이기</small></div><button data-action="action-view" data-view="sell">선택</button></article>
           <article><div><strong>바꾸기</strong><small>한 상품을 다른 상품으로</small></div><button data-action="action-view" data-view="switch">선택</button></article>
-          <article class="featured"><div><strong>리밸런싱</strong><small>목표비중 6종으로 복원</small></div><button data-action="action-view" data-view="rebalance">선택</button></article>
+          <article class="featured"><div><strong>리밸런싱</strong><small>성향 안 목표비중에 가깝게 복원</small></div><button data-action="action-view" data-view="rebalance">선택</button></article>
           <article><div><strong>이번엔 그대로</strong><small>구성 유지 후 시장 반영</small></div><button data-action="action-view" data-view="hold">선택</button></article>
         </div>`;
     }
     if (this.actionView === 'contribute') {
       const amount = this.currentAmount('contribute');
-      const nextPension = (portfolioValue(this.game) + amount) / policyRules.receivingMonths;
+      const nextPension = (portfolioValue(game) + amount) / policyRules.receivingMonths;
       return `<button class="text-button" data-action="action-view" data-view="menu">← 행동 목록</button>
         <p class="eyebrow">추가납입</p><h2>IRP에 얼마나 넣을까요?</h2>
         ${this.amountButtons('contribute')}
@@ -617,16 +628,18 @@ export class PensionRoadApp {
         <button class="primary jumbo" data-action="do-contribute">납입 실행</button>`;
     }
     if (this.actionView === 'buy') {
+      this.selectedBuy = this.allowedProductId(this.selectedBuy);
       const amount = this.currentAmount('buy', this.selectedBuy);
       const product = products.find((item) => item.id === this.selectedBuy)!;
-      const expected = expectedRiskAfterBuy(this.game, this.selectedBuy, amount);
+      const expected = expectedRiskAfterBuy(game, this.selectedBuy, amount);
       const pending = product.kind === 'fund' ? '펀드·TDF는 다음 턴에 잔고 반영' : '예금·ETF는 즉시 체결';
+      const suitability = canBuyForProfile(game.profileId, this.selectedBuy);
       return `<button class="text-button" data-action="action-view" data-view="menu">← 행동 목록</button>
         <p class="eyebrow">매수 · ${pending}</p><h2>무엇을 살까요?</h2>
-        <label for="buy-product">상품</label><select id="buy-product">${this.productOptions(this.selectedBuy)}</select>
+        <label for="buy-product">상품</label><select id="buy-product">${this.productOptions(this.selectedBuy, false, true)}</select>
         ${this.amountButtons('buy', this.selectedBuy)}
-        <div class="preview-box"><strong>미리보기</strong><p>${formatWon(amount)} 매수 후 예상 위험비중 ${percent(expected)}. 대기자금이 없으면 먼저 납입하세요.</p></div>
-        <button class="primary jumbo" data-action="do-buy">매수 실행</button>`;
+        <div class="preview-box"><strong>미리보기</strong><p>${suitability.ok ? `${formatWon(amount)} 매수 후 예상 위험비중 ${percent(expected)}. 대기자금이 없으면 먼저 납입하세요.` : suitability.reason}</p></div>
+        <button class="primary jumbo" data-action="do-buy" ${suitability.ok ? '' : 'disabled'}>매수 실행</button>`;
     }
     if (this.actionView === 'sell') {
       const amount = this.currentAmount('sell', this.selectedSell);
@@ -638,20 +651,29 @@ export class PensionRoadApp {
         <button class="primary jumbo" data-action="do-sell">매도 실행</button>`;
     }
     if (this.actionView === 'switch') {
+      this.switchTo = this.allowedProductId(this.switchTo);
       const amount = this.currentAmount('switch', this.switchFrom);
+      const suitability = canBuyForProfile(game.profileId, this.switchTo);
       return `<button class="text-button" data-action="action-view" data-view="menu">← 행동 목록</button>
         <p class="eyebrow">교체매매</p><h2>무엇을 바꿀까요?</h2>
         <label for="switch-from">기존 상품</label><select id="switch-from">${this.productOptions(this.switchFrom, true)}</select>
-        <label for="switch-to">새 상품</label><select id="switch-to">${this.productOptions(this.switchTo)}</select>
+        <label for="switch-to">새 상품</label><select id="switch-to">${this.productOptions(this.switchTo, false, true)}</select>
         ${this.amountButtons('switch', this.switchFrom)}
-        <div class="preview-box"><strong>미리보기</strong><p>${this.switchPreview(amount)}</p></div>
-        <button class="primary jumbo" data-action="do-switch">교체 실행</button>`;
+        <div class="preview-box"><strong>미리보기</strong><p>${suitability.ok ? this.switchPreview(amount) : suitability.reason}</p></div>
+        <button class="primary jumbo" data-action="do-switch" ${suitability.ok ? '' : 'disabled'}>교체 실행</button>`;
     }
     if (this.actionView === 'rebalance') {
-      const targets = products.map((product) => `${product.shortName} ${(balanceConfig.rebalanceAllocation[product.id] * 100).toFixed(0)}%`).join(' · ');
+      const skipped = products.filter((product) => balanceConfig.rebalanceAllocation[product.id] > 0 && !canBuyForProfile(game.profileId, product.id).ok);
+      const targets = products
+        .filter((product) => canBuyForProfile(game.profileId, product.id).ok)
+        .map((product) => `${product.shortName} ${(balanceConfig.rebalanceAllocation[product.id] * 100).toFixed(0)}%`)
+        .join(' · ');
+      const skipNote = skipped.length
+        ? `${skipped.map((item) => item.shortName).join('·')}은 성향보다 등급이 높아 빼고 나머지로 맞춥니다.`
+        : '오른 자산을 줄이고 낮아진 자산을 채워 위험 수준을 맞춥니다.';
       return `<button class="text-button" data-action="action-view" data-view="menu">← 행동 목록</button>
         <p class="eyebrow">리밸런싱</p><h2>목표비중으로 되돌릴까요?</h2>
-        <div class="preview-box"><strong>목표비중</strong><p>${targets}</p><p>오른 자산을 줄이고 낮아진 자산을 채워 위험 수준을 맞춥니다.</p></div>
+        <div class="preview-box"><strong>목표비중</strong><p>${targets}</p><p>${skipNote}</p></div>
         <button class="primary jumbo" data-action="do-rebalance">리밸런싱 실행</button>`;
     }
     return `<button class="text-button" data-action="action-view" data-view="menu">← 행동 목록</button>
@@ -683,7 +705,13 @@ export class PensionRoadApp {
   }
 
   private renderSettingsModal(): string {
+    const playing = this.game ? investorProfiles.find((item) => item.id === this.game!.profileId) : null;
+    const nextProfile = investorProfiles.find((item) => item.id === this.profileId);
+    const profileNote = playing
+      ? `이번 판 성향은 <strong>${playing.name}</strong>이며 ${playing.maxRiskGrade}등급까지 매수할 수 있습니다. 성향을 바꾸면 다음 판부터 적용됩니다.`
+      : `다음 판 성향은 <strong>${nextProfile?.name ?? '위험중립형'}</strong>이며 ${nextProfile?.maxRiskGrade ?? 4}등급까지 매수할 수 있습니다.`;
     return `<p class="eyebrow">설정 · 면책 · 출처</p><h2>교육용 게임 안내</h2>
+      <p class="profile-note">${profileNote}</p>
       <label class="setting-row" for="reduced-motion"><span><strong>동작 줄이기</strong><small>전환·주사위 애니메이션을 즉시 표시합니다.</small></span><input id="reduced-motion" type="checkbox" ${this.save.settings.reducedMotion ? 'checked' : ''}></label>
       <div class="button-stack compact">
         ${renderSettingsHowToButton()}

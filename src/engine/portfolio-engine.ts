@@ -1,6 +1,6 @@
 import { balanceConfig, policyRules, products } from '../data/content';
 import type { ActionResult, GameState, Holding, PendingOrder, ProductId } from '../types';
-import { canBuyRiskAsset, maxBuyWithinRiskLimit, riskAssetRatio } from './policy-engine';
+import { canBuyForProfile, canBuyRiskAsset, maxBuyWithinRiskLimit, riskAssetRatio } from './policy-engine';
 
 export function portfolioValue(state: Pick<GameState, 'holdings' | 'irpCash'> & Partial<Pick<GameState, 'pendingOrders'>>): number {
   const pendingValue = state.pendingOrders?.reduce((sum, order) => sum + order.amount, 0) ?? 0;
@@ -28,6 +28,11 @@ export function buyProduct(state: GameState, productId: ProductId, requestedAmou
   if (!product) return { ok: false, message: '상품을 찾을 수 없습니다.', state };
   const amount = Math.min(requestedAmount, state.irpCash);
   if (amount < 100000) return { ok: false, message: 'IRP 대기자금이 부족합니다.', state };
+  const suitability = canBuyForProfile(state.profileId, productId);
+  if (!suitability.ok) {
+    const unlocked = state.unlockedCards.includes('profile') ? state.unlockedCards : [...state.unlockedCards, 'profile'];
+    return { ok: false, message: suitability.reason, state: { ...state, unlockedCards: unlocked } };
+  }
   const check = canBuyRiskAsset(state, productId, amount);
   if (!check.ok) return { ok: false, message: check.reason, state, expectedRiskRatio: check.ratio };
 
@@ -107,6 +112,11 @@ function buyAfterSwitch(afterSell: GameState, fromName: string, toId: ProductId,
 
 export function switchProduct(state: GameState, fromId: ProductId, toId: ProductId, amount = balanceConfig.tradeAmount): ActionResult {
   if (fromId === toId) return { ok: false, message: '서로 다른 상품을 선택하세요.', state };
+  const suitability = canBuyForProfile(state.profileId, toId);
+  if (!suitability.ok) {
+    const unlocked = state.unlockedCards.includes('profile') ? state.unlockedCards : [...state.unlockedCards, 'profile'];
+    return { ok: false, message: suitability.reason, state: { ...state, unlockedCards: unlocked } };
+  }
   const from = products.find((item) => item.id === fromId);
   const current = holdingFor(state, fromId);
   const sellAmount = Math.min(amount, current.amount);
@@ -134,6 +144,14 @@ export function settleOrders(state: GameState): GameState {
       next.irpCash += order.amount;
       if (order.targetProductId) {
         const targetName = products.find((item) => item.id === order.targetProductId)?.shortName ?? '새 상품';
+        const suitability = canBuyForProfile(next.profileId, order.targetProductId);
+        if (!suitability.ok) {
+          next = {
+            ...next,
+            logs: [...next.logs, { turn: state.turn, type: 'settle', message: `${targetName} 매수는 성향 적합성 때문에 보류했습니다. 환매 대금은 대기자금으로 남았습니다.` }]
+          };
+          continue;
+        }
         const affordable = Math.min(order.amount, next.irpCash);
         const buyAmount = maxBuyWithinRiskLimit(next, order.targetProductId, affordable);
         if (buyAmount >= 100000) {
@@ -158,12 +176,25 @@ export function settleOrders(state: GameState): GameState {
 export function rebalancePortfolio(state: GameState): ActionResult {
   const total = portfolioValue(state);
   if (total <= 0) return { ok: false, message: '리밸런싱할 자산이 없습니다.', state };
-  const holdings = products.map((product) => ({
-    productId: product.id,
-    amount: total * balanceConfig.rebalanceAllocation[product.id],
-    principal: total * balanceConfig.rebalanceAllocation[product.id],
-    depositTurnsHeld: product.id === 'deposit' ? 0 : holdingFor(state, product.id).depositTurnsHeld
-  }));
+  const weights = Object.fromEntries(products.map((product) => [
+    product.id,
+    canBuyForProfile(state.profileId, product.id).ok ? balanceConfig.rebalanceAllocation[product.id] : 0
+  ])) as Record<ProductId, number>;
+  const weightSum = products.reduce((sum, product) => sum + weights[product.id], 0);
+  if (weightSum <= 0) return { ok: false, message: '성향에 맞는 리밸런싱 대상 상품이 없습니다.', state };
+  const skipped = products.filter((product) => balanceConfig.rebalanceAllocation[product.id] > 0 && weights[product.id] <= 0);
+  const holdings = products.map((product) => {
+    const share = weights[product.id] / weightSum;
+    return {
+      productId: product.id,
+      amount: total * share,
+      principal: total * share,
+      depositTurnsHeld: product.id === 'deposit' ? 0 : holdingFor(state, product.id).depositTurnsHeld
+    };
+  });
   const rebalanced = { ...state, irpCash: 0, holdings, pendingOrders: [], rebalanceCount: state.rebalanceCount + 1, understandingPoints: state.understandingPoints + 3 };
-  return { ok: true, message: `목표비중으로 리밸런싱했습니다. 위험자산 비중 ${(riskAssetRatio(rebalanced) * 100).toFixed(1)}%`, state: rebalanced };
+  const skipNote = skipped.length
+    ? ` ${skipped.map((item) => item.shortName).join('·')}은 성향보다 등급이 높아 제외했습니다.`
+    : '';
+  return { ok: true, message: `목표비중으로 리밸런싱했습니다. 위험자산 비중 ${(riskAssetRatio(rebalanced) * 100).toFixed(1)}%.${skipNote}`, state: rebalanced };
 }

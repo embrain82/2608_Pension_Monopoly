@@ -3,7 +3,7 @@ import { balanceConfig, lifeEvents, marketScenario, policyRules } from '../src/d
 import { autoplay, createGame, performAction, resolveActionAmount, resolveLifeEvent, startTurn } from '../src/engine/game-engine';
 import { applyMarketStep, generateMarketPath, rateShockReturn } from '../src/engine/market-engine';
 import { buyProduct, portfolioValue, rebalancePortfolio, sellProduct, settleOrders, switchProduct } from '../src/engine/portfolio-engine';
-import { canBuyRiskAsset, contributionCredit, effectiveRiskRatio, maxBuyWithinRiskLimit, riskAssetRatio } from '../src/engine/policy-engine';
+import { canBuyForProfile, canBuyRiskAsset, contributionCredit, effectiveRiskRatio, maxBuyWithinRiskLimit, riskAssetRatio } from '../src/engine/policy-engine';
 import { calculateScore, monthlyPension } from '../src/engine/scoring-engine';
 import { defaultSave, loadSave, STORAGE_KEY } from '../src/ui/ui-state';
 
@@ -116,7 +116,7 @@ describe('정책과 주문', () => {
   });
 
   it('펀드는 주문 대기, ETF는 즉시 체결한다', () => {
-    const state = { ...createGame('orders'), irpCash: 20_000_000 };
+    const state = { ...createGame('orders', 'growth'), irpCash: 20_000_000 };
     const fund = buyProduct(state, 'longBond', 5_000_000);
     const etf = buyProduct(state, 'equityEtf', 5_000_000);
     expect(fund.state.pendingOrders).toHaveLength(1);
@@ -127,7 +127,7 @@ describe('정책과 주문', () => {
   });
 
   it('교체매매는 위험 한도까지만 매수하고 나머지는 대기자금으로 남긴다', () => {
-    let state = startTurn(createGame('switch-cap')).state;
+    let state = startTurn(createGame('switch-cap', 'growth')).state;
     if (state.currentEventId) state = resolveLifeEvent(state, 'cash').state;
     const deposit = state.holdings.find((holding) => holding.productId === 'deposit')?.amount ?? 0;
     const switched = switchProduct(state, 'deposit', 'equityEtf', deposit);
@@ -164,7 +164,7 @@ describe('정책과 주문', () => {
   });
 
   it('펀드 교체 정산도 위험 한도까지만 매수하고 나머지는 대기자금으로 남긴다', () => {
-    const base = startTurn(createGame('switch-fund-cap')).state;
+    const base = startTurn(createGame('switch-fund-cap', 'growth')).state;
     const state = {
       ...base,
       awaitingAction: true,
@@ -189,6 +189,41 @@ describe('정책과 주문', () => {
     expect(settled.logs.some((log) => /대기자금/.test(log.message))).toBe(true);
   });
 
+  it('성향보다 높은 위험등급 상품은 매수·바꾸기를 거절한다', () => {
+    expect(canBuyForProfile('balanced', 'equityEtf').ok).toBe(false);
+    expect(canBuyForProfile('balanced', 'balanced').ok).toBe(true);
+    expect(canBuyForProfile('stable', 'balanced').ok).toBe(false);
+    expect(canBuyForProfile('stable', 'shortBond').ok).toBe(true);
+    expect(canBuyForProfile('growth', 'equityEtf').ok).toBe(true);
+
+    const cash = { ...createGame('suit-buy', 'balanced'), irpCash: 20_000_000, awaitingAction: true, currentEventId: null };
+    const bought = buyProduct(cash, 'equityEtf', 5_000_000);
+    expect(bought.ok).toBe(false);
+    expect(bought.message).toMatch(/등급|성향/);
+    expect(bought.state.holdings.find((item) => item.productId === 'equityEtf')?.amount ?? 0).toBe(0);
+
+    const started = startTurn(createGame('suit-switch', 'balanced')).state;
+    const ready = started.currentEventId ? resolveLifeEvent(started, 'cash').state : started;
+    const deposit = ready.holdings.find((holding) => holding.productId === 'deposit')?.amount ?? 0;
+    const switched = switchProduct(ready, 'deposit', 'equityEtf', deposit);
+    expect(switched.ok).toBe(false);
+    expect(switched.state.holdings.find((holding) => holding.productId === 'deposit')?.amount).toBeCloseTo(deposit, 0);
+
+    const funded = { ...ready, irpCash: 5_000_000 };
+    const acted = performAction(funded, { kind: 'buy', productId: 'equityEtf', amount: 1_000_000 });
+    expect(acted.ok).toBe(false);
+    expect(acted.message).toMatch(/등급|성향/);
+    expect(acted.state.awaitingAction).toBe(true);
+  });
+
+  it('리밸런싱은 성향 밖 상품을 담지 않는다', () => {
+    const result = rebalancePortfolio(createGame('rebalance-stable', 'stable'));
+    expect(result.ok).toBe(true);
+    expect(result.state.holdings.find((holding) => holding.productId === 'equityEtf')?.amount ?? 0).toBe(0);
+    expect(result.state.holdings.find((holding) => holding.productId === 'balanced')?.amount ?? 0).toBe(0);
+    expect(result.state.holdings.find((holding) => holding.productId === 'deposit')?.amount ?? 0).toBeGreaterThan(0);
+  });
+
   it('예금 중도해지 불이익을 반영한다', () => {
     const state = createGame('deposit');
     const sold = sellProduct(state, 'deposit', 8_000_000);
@@ -204,7 +239,7 @@ describe('시장, 리밸런싱, 생활사건', () => {
   });
 
   it('리밸런싱 후 목표 위험비중에 접근한다', () => {
-    const result = rebalancePortfolio(createGame('rebalance'));
+    const result = rebalancePortfolio(createGame('rebalance', 'aggressive'));
     const targetRisk = 0.25 * 0.5 + 0.1 + 0.1 * policyRules.tdfAdjustedRiskRatio;
     expect(riskAssetRatio(result.state)).toBeCloseTo(targetRisk, 5);
   });

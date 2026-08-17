@@ -36,8 +36,9 @@ describe('상품 수익률 표시', () => {
 
 describe('투자자성향 진입점', () => {
   it('점 세 개 대신 성향을 바꿀 수 있다는 문구를 보여 준다', () => {
-    const markup = renderSettingsEntry();
-    expect(markup).toContain('성향');
+    const markup = renderSettingsEntry('위험중립형');
+    expect(markup).toContain('위험중립형');
+    expect(markup).toContain('설정');
     expect(markup).toContain('data-action="open-settings"');
     expect(markup).not.toContain('⋮');
   });

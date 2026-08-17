@@ -12,7 +12,7 @@
   {"id":"emergency-cash","category":"운용","title":"비상생활자금","key":"장기계좌 밖 생활자금은 예상 밖 지출을 버티는 완충재예요.","detail":"생활자금 부족은 즉시 게임오버가 아니라 비용과 안정성 점수에 반영됩니다.","source_url":"https://www.fss.or.kr","reviewed_at":"2026-08-10","simplified":true},
   {"id":"diversification","category":"운용","title":"분산의 역할","key":"서로 다르게 움직이는 자산을 나누어 담으면 한 충격의 영향을 줄일 수 있어요.","detail":"분산은 손실을 없애거나 수익을 보장하지 않습니다.","source_url":"https://www.fss.or.kr","reviewed_at":"2026-08-10","simplified":true},
   {"id":"rebalance","category":"운용","title":"리밸런싱","key":"가격 변화로 흐트러진 비중을 목표에 가깝게 되돌리는 행동이에요.","detail":"오른 자산 일부를 줄이고 낮아진 자산을 채워 위험 수준을 관리합니다.","source_url":"https://www.fss.or.kr","reviewed_at":"2026-08-10","simplified":true},
-  {"id":"profile","category":"운용","title":"성향은 서열이 아니에요","key":"투자자성향은 감당 가능한 손실과 행동의 일관성을 점검하는 도구예요.","detail":"공격형이 더 높은 등급이 아니며 안정형도 실패 전략이 아닙니다.","source_url":"https://www.fss.or.kr","reviewed_at":"2026-08-10","simplified":true},
+  {"id":"profile","category":"운용","title":"성향은 서열이 아니에요","key":"투자자성향은 감당 가능한 손실과 행동의 일관성을 점검하는 도구예요.","detail":"공격형이 더 높은 등급이 아니며 안정형도 실패 전략이 아닙니다. 게임은 성향보다 높은 위험등급 상품의 신규 매수·바꾸기를 교육용으로 제한합니다.","source_url":"https://www.fss.or.kr","reviewed_at":"2026-08-10","simplified":true},
   {"id":"pension-assumption","category":"제도","title":"월 연금 계산 가정","key":"게임은 최종 IRP 평가액을 240개월로 단순 나눠요.","detail":"실제 수령액은 수익률, 기간, 세금, 비용, 물가에 따라 달라질 수 있습니다.","source_url":"https://www.fss.or.kr/fss/main/contents.do?menuNo=201012","reviewed_at":"2026-08-10","simplified":true},
   {"id":"liquidity","category":"운용","title":"유동성의 가치","key":"필요할 때 쓸 수 있는 돈도 수익률만큼 중요한 안전장치예요.","detail":"장기 목표와 단기 지출을 서로 다른 통장으로 관리해보세요.","source_url":"https://www.fss.or.kr","reviewed_at":"2026-08-10","simplified":true}
 ]

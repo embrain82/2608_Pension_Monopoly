@@ -61,8 +61,9 @@ export function renderMarketCard(state: GameState, pending: boolean): string {
           </article>`;
 }
 
-export function renderSettingsEntry(): string {
-  return `<button class="settings-entry" data-action="open-settings" type="button">성향 · 설정</button>`;
+export function renderSettingsEntry(profileName?: string): string {
+  const label = profileName ? `${profileName} · 설정` : '성향 · 설정';
+  return `<button class="settings-entry" data-action="open-settings" type="button">${label}</button>`;
 }
 
 export function renderTurnTrack(state: GameState, waiting: boolean): string {
