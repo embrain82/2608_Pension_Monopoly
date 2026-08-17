@@ -42,6 +42,31 @@ export function canBuyRiskAsset(state: GameState, productId: ProductId, amount: 
   return { ok: true, ratio, reason: `매수 후 예상 위험자산 비중 ${(ratio * 100).toFixed(1)}%` };
 }
 
+/** 위험자산 한도를 넘지 않고 살 수 있는 최대 금액. 한도가 없거나 최소 단위 미만이면 0. */
+export function maxBuyWithinRiskLimit(state: GameState, productId: ProductId, requested: number): number {
+  const want = Math.floor(requested);
+  if (want < 100000) return 0;
+  if (canBuyRiskAsset(state, productId, want).ok) return want;
+
+  const risk = effectiveRiskRatio(productId);
+  if (risk <= 0) return 0;
+  const room = policyRules.riskAssetLimit * portfolioValue(state) - riskAssetValue(state);
+  if (room <= 0) return 0;
+
+  let capped = Math.min(want, Math.floor(room / risk));
+  if (capped >= 100000 && !canBuyRiskAsset(state, productId, capped).ok) {
+    let lo = 0;
+    let hi = capped;
+    while (lo < hi) {
+      const mid = Math.ceil((lo + hi) / 2);
+      if (canBuyRiskAsset(state, productId, mid).ok) lo = mid;
+      else hi = mid - 1;
+    }
+    capped = lo;
+  }
+  return capped < 100000 ? 0 : capped;
+}
+
 export function contributionCredit(currentContribution: number, amount: number): { eligible: number; benefit: number } {
   const availableContribution = Math.max(0, policyRules.annualContributionLimit - currentContribution);
   const accepted = Math.min(amount, availableContribution);

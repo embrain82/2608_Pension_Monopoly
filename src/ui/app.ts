@@ -1,8 +1,8 @@
 import { balanceConfig, boardTiles, investorProfiles, learningCards, policyRules, products } from '../data/content';
 import { createGame, performAction, resolveActionAmount, resolveLifeEvent, startTurn, type AmountPreset, type GameAction } from '../engine/game-engine';
 import { getLifeEvent, getLearningCard } from '../engine/content-engine';
-import { portfolioValue } from '../engine/portfolio-engine';
-import { expectedRiskAfterBuy, riskAssetRatio } from '../engine/policy-engine';
+import { portfolioValue, sellProduct } from '../engine/portfolio-engine';
+import { expectedRiskAfterBuy, maxBuyWithinRiskLimit, riskAssetRatio } from '../engine/policy-engine';
 import { randomSeed } from '../engine/random-engine';
 import { pickTileBriefing } from '../engine/tile-briefing';
 import { calculateScore } from '../engine/scoring-engine';
@@ -215,6 +215,22 @@ export class PensionRoadApp {
   private currentAmount(kind: ActionKind, productId?: ProductId): number {
     if (!this.game) return 0;
     return resolveActionAmount(this.game, kind, this.amountPreset, productId);
+  }
+
+  private switchPreview(amount: number): string {
+    const from = products.find((item) => item.id === this.switchFrom);
+    const fundNote = from?.kind === 'fund' ? ' 펀드 환매대금은 다음 턴에 새 매수로 이어질 수 있습니다.' : '';
+    if (!this.game || !from || from.kind === 'fund') {
+      return `${formatWon(amount)} 교체. 위험한도를 넘으면 한도까지만 사고 나머지는 대기자금으로 남습니다.${fundNote}`;
+    }
+    const sold = sellProduct(this.game, this.switchFrom, amount);
+    if (!sold.ok) return `${formatWon(amount)} 교체.`;
+    const affordable = Math.min(amount, sold.state.irpCash);
+    const cap = maxBuyWithinRiskLimit(sold.state, this.switchTo, affordable);
+    if (cap < affordable) {
+      return `${formatWon(amount)} 매도 후 위험한도까지 ${formatWon(cap)}만 사고, 나머지 ${formatWon(Math.max(0, sold.state.irpCash - cap))}는 대기자금으로 남습니다.`;
+    }
+    return `${formatWon(amount)} 교체. 매도 후 새 상품을 바로 삽니다.`;
   }
 
   private runAction(action: GameAction): void {
@@ -624,7 +640,7 @@ export class PensionRoadApp {
         <label for="switch-from">기존 상품</label><select id="switch-from">${this.productOptions(this.switchFrom, true)}</select>
         <label for="switch-to">새 상품</label><select id="switch-to">${this.productOptions(this.switchTo)}</select>
         ${this.amountButtons('switch', this.switchFrom)}
-        <div class="preview-box"><strong>미리보기</strong><p>${formatWon(amount)} 교체. 펀드 환매대금은 다음 턴에 새 매수로 이어질 수 있습니다.</p></div>
+        <div class="preview-box"><strong>미리보기</strong><p>${this.switchPreview(amount)}</p></div>
         <button class="primary jumbo" data-action="do-switch">교체 실행</button>`;
     }
     if (this.actionView === 'rebalance') {

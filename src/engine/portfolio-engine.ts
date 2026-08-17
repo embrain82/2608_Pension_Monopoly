@@ -1,6 +1,6 @@
 import { balanceConfig, policyRules, products } from '../data/content';
 import type { ActionResult, GameState, Holding, PendingOrder, ProductId } from '../types';
-import { canBuyRiskAsset, riskAssetRatio } from './policy-engine';
+import { canBuyRiskAsset, maxBuyWithinRiskLimit, riskAssetRatio } from './policy-engine';
 
 export function portfolioValue(state: Pick<GameState, 'holdings' | 'irpCash'> & Partial<Pick<GameState, 'pendingOrders'>>): number {
   const pendingValue = state.pendingOrders?.reduce((sum, order) => sum + order.amount, 0) ?? 0;
@@ -76,6 +76,35 @@ export function sellProduct(state: GameState, productId: ProductId, requestedAmo
   };
 }
 
+function buyAfterSwitch(afterSell: GameState, fromName: string, toId: ProductId, requested: number): ActionResult {
+  const to = products.find((item) => item.id === toId);
+  const toName = to?.shortName ?? '새 상품';
+  const affordable = Math.min(requested, afterSell.irpCash);
+  const buyAmount = maxBuyWithinRiskLimit(afterSell, toId, affordable);
+  if (buyAmount < 100000) {
+    return {
+      ok: true,
+      state: afterSell,
+      message: `${fromName} 매도는 완료했지만 ${toName} 매수는 위험한도 때문에 지금 할 수 없습니다. 매도 대금은 대기자금으로 남았습니다.`
+    };
+  }
+  const bought = buyProduct(afterSell, toId, buyAmount);
+  if (!bought.ok) {
+    return {
+      ok: true,
+      state: afterSell,
+      message: `매도는 완료했지만 새 매수는 제한되었습니다. 매도 대금은 대기자금으로 남았습니다. ${bought.message}`
+    };
+  }
+  if (buyAmount < affordable) {
+    return {
+      ...bought,
+      message: `${fromName} → ${toName} 교체: 위험한도까지 ${Math.round(buyAmount).toLocaleString('ko-KR')}원만 사고, 나머지는 대기자금으로 남겼습니다.`
+    };
+  }
+  return { ...bought, message: `${fromName} 매도 후 ${toName} 매수를 반영했습니다. ${bought.message}` };
+}
+
 export function switchProduct(state: GameState, fromId: ProductId, toId: ProductId, amount = balanceConfig.tradeAmount): ActionResult {
   if (fromId === toId) return { ok: false, message: '서로 다른 상품을 선택하세요.', state };
   const from = products.find((item) => item.id === fromId);
@@ -88,8 +117,7 @@ export function switchProduct(state: GameState, fromId: ProductId, toId: Product
   }
   const sold = sellProduct(state, fromId, sellAmount);
   if (!sold.ok) return sold;
-  const bought = buyProduct(sold.state, toId, Math.min(sellAmount, sold.state.irpCash));
-  return { ...bought, message: bought.ok ? `${sold.message} ${bought.message}` : `매도는 완료했지만 새 매수는 제한되었습니다: ${bought.message}` };
+  return buyAfterSwitch(sold.state, from.shortName, toId, sellAmount);
 }
 
 export function settleOrders(state: GameState): GameState {
@@ -105,8 +133,10 @@ export function settleOrders(state: GameState): GameState {
     } else {
       next.irpCash += order.amount;
       if (order.targetProductId) {
-        const switched = buyProduct(next, order.targetProductId, order.amount);
-        next = switched.state;
+        const buyAmount = maxBuyWithinRiskLimit(next, order.targetProductId, Math.min(order.amount, next.irpCash));
+        if (buyAmount >= 100000) {
+          next = buyProduct(next, order.targetProductId, buyAmount).state;
+        }
       }
     }
   }

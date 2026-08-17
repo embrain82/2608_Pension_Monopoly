@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { balanceConfig, lifeEvents, marketScenario, policyRules } from '../src/data/content';
 import { autoplay, createGame, performAction, resolveActionAmount, resolveLifeEvent, startTurn } from '../src/engine/game-engine';
 import { applyMarketStep, generateMarketPath, rateShockReturn } from '../src/engine/market-engine';
-import { buyProduct, portfolioValue, rebalancePortfolio, sellProduct } from '../src/engine/portfolio-engine';
-import { canBuyRiskAsset, contributionCredit, effectiveRiskRatio, riskAssetRatio } from '../src/engine/policy-engine';
+import { buyProduct, portfolioValue, rebalancePortfolio, sellProduct, settleOrders, switchProduct } from '../src/engine/portfolio-engine';
+import { canBuyRiskAsset, contributionCredit, effectiveRiskRatio, maxBuyWithinRiskLimit, riskAssetRatio } from '../src/engine/policy-engine';
 import { calculateScore, monthlyPension } from '../src/engine/scoring-engine';
 import { defaultSave, loadSave, STORAGE_KEY } from '../src/ui/ui-state';
 
@@ -124,6 +124,68 @@ describe('정책과 주문', () => {
     expect(etf.state.pendingOrders).toHaveLength(0);
     expect(etf.state.holdings.find((item) => item.productId === 'equityEtf')?.amount).toBe(5_000_000);
     expect(portfolioValue(fund.state)).toBeCloseTo(portfolioValue(state), 2);
+  });
+
+  it('교체매매는 위험 한도까지만 매수하고 나머지는 대기자금으로 남긴다', () => {
+    let state = startTurn(createGame('switch-cap')).state;
+    if (state.currentEventId) state = resolveLifeEvent(state, 'cash').state;
+    const deposit = state.holdings.find((holding) => holding.productId === 'deposit')?.amount ?? 0;
+    const switched = switchProduct(state, 'deposit', 'equityEtf', deposit);
+    expect(switched.ok).toBe(true);
+    const etf = switched.state.holdings.find((holding) => holding.productId === 'equityEtf')?.amount ?? 0;
+    expect(etf).toBeGreaterThan(100000);
+    expect(etf).toBeLessThan(deposit);
+    expect(switched.state.irpCash).toBeGreaterThan(100000);
+    expect(riskAssetRatio(switched.state)).toBeLessThanOrEqual(policyRules.riskAssetLimit + 0.00001);
+    expect(switched.message).toMatch(/대기자금/);
+
+    const acted = performAction(state, {
+      kind: 'switch',
+      fromProductId: 'deposit',
+      toProductId: 'equityEtf',
+      amount: deposit
+    });
+    expect(acted.ok).toBe(true);
+    expect(acted.state.awaitingAction).toBe(false);
+  });
+
+  it('위험한도 안에서 살 수 있는 최대 금액을 계산한다', () => {
+    const state = {
+      ...createGame('cap-math'),
+      irpCash: 80_000_000,
+      holdings: [{ productId: 'deposit' as const, amount: 20_000_000, principal: 20_000_000, depositTurnsHeld: 4 }]
+    };
+    const capped = maxBuyWithinRiskLimit(state, 'equityEtf', 80_000_000);
+    expect(capped).toBe(70_000_000);
+    expect(canBuyRiskAsset(state, 'equityEtf', capped).ok).toBe(true);
+    expect(canBuyRiskAsset(state, 'equityEtf', 80_000_000).ok).toBe(false);
+    expect(maxBuyWithinRiskLimit(state, 'equityEtf', 50_000_000)).toBe(50_000_000);
+    expect(maxBuyWithinRiskLimit(state, 'deposit', 80_000_000)).toBe(80_000_000);
+  });
+
+  it('펀드 교체 정산도 위험 한도까지만 매수하고 나머지는 대기자금으로 남긴다', () => {
+    const base = startTurn(createGame('switch-fund-cap')).state;
+    const state = {
+      ...base,
+      awaitingAction: true,
+      currentEventId: null,
+      irpCash: 0,
+      holdings: [
+        { productId: 'deposit' as const, amount: 20_000_000, principal: 20_000_000, depositTurnsHeld: 4 },
+        { productId: 'shortBond' as const, amount: 50_000_000, principal: 50_000_000, depositTurnsHeld: 0 },
+        { productId: 'equityEtf' as const, amount: 30_000_000, principal: 30_000_000, depositTurnsHeld: 0 }
+      ]
+    };
+    const reserved = switchProduct(state, 'shortBond', 'equityEtf', 50_000_000);
+    expect(reserved.ok).toBe(true);
+    expect(reserved.state.pendingOrders).toHaveLength(1);
+
+    const settled = settleOrders({ ...reserved.state, turn: reserved.state.turn + 1 });
+    const etf = settled.holdings.find((holding) => holding.productId === 'equityEtf')?.amount ?? 0;
+    expect(etf).toBeGreaterThan(30_000_000);
+    expect(etf).toBeLessThan(80_000_000);
+    expect(settled.irpCash).toBeGreaterThan(100000);
+    expect(riskAssetRatio(settled)).toBeLessThanOrEqual(policyRules.riskAssetLimit + 0.00001);
   });
 
   it('예금 중도해지 불이익을 반영한다', () => {
