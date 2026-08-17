@@ -49,6 +49,6 @@ describe('24칸 보드', () => {
     const created = createGame('board-wait');
     const markup = renderBoardMarkup(created, true);
     expect(markup).toContain('주사위를 굴려');
-    expect(markup).not.toContain(created.lastMarket.signal);
+    expect(markup).not.toContain(created.marketPath[0].signal);
   });
 });

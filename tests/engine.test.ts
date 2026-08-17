@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { balanceConfig, lifeEvents, marketScenario, policyRules } from '../src/data/content';
 import { autoplay, createGame, performAction, resolveActionAmount, resolveLifeEvent, startTurn } from '../src/engine/game-engine';
-import { applyMarketStep, rateShockReturn } from '../src/engine/market-engine';
+import { applyMarketStep, generateMarketPath, rateShockReturn } from '../src/engine/market-engine';
 import { buyProduct, portfolioValue, rebalancePortfolio, sellProduct } from '../src/engine/portfolio-engine';
 import { canBuyRiskAsset, contributionCredit, effectiveRiskRatio, riskAssetRatio } from '../src/engine/policy-engine';
 import { calculateScore, monthlyPension } from '../src/engine/scoring-engine';
@@ -218,15 +218,77 @@ describe('점수와 저장 복구', () => {
 });
 
 describe('시장 진폭과 충격 턴', () => {
-  it('충격 턴이 6턴과 8턴에 있다', () => {
+  it('템플릿 JSON의 충격 턴은 6턴과 8턴에 있다', () => {
     const shocks = marketScenario.filter((step) => step.shock).map((step) => step.turn);
     expect(shocks).toEqual([6, 8]);
   });
 
-  it('충격 턴의 대표 자산 움직임이 기존보다 크다', () => {
+  it('템플릿 JSON 충격 턴의 대표 자산 움직임이 기존보다 크다', () => {
     const hike = marketScenario.find((step) => step.turn === 6)!;
     const vol = marketScenario.find((step) => step.turn === 8)!;
     expect(hike.returns.longBond).toBeLessThan(-0.08);
     expect(vol.returns.equityEtf).toBeLessThan(-0.07);
+  });
+});
+
+describe('시드 기반 시장 경로', () => {
+  it('같은 시드는 같은 12턴 경로를 만든다', () => {
+    const a = generateMarketPath('market-same');
+    const b = generateMarketPath('market-same');
+    expect(a).toEqual(b);
+    expect(a).toHaveLength(12);
+    expect(a.map((step) => step.turn)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+  });
+
+  it('다른 시드는 다른 경로를 만들고 고정 JSON과 같지 않다', () => {
+    const a = generateMarketPath('market-alpha');
+    const b = generateMarketPath('market-beta');
+    expect(a).not.toEqual(b);
+    expect(a).not.toEqual(marketScenario);
+  });
+
+  it('충격 턴을 2회 두고 모든 상품 수익률을 채운다', () => {
+    const path = generateMarketPath('market-shocks');
+    const shocks = path.filter((step) => step.shock).map((step) => step.turn);
+    expect(shocks).toHaveLength(2);
+    expect(new Set(shocks).size).toBe(2);
+    expect(shocks.every((turn) => turn >= 3 && turn <= 10)).toBe(true);
+    for (const step of path) {
+      for (const productId of ['deposit', 'shortBond', 'longBond', 'balanced', 'equityEtf', 'tdf'] as const) {
+        expect(Number.isFinite(step.returns[productId])).toBe(true);
+        expect(step.returns[productId]).toBeGreaterThanOrEqual(-0.15);
+        expect(step.returns[productId]).toBeLessThanOrEqual(0.15);
+      }
+    }
+  });
+
+  it('시드가 바뀌면 충격 턴 위치도 달라질 수 있다', () => {
+    const pairs = new Set(
+      Array.from({ length: 24 }, (_, index) => generateMarketPath(`shock-vary-${index}`)
+        .filter((step) => step.shock)
+        .map((step) => step.turn)
+        .join(','))
+    );
+    expect(pairs.size).toBeGreaterThan(1);
+    expect([...pairs].some((pair) => pair !== '6,8')).toBe(true);
+  });
+
+  it('새 게임은 시드 경로를 갖고 시작 전 수익률은 0이다', () => {
+    const created = createGame('fresh-market');
+    expect(created.marketPath).toEqual(generateMarketPath('fresh-market'));
+    expect(created.lastMarket.turn).toBe(0);
+    expect(created.lastMarket.returns.equityEtf).toBe(0);
+    expect(created.lastMarket.returns.deposit).toBe(0);
+  });
+
+  it('턴 시작과 정산은 고정 JSON이 아니라 시드 경로를 읽는다', () => {
+    const created = createGame('path-read');
+    const started = startTurn(created);
+    expect(started.state.lastMarket).toEqual(created.marketPath[0]);
+    let state = started.state;
+    if (state.currentEventId) state = resolveLifeEvent(state, 'cash').state;
+    const held = performAction(state, { kind: 'hold' });
+    expect(held.ok).toBe(true);
+    expect(held.state.lastMarket.returns).toEqual(created.marketPath[0].returns);
   });
 });

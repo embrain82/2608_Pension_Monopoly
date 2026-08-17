@@ -1,4 +1,4 @@
-import { balanceConfig, investorProfiles, learningCards, marketScenario, policyRules, products } from '../data/content';
+import { balanceConfig, investorProfiles, learningCards, policyRules, products } from '../data/content';
 import { createGame, performAction, resolveActionAmount, resolveLifeEvent, startTurn, type AmountPreset, type GameAction } from '../engine/game-engine';
 import { getLifeEvent, getLearningCard } from '../engine/content-engine';
 import { portfolioValue } from '../engine/portfolio-engine';
@@ -6,8 +6,9 @@ import { expectedRiskAfterBuy, riskAssetRatio } from '../engine/policy-engine';
 import { randomSeed } from '../engine/random-engine';
 import { calculateScore } from '../engine/scoring-engine';
 import type { ActionKind, GameState, ProfileId, ProductId, SaveData } from '../types';
-import { DICE_LAND_HOLD_MS, DICE_ROLL_DURATION_MS, canRevealNextTurn, dicePairForTurn, dicePairLabel, diceSteps, isCompletedTurn, isRevealedTurn, isUpcomingSpoiler, renderDiceMarkup, shouldSkipDiceAnimation } from './dice';
+import { DICE_LAND_HOLD_MS, DICE_ROLL_DURATION_MS, canRevealNextTurn, dicePairForTurn, dicePairLabel, diceSteps, renderDiceMarkup, shouldSkipDiceAnimation } from './dice';
 import { TOKEN_STEP_MS, movePath, renderBoardMarkup } from './board';
+import { percent, renderMarketCard, renderMarketTimeline, renderSettingsEntry, renderTurnTrack, signedPercent } from './market-view';
 import { loadSave, saveData } from './ui-state';
 
 type Screen = 'title' | 'diagnosis' | 'goal' | 'game' | 'result';
@@ -26,9 +27,6 @@ const formatWon = (value: number) => `${Math.round(value).toLocaleString('ko-KR'
 const formatShortWon = (value: number) => value >= 100_000_000
   ? `${(value / 100_000_000).toFixed(2)}억원`
   : `${Math.round(value / 10_000).toLocaleString('ko-KR')}만원`;
-const percent = (value: number) => `${(value * 100).toFixed(1)}%`;
-const signedPercent = (value: number) => `${value > 0 ? '+' : ''}${(value * 100).toFixed(1)}%`;
-
 function profileFromScore(score: number): ProfileId {
   return investorProfiles.find((profile) => score >= profile.minScore && score <= profile.maxScore)?.id ?? 'balanced';
 }
@@ -400,68 +398,11 @@ export class PensionRoadApp {
     </section>`;
   }
 
-  private renderTrack(state: GameState, waiting: boolean): string {
-    const lifeTurns = new Set(state.lifeEventSchedule.map((item) => item.turn));
-    const cells = marketScenario.map((step) => {
-      const current = isRevealedTurn(step.turn, state.turn, waiting);
-      const past = isCompletedTurn(step.turn, state.turn, waiting);
-      const classes = [
-        current ? 'current' : '',
-        past ? 'past' : '',
-        step.shock ? 'shock' : '',
-        lifeTurns.has(step.turn) ? 'life' : ''
-      ].filter(Boolean).join(' ');
-      const label = waiting && isUpcomingSpoiler(step.turn, state.turn)
-        ? `${step.turn}턴`
-        : `${step.phase}${step.shock ? ' · 충격' : ''}`;
-      return `<i class="${classes}" title="${label}">${step.turn}</i>`;
-    }).join('');
-    const aria = waiting
-      ? `12턴 중 ${state.turn}턴 정산 후 시장 대기`
-      : `12턴 중 ${state.turn}턴, 현재 국면 ${state.phase}`;
-    return `<div class="turn-track" role="img" aria-label="${aria}">${cells}</div>`;
-  }
-
   private renderBoard(state: GameState, waiting: boolean): string {
     return renderBoardMarkup(state, waiting, {
       focusIndex: this.tokenHopping ? this.tokenFocus : state.position,
       hopping: this.tokenHopping
     });
-  }
-
-  private renderProductReturns(state: GameState, hidden = false): string {
-    const total = portfolioValue(state);
-    const rows = products.map((product) => {
-      const amount = state.holdings.find((holding) => holding.productId === product.id)?.amount ?? 0;
-      if (hidden) {
-        return `<li class="hidden"><span>${product.shortName}</span><b>???</b><small>${total ? percent(amount / total) : '0%'}</small></li>`;
-      }
-      const ret = state.lastMarket.returns[product.id];
-      return `<li class="${ret < 0 ? 'down' : ret > 0 ? 'up' : ''}"><span>${product.shortName}</span><b>${signedPercent(ret)}</b><small>${total ? percent(amount / total) : '0%'}</small></li>`;
-    }).join('');
-    return `<ul class="product-returns">${rows}</ul>`;
-  }
-
-  private renderMarketCard(state: GameState, pending: boolean): string {
-    if (pending) {
-      const nextTurn = Math.min(state.turn + 1, 12);
-      return `<article class="market-card pending">
-            <div class="card-label">TURN ${String(nextTurn).padStart(2, '0')} · 시장 대기</div>
-            <h2>주사위를 굴려 시장을 확인하세요</h2>
-            <p class="signal">주사위 눈의 합만큼 말이 이동한 뒤 브리핑이 공개됩니다.</p>
-            <p>시장 국면은 12턴 시나리오를 따르고, 말은 나온 숫자만큼 보드를 돕니다.</p>
-            <div class="market-bars muted"><span>금리 <i></i>—</span><span>물가 <i></i>—</span><span>주가 <i></i>—</span></div>
-            ${this.renderProductReturns(state, true)}
-          </article>`;
-    }
-    return `<article class="market-card">
-            <div class="card-label">TURN ${String(state.turn).padStart(2, '0')} · 시장 브리핑</div>
-            <h2>${state.lastMarket.headline}</h2>
-            <p class="signal">${state.lastMarket.signal}</p>
-            <p>${state.lastMarket.reason}</p>
-            <div class="market-bars"><span>금리 <i style="--level:${state.lastMarket.rate}"></i>${state.lastMarket.rate}/5</span><span>물가 <i style="--level:${state.lastMarket.inflation}"></i>${state.lastMarket.inflation}/5</span><span>주가 <i style="--level:${state.lastMarket.stocks}"></i>${state.lastMarket.stocks}/5</span></div>
-            ${this.renderProductReturns(state)}
-          </article>`;
   }
 
   private renderGameCta(state: GameState): string {
@@ -503,18 +444,18 @@ export class PensionRoadApp {
           <div><small>예상 월 연금</small><strong>${formatShortWon(score.monthlyPension)}</strong></div>
           <div><small>수익률</small><strong class="${score.returnRate < 0 ? 'neg' : ''}">${signedPercent(score.returnRate)}</strong></div>
         </div>
-        <button class="icon-button" data-action="open-settings" aria-label="설정과 출처">⋮</button>
+        ${renderSettingsEntry()}
       </header>
       <div class="game-layout">
         <div class="board-wrap">
-          ${this.renderTrack(state, waitingForDice)}
+          ${renderTurnTrack(state, waitingForDice)}
           ${this.renderBoard(state, waitingForDice)}
         </div>
         <aside class="dashboard">
           ${coach}
           ${!this.tipDismissed && latestCard ? `<p class="card-tip"><strong>${latestCard.title}</strong>${latestCard.key}<button class="text-button" data-action="dismiss-tip">닫기</button></p>` : ''}
           ${!waitingForDice && state.lastMarket.shock ? '<p class="shock-banner">충격 턴 · 신호를 보고 비중을 조정하세요</p>' : ''}
-          ${this.renderMarketCard(state, waitingForDice)}
+          ${renderMarketCard(state, waitingForDice)}
           <article class="asset-card"><div class="card-label">나의 은퇴설계</div>
             <div class="big-number"><span>IRP 평가액</span><strong>${formatShortWon(score.irpValue)}</strong></div>
             <div class="metric-row"><span><abbr title="최종 IRP 평가액을 240개월로 나눈 교육용 값">예상 월 연금</abbr><strong>${formatWon(score.monthlyPension)}</strong></span><span>시작 대비<strong class="${score.returnRate < 0 ? 'neg' : ''}">${signedPercent(score.returnRate)}</strong></span></div>
@@ -671,26 +612,16 @@ export class PensionRoadApp {
     const total = portfolioValue(this.game);
     const rows = products.map((product) => {
       const amount = this.game!.holdings.find((holding) => holding.productId === product.id)?.amount ?? 0;
-      const ret = this.game!.lastMarket.returns[product.id];
-      const hideReturns = this.game!.turn === 0;
-      return `<tr><td><span class="risk-symbol ${product.risk_asset_ratio > 0 ? 'risky' : 'safe'}">${product.risk_asset_ratio > 0 ? '▲' : '●'}</span>${product.shortName}<small>${product.riskLabel}</small></td><td>${formatShortWon(amount)}</td><td>${total ? percent(amount / total) : '0%'}</td><td class="${!hideReturns && ret < 0 ? 'neg' : ''}">${hideReturns ? '???' : signedPercent(ret)}</td></tr>`;
+      const ret = this.game!.lastMarket.returns[product.id] ?? 0;
+      return `<tr><td><span class="risk-symbol ${product.risk_asset_ratio > 0 ? 'risky' : 'safe'}">${product.risk_asset_ratio > 0 ? '▲' : '●'}</span>${product.shortName}<small>${product.riskLabel}</small></td><td>${formatShortWon(amount)}</td><td>${total ? percent(amount / total) : '0%'}</td><td class="${ret < 0 ? 'neg' : ''}">${signedPercent(ret)}</td></tr>`;
     }).join('');
     const orders = this.game.pendingOrders.length ? this.game.pendingOrders.map((order) => `<li>${order.side === 'buy' ? '매수' : '환매'} · ${products.find((item) => item.id === order.productId)?.shortName} · ${order.stage === 'received' ? '주문 접수' : '기준가 확정'} → ${order.settlesTurn}턴 반영</li>`).join('') : '<li>대기 주문 없음</li>';
     return `<p class="eyebrow">포트폴리오</p><h2>${formatWon(total)}</h2><p>위험자산 ${percent(riskAssetRatio(this.game))} · IRP 대기자금 ${formatWon(this.game.irpCash)}</p><div class="table-wrap"><table><thead><tr><th>상품</th><th>평가액</th><th>비중</th><th>이번 턴</th></tr></thead><tbody>${rows}</tbody></table></div><h3>주문 처리</h3><ul class="order-list">${orders}</ul>`;
   }
 
   private renderMarketModal(): string {
-    const currentTurn = this.game?.turn ?? 0;
     const waiting = Boolean(this.game && (canRevealNextTurn(this.game) || this.diceRolling));
-    return `<p class="eyebrow">시장 흐름 · 금리의 두 얼굴</p><h2>12턴 타임라인</h2><div class="timeline">${marketScenario.map((step) => {
-      const current = isRevealedTurn(step.turn, currentTurn, waiting);
-      const past = isCompletedTurn(step.turn, currentTurn, waiting);
-      const spoiler = isUpcomingSpoiler(step.turn, currentTurn);
-      const body = spoiler
-        ? `<p><strong>${step.turn}턴</strong>시장은 주사위가 멈춘 뒤에 공개됩니다.</p>`
-        : `<p><strong>${step.phase}${step.shock ? ' · 충격' : ''}</strong>${step.headline}<small>${step.signal}</small></p>`;
-      return `<div class="${current ? 'current' : past ? 'past' : ''}${step.shock ? ' shock' : ''}"><span>${step.turn}</span>${body}</div>`;
-    }).join('')}</div><div class="why-box"><strong>교육용 단순화</strong><p>실제 시장은 여러 요인이 동시에 작용합니다. 이 흐름은 전망이나 투자 권유가 아니라 금리·채권 관계를 체험하기 위한 가정입니다.</p></div>`;
+    return renderMarketTimeline(this.game, waiting);
   }
 
   private renderCardsModal(): string {

@@ -92,6 +92,8 @@ a { color: var(--green); text-underline-offset: 3px; }
 .mobile-stats small { color: var(--muted); font-size: .65rem; }
 .mobile-stats strong { font-size: .95rem; }
 .icon-button { width: 44px; height: 44px; border: 0; border-radius: 50%; background: transparent; font-size: 1.4rem; }
+.settings-entry { min-height: 44px; padding: 8px 14px; border: 1px solid var(--line); border-radius: 999px; background: #fff; font-size: .82rem; font-weight: 800; white-space: nowrap; }
+.settings-entry:hover { border-color: var(--green); background: #e9f2e7; }
 .game-layout { width: min(100% - 32px, 1320px); margin: 24px auto; display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(350px, .75fr); gap: 28px; align-items: start; }
 .board-wrap { padding: 14px; background: rgba(255,255,255,.62); border: 1px solid rgba(255,255,255,.9); border-radius: 28px; box-shadow: var(--shadow); }
 .board-wrap .turn-track { margin-bottom: 10px; }
@@ -314,6 +316,7 @@ td small { display: block; margin: 3px 0 0 20px; color: var(--muted); font-size:
 
 @media (max-width: 800px) {
   .game-topbar { grid-template-columns: 1fr auto; padding: 8px 12px; }
+  .settings-entry { padding: 8px 12px; font-size: .78rem; }
   .brand-small { display: none; }
   .mobile-stats { justify-content: space-between; gap: 8px; }
   .mobile-stats div { min-width: 72px; }

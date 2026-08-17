@@ -159,6 +159,7 @@ export interface GameState {
   eventHistory: string[];
   logs: GameLog[];
   lastMarket: MarketStep;
+  marketPath: MarketStep[];
   awaitingAction: boolean;
   currentEventId: string | null;
   lifeEventSchedule: Array<{ turn: number; eventId: string }>;

@@ -1,6 +1,6 @@
 import { balanceConfig, learningCards, lifeEvents, marketScenario, policyRules, products } from '../data/content';
 import type { ActionKind, ActionResult, GameState, ProfileId, ProductId } from '../types';
-import { applyMarketStep } from './market-engine';
+import { applyMarketStep, emptyMarketStep, generateMarketPath, marketPathOf } from './market-engine';
 import { buyProduct, portfolioValue, rebalancePortfolio, sellProduct, settleOrders, switchProduct } from './portfolio-engine';
 import { contributionCredit } from './policy-engine';
 import { diceStepsForTurn, hashSeed, nextRandom } from './random-engine';
@@ -46,8 +46,10 @@ function scheduleLifeEvents(rngState: number): { rngState: number; schedule: Arr
   return { rngState: state, schedule };
 }
 
-function cardForTurn(turn: number, shock = false): string {
-  if (shock && turn === 8) return 'etf-order';
+function cardForTurn(turn: number, path: GameState['marketPath']): string {
+  const shockTurns = path.filter((step) => step.shock).map((step) => step.turn);
+  const laterShock = shockTurns.at(-1);
+  if (laterShock === turn) return 'etf-order';
   if (turn <= 4) return 'rate-bond';
   if (turn <= 8) return 'duration';
   return 'rebalance';
@@ -55,7 +57,8 @@ function cardForTurn(turn: number, shock = false): string {
 
 export function createGame(seed: string, profileId: ProfileId = 'balanced', goalMonthly = balanceConfig.defaultGoal): GameState {
   const scheduled = scheduleLifeEvents(hashSeed(seed));
-  const market = marketScenario[0];
+  const marketPath = generateMarketPath(seed);
+  const market = emptyMarketStep();
   return {
     seed,
     rngState: scheduled.rngState,
@@ -85,6 +88,7 @@ export function createGame(seed: string, profileId: ProfileId = 'balanced', goal
     eventHistory: [],
     logs: [{ turn: 0, type: 'start', message: '원리금보장형 60%, 혼합형 40%로 출발했습니다.' }],
     lastMarket: market,
+    marketPath,
     awaitingAction: false,
     currentEventId: null,
     lifeEventSchedule: scheduled.schedule
@@ -103,7 +107,8 @@ export function startTurn(state: GameState, steps = 0): ActionResult {
     return { ok: false, message: '이번 턴의 생활사건과 운용 행동을 먼저 완료하세요.', state };
   }
   const turn = state.turn + 1;
-  const market = marketScenario[turn - 1];
+  const path = marketPathOf(state);
+  const market = path[turn - 1] ?? emptyMarketStep();
   const scheduled = state.lifeEventSchedule.find((item) => item.turn === turn);
   const boardSize = balanceConfig.boardSize;
   const position = ((state.position + Math.max(0, steps)) % boardSize + boardSize) % boardSize;
@@ -113,12 +118,13 @@ export function startTurn(state: GameState, steps = 0): ActionResult {
     position,
     phase: market.phase,
     lastMarket: market,
+    marketPath: path,
     cash: state.cash + balanceConfig.salarySurplusPerTurn,
     logs: [...state.logs, { turn, type: 'market', message: `${market.headline} · ${market.signal}` }],
     awaitingAction: !scheduled,
     currentEventId: scheduled?.eventId ?? null
   };
-  next = unlock(next, cardForTurn(turn, Boolean(market.shock)));
+  next = unlock(next, cardForTurn(turn, path));
   if (scheduled) {
     next = { ...next, eventHistory: [...next.eventHistory, scheduled.eventId] };
     return { ok: true, message: '생활사건이 발생했습니다.', state: next };
@@ -210,7 +216,7 @@ export function performAction(state: GameState, action: GameAction): ActionResul
 }
 
 export function finalizeTurn(state: GameState): GameState {
-  let next = applyMarketStep(state, marketScenario[state.turn - 1]);
+  let next = applyMarketStep(state, marketPathOf(state)[state.turn - 1] ?? emptyMarketStep());
   if (state.turn === balanceConfig.maxTurns) {
     next = { ...next, pendingOrders: next.pendingOrders.map((order) => ({ ...order, settlesTurn: state.turn })) };
   }
