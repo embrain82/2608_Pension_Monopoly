@@ -59,6 +59,56 @@ export function buyProduct(state: GameState, productId: ProductId, requestedAmou
   };
 }
 
+export const LIFE_EVENT_LIQUIDATION_ORDER: ProductId[] = [
+  'deposit', 'equityEtf', 'shortBond', 'longBond', 'balanced', 'tdf'
+];
+
+export interface LiquidationSale {
+  productId: ProductId;
+  amount: number;
+  penalty: number;
+}
+
+export function liquidateForLivingCost(state: GameState, need: number): {
+  state: GameState;
+  remaining: number;
+  usedIrpCash: number;
+  sales: LiquidationSale[];
+} {
+  let next: GameState = { ...state, holdings: state.holdings.map((holding) => ({ ...holding })) };
+  let remaining = Math.max(0, Math.round(need));
+  const usedIrpCash = Math.min(next.irpCash, remaining);
+  next = { ...next, irpCash: next.irpCash - usedIrpCash };
+  remaining -= usedIrpCash;
+
+  const sales: LiquidationSale[] = [];
+  for (const productId of LIFE_EVENT_LIQUIDATION_ORDER) {
+    if (remaining <= 0) break;
+    const product = products.find((item) => item.id === productId);
+    const index = next.holdings.findIndex((holding) => holding.productId === productId);
+    if (!product || index < 0) continue;
+    const holding = next.holdings[index];
+    if (holding.amount <= 0) continue;
+    const early = product.kind === 'deposit' && holding.depositTurnsHeld < balanceConfig.depositMaturityTurns;
+    const netRate = early ? 1 - policyRules.earlyDepositPenaltyRate : 1;
+    const gross = Math.min(holding.amount, Math.ceil(remaining / netRate));
+    if (gross <= 0) continue;
+    const penalty = early ? gross * policyRules.earlyDepositPenaltyRate : 0;
+    const net = gross - penalty;
+    const applied = Math.min(net, remaining);
+    remaining = Math.round((remaining - applied) * 100) / 100;
+    if (remaining < 1) remaining = 0;
+    const surplus = net - applied;
+    const holdings = next.holdings.map((item, itemIndex) => (
+      itemIndex === index ? { ...item, amount: item.amount - gross } : item
+    ));
+    next = { ...next, cash: next.cash + surplus, holdings };
+    sales.push({ productId, amount: gross, penalty });
+  }
+
+  return { state: next, remaining, usedIrpCash, sales };
+}
+
 export function sellProduct(state: GameState, productId: ProductId, requestedAmount = balanceConfig.tradeAmount): ActionResult {
   const product = products.find((item) => item.id === productId);
   const current = holdingFor(state, productId);

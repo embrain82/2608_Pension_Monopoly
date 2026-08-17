@@ -451,3 +451,81 @@ describe('시드 기반 시장 경로', () => {
     expect(held.state.lastMarket.returns).toEqual(created.marketPath[0].returns);
   });
 });
+
+describe('생활자금 부족 시 보유 매도', () => {
+  const moving = lifeEvents.find((event) => event.id === 'moving')!;
+
+  function eventState(overrides: Partial<ReturnType<typeof createGame>> = {}) {
+    const base = createGame('life-cover');
+    return {
+      ...base,
+      turn: 1,
+      currentEventId: moving.id,
+      cash: 0,
+      irpCash: 0,
+      pendingOrders: [],
+      holdings: [
+        { productId: 'deposit' as const, amount: 10_000_000, principal: 10_000_000, depositTurnsHeld: 0 }
+      ],
+      ...overrides
+    };
+  }
+
+  it('생활자금이 0이면 예금을 즉시 매도해 사건 비용을 지급한다', () => {
+    const before = eventState();
+    const depositBefore = before.holdings.find((item) => item.productId === 'deposit')!.amount;
+    const result = resolveLifeEvent(before, 'cash');
+    const depositAfter = result.state.holdings.find((item) => item.productId === 'deposit')?.amount ?? 0;
+    expect(result.ok).toBe(true);
+    expect(result.state.currentEventId).toBeNull();
+    expect(result.state.cashShortages).toBe(0);
+    expect(result.state.cash).toBeGreaterThanOrEqual(0);
+    expect(depositAfter).toBeLessThan(depositBefore);
+    expect(depositBefore - depositAfter).toBeGreaterThan(moving.cost);
+    expect(result.message).toContain('매도');
+    expect(result.message).not.toContain('안정성 점수에 영향');
+  });
+
+  it('생활자금 일부와 예금 매도를 나눠 지급한다', () => {
+    const result = resolveLifeEvent(eventState({ cash: 1_000_000 }), 'cash');
+    const deposit = result.state.holdings.find((item) => item.productId === 'deposit')!.amount;
+    expect(result.ok).toBe(true);
+    expect(result.state.cashShortages).toBe(0);
+    expect(result.state.cash).toBeLessThan(1_000_000);
+    expect(deposit).toBeLessThan(10_000_000);
+    expect(result.message).toContain('매도');
+  });
+
+  it('대기자금만 있어도 상품을 팔지 않고 비용을 지급한다', () => {
+    const result = resolveLifeEvent(eventState({
+      irpCash: 4_000_000,
+      holdings: [{ productId: 'deposit' as const, amount: 10_000_000, principal: 10_000_000, depositTurnsHeld: 4 }]
+    }), 'cash');
+    expect(result.state.cashShortages).toBe(0);
+    expect(result.state.irpCash).toBe(4_000_000 - moving.cost);
+    expect(result.state.holdings[0].amount).toBe(10_000_000);
+    expect(result.message).toContain('대기자금');
+  });
+
+  it('펀드도 사건 지급을 위해 다음 턴을 기다리지 않고 즉시 환매한다', () => {
+    const result = resolveLifeEvent(eventState({
+      holdings: [{ productId: 'balanced' as const, amount: 8_000_000, principal: 8_000_000, depositTurnsHeld: 0 }]
+    }), 'cash');
+    expect(result.ok).toBe(true);
+    expect(result.state.cashShortages).toBe(0);
+    expect(result.state.pendingOrders).toHaveLength(0);
+    expect(result.state.holdings.find((item) => item.productId === 'balanced')!.amount).toBe(8_000_000 - moving.cost);
+    expect(result.message).toContain('혼합형');
+  });
+
+  it('팔 상품이 모자라면 그때만 부족 횟수를 올린다', () => {
+    const result = resolveLifeEvent(eventState({
+      holdings: [{ productId: 'deposit' as const, amount: 400_000, principal: 400_000, depositTurnsHeld: 4 }]
+    }), 'cash');
+    expect(result.ok).toBe(true);
+    expect(result.state.cashShortages).toBe(1);
+    expect(result.state.holdings.find((item) => item.productId === 'deposit')!.amount).toBe(0);
+    expect(result.message).toContain('매도해도');
+    expect(result.message).toContain('안정성 점수에 영향');
+  });
+});

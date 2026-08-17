@@ -2,7 +2,7 @@ import { balanceConfig, learningCards, lifeEvents, marketScenario, policyRules, 
 import type { ActionKind, ActionResult, GameState, ProfileId, ProductId } from '../types';
 import { applyMarketStep, emptyMarketStep, generateMarketPath, marketPathOf } from './market-engine';
 import { pickTileBriefing } from './tile-briefing';
-import { buyProduct, portfolioValue, rebalancePortfolio, sellProduct, settleOrders, switchProduct } from './portfolio-engine';
+import { buyProduct, liquidateForLivingCost, portfolioValue, rebalancePortfolio, sellProduct, settleOrders, switchProduct } from './portfolio-engine';
 import { contributionCredit } from './policy-engine';
 import { diceStepsForTurn, hashSeed, nextRandom } from './random-engine';
 
@@ -176,9 +176,37 @@ export function resolveLifeEvent(state: GameState, choice: 'cash' | 'withdraw'):
     next = reduceIrpProportionally(state, withdrawal);
     message = '허용 사유를 가정해 IRP에서 비용과 단순화 수수료를 인출했습니다.';
   } else {
-    const shortage = state.cash < event.cost;
-    next = { ...state, cash: Math.max(0, state.cash - event.cost), cashShortages: state.cashShortages + (shortage ? 1 : 0), safeActionCount: state.safeActionCount + (shortage ? 0 : 1) };
-    message = shortage ? '생활자금이 부족해 비용과 안정성 점수에 영향이 생겼습니다.' : '생활자금으로 해결해 IRP를 지켰습니다.';
+    const fromCash = Math.min(state.cash, event.cost);
+    let remaining = event.cost - fromCash;
+    next = { ...state, cash: state.cash - fromCash };
+    const usedIrpOrHoldings = remaining > 0;
+    if (remaining > 0) {
+      const covered = liquidateForLivingCost(next, remaining);
+      next = covered.state;
+      remaining = covered.remaining;
+      if (covered.sales.length) {
+        const sold = covered.sales.map((sale) => {
+          const name = products.find((item) => item.id === sale.productId)?.shortName ?? sale.productId;
+          return `${name} ${Math.round(sale.amount).toLocaleString('ko-KR')}원`;
+        }).join(', ');
+        message = remaining > 0
+          ? '보유 상품을 매도해도 생활자금이 부족해 비용과 안정성 점수에 영향이 생겼습니다.'
+          : `생활자금이 부족해 ${sold}을 매도해 비용을 지급했습니다.`;
+      } else if (covered.usedIrpCash > 0 && remaining <= 0) {
+        message = '생활자금이 부족해 IRP 대기자금으로 비용을 지급했습니다.';
+      }
+    }
+    if (!message) {
+      message = remaining > 0
+        ? '생활자금이 부족해 비용과 안정성 점수에 영향이 생겼습니다.'
+        : '생활자금으로 해결해 IRP를 지켰습니다.';
+    }
+    const shortage = remaining > 0;
+    next = {
+      ...next,
+      cashShortages: next.cashShortages + (shortage ? 1 : 0),
+      safeActionCount: next.safeActionCount + (!shortage && !usedIrpOrHoldings ? 1 : 0)
+    };
   }
   next = unlock({ ...next, currentEventId: null, awaitingAction: true, logs: [...next.logs, { turn: state.turn, type: 'life', message: `${event.title}: ${message}`, impact: -event.cost }] }, event.learningCardId);
   return { ok: true, message, state: next };

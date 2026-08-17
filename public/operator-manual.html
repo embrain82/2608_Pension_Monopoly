@@ -55,7 +55,7 @@
           <tr><td>시드 시장 경로</td><td>구현</td><td>충격 2회, 수익률과 헤드라인 방향 일치</td></tr>
           <tr><td>24칸 보드·주사위</td><td>구현</td><td>합만큼 이동. 턴 게이트 아님</td></tr>
           <tr><td>칸 설명 24×5</td><td>구현</td><td><code>tile-briefings.json</code></td></tr>
-          <tr><td>생활사건 3회</td><td>구현</td><td>2~11턴, 중도인출 가능/불가 분리</td></tr>
+          <tr><td>생활사건 3회</td><td>구현</td><td>2~11턴, 중도인출 가능/불가 분리. 생활자금 부족 시 대기자금·보유 즉시 매도</td></tr>
           <tr><td>상품 6·행동 6</td><td>구현</td><td>펀드 시차, ETF·예금 즉시</td></tr>
           <tr><td>70% 위험한도</td><td>구현</td><td>직접 매수는 전액 거절, 바꾸기는 한도까지 부분 체결</td></tr>
           <tr><td>성향 적합성</td><td>구현</td><td>등급 1~5. 바꾸기는 성향 밖이면 매도 전 거절</td></tr>
@@ -100,7 +100,7 @@ npm run typecheck
 npm run test
 npm run simulate -- --runs=1000
 npm run build</code></pre>
-      <p>테스트는 Vitest입니다. 매뉴얼 문자열 검사를 포함해 회귀 63개 전후입니다. 콘텐츠 검사는 <code>validateContent()</code>가 상품 6개, 시장 템플릿 12턴, 칸 설명 24×5, 위험등급 1~5를 확인합니다.</p>
+      <p>테스트는 Vitest입니다. 매뉴얼 문자열 검사를 포함해 회귀 68개 전후입니다. 콘텐츠 검사는 <code>validateContent()</code>가 상품 6개, 시장 템플릿 12턴, 칸 설명 24×5, 위험등급 1~5를 확인합니다.</p>
       <p>개발 서버에서 매뉴얼은 <code>/user-manual.html</code>, <code>/operator-manual.html</code>입니다.</p>
     </section>
 
@@ -188,6 +188,7 @@ npm run build</code></pre>
           <tr><td>Q6</td><td>1턴 납입 → 정산 → 다음 턴 장기채 매수</td><td>주문 접수, 그다음 턴 잔고</td></tr>
           <tr><td>Q7</td><td>1턴에 예금 매도</td><td>1.2% 불이익 문구</td></tr>
           <tr><td>Q8</td><td>생활사건 중 이사 등 불가 사유에서 인출</td><td>거절. 생활자금 해결은 성공</td></tr>
+          <tr><td>Q17</td><td>생활자금 0에서 이사 등 비용을 생활자금으로 해결</td><td>예금 등 보유가 줄고 지급 완료. 부족 횟수는 그대로. 매도 문구</td></tr>
           <tr><td>Q9</td><td>안정형 리밸런싱 미리보기</td><td>예금·단기채만, 퍼센트 합 100. 실행 후 ETF/혼합 0</td></tr>
           <tr><td>Q10</td><td>운용 모달 열고 닫기</td><td>턴 유지. 그대로 두기 하면 정산</td></tr>
           <tr><td>Q11</td><td>같은 시드 재시작</td><td>시장 헤드라인·충격 턴 동일</td></tr>
@@ -223,6 +224,7 @@ npm run build</code></pre>
       <h2>10. 알려진 제한</h2>
       <ul>
         <li>중간 저장 없음. 새로고침하면 그 판은 처음부터입니다(성향·기록만 남음).</li>
+        <li>생활사건 강제 매도는 대기 중인 펀드 매수 주문을 취소하지 않습니다. 대기 매수 대금은 다음 턴에야 상품이 됩니다.</li>
         <li>시장이 이미 70%를 넘긴 뒤 안전자산 매수도 <code>canBuyRiskAsset</code>이 거절할 수 있습니다. 대기자금으로 두는 것은 가능합니다.</li>
         <li>자동 시뮬 전략은 사람 플레이를 대표하지 않습니다.</li>
         <li>금융·세무 전문가 검수와 실제 사용자 5~8명 관찰은 자동 테스트로 대체할 수 없습니다.</li>

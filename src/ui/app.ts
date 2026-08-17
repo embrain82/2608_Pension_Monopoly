@@ -583,7 +583,11 @@ export class PensionRoadApp {
     if (!this.game?.currentEventId) return '';
     const event = getLifeEvent(this.game.currentEventId);
     if (!event) return '';
-    return `<div class="modal-icon life">♥</div><p class="eyebrow">생활 사건 · ${event.eligibleWithdrawal ? '중도인출 가능 사유 가정' : '중도인출 제한 체험'}</p><h2>${event.title}</h2><p class="modal-lead">${event.body}</p><div class="event-cost">필요 금액 <strong>${formatWon(Math.abs(event.cost))}</strong></div>${event.cost < 0 ? '<button class="primary" data-action="resolve-cash">생활자금에 반영</button>' : `<div class="button-stack"><button class="primary" data-action="resolve-cash">생활자금으로 해결</button><button class="secondary" data-action="resolve-withdraw">IRP 중도인출 요청${event.eligibleWithdrawal ? '' : ' (제한 확인)'}</button></div>`}`;
+    const shortCash = event.cost > 0 && this.game.cash < event.cost;
+    const coverNote = shortCash
+      ? '<p class="note">생활자금이 부족하면 IRP 대기자금과 보유 상품을 예금→ETF→펀드 순으로 즉시 매도해 지급합니다. 예금은 만기 전이면 해지 불이익이 붙습니다.</p>'
+      : '';
+    return `<div class="modal-icon life">♥</div><p class="eyebrow">생활 사건 · ${event.eligibleWithdrawal ? '중도인출 가능 사유 가정' : '중도인출 제한 체험'}</p><h2>${event.title}</h2><p class="modal-lead">${event.body}</p><div class="event-cost">필요 금액 <strong>${formatWon(Math.abs(event.cost))}</strong></div>${coverNote}${event.cost < 0 ? '<button class="primary" data-action="resolve-cash">생활자금에 반영</button>' : `<div class="button-stack"><button class="primary" data-action="resolve-cash">생활자금으로 해결</button><button class="secondary" data-action="resolve-withdraw">IRP 중도인출 요청${event.eligibleWithdrawal ? '' : ' (제한 확인)'}</button></div>`}`;
   }
 
   private allowedProductId(preferred: ProductId, avoid?: ProductId): ProductId {
