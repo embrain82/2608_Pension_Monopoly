@@ -21,7 +21,7 @@ describe('배포용 매뉴얼', () => {
     expect(operator).toContain('구현된 기능');
     expect(operator).toContain('QA 케이스 매트릭스');
     expect(operator).toContain('vercel');
-    expect(operator).toContain('claim-deployment');
+    expect(operator).toContain('pension-road.vercel.app');
     expect(operator).toContain('policy-rules.json');
     expect(operator).toContain('pages.yml');
     expect(operator).toContain('안전자산 매수도');

@@ -107,21 +107,16 @@ npm run build</code></pre>
     <section id="deploy">
       <h2>5. 배포</h2>
       <p>백엔드 없음. <code>npm run build</code> 후 <code>dist/</code>를 정적 호스팅하면 됩니다. Vite <code>base</code>는 <code>./</code>라 하위 경로에도 올립니다. 환경 변수는 없습니다.</p>
-      <h3>Vercel — GitHub 연동(권장, 영구 URL)</h3>
-      <ol>
-        <li><a href="https://vercel.com/new">vercel.com/new</a>에서 GitHub 저장소 <code>embrain82/2608_Pension_Monopoly</code>를 Import합니다.</li>
-        <li>Framework Preset: Vite. Build <code>npm run build</code>, Output <code>dist</code>. <code>vercel.json</code>이 같은 값을 고정합니다.</li>
-        <li>Production Branch를 <code>main</code>으로 두면 머지 후 고정 도메인이 생깁니다. 이 작업 브랜치 <code>cursor/p0-market-first-loop-5ed6</code>는 Preview URL이 생깁니다.</li>
-        <li>CLI를 쓰려면 로컬에서 <code>npx vercel login</code> 후 <code>npx vercel --yes --prod</code>.</li>
-      </ol>
-      <h3>Vercel — 에이전트 임시 배포 클레임</h3>
-      <p>에이전트 환경에는 Vercel 계정이 없습니다. 로그아웃 상태의 CLI는 익명 미리보기와 Claim URL을 만듭니다. 미리보기 만료 시각은 배포 응답의 <code>expiresAt</code>을 따르며, 클레임 코드는 보통 24시간입니다. 소유자가 클레임하면 프로젝트가 계정으로 옮겨지고 URL이 유지됩니다. 영구 운영의 정본은 위의 GitHub Import입니다.</p>
-      <ol>
-        <li>PR 본문의 <strong>Claim URL</strong>을 엽니다. 형식은 <code>https://vercel.com/claim-deployment?code=…</code>입니다.</li>
-        <li>Vercel에 로그인한 뒤 팀을 고르고 Transfer를 누릅니다.</li>
-        <li>이후 같은 프로젝트를 GitHub 저장소와 연결하면 푸시마다 Preview가 붙습니다.</li>
-      </ol>
-      <p class="warn"><code>.vercel/</code>에는 익명 배포 토큰이 생길 수 있습니다. 저장소에 커밋하지 마세요. <code>.gitignore</code>에 <code>.vercel</code>이 있습니다.</p>
+      <h3>Vercel 운영 주소 (2026-08-17)</h3>
+      <ul>
+        <li>게임: <a href="https://pension-road.vercel.app/">https://pension-road.vercel.app/</a></li>
+        <li>사용자 매뉴얼: <a href="https://pension-road.vercel.app/user-manual.html">/user-manual.html</a></li>
+        <li>운영자 매뉴얼: <a href="https://pension-road.vercel.app/operator-manual.html">/operator-manual.html</a></li>
+        <li>대시보드: <a href="https://vercel.com/nonsleepers-projects/pension-road">nonsleepers-projects/pension-road</a></li>
+      </ul>
+      <p>GitHub 저장소 <code>embrain82/2608_Pension_Monopoly</code>가 이 프로젝트에 연결되어 있습니다. <code>main</code> 머지 후 Production, 이 작업 브랜치는 Preview가 붙습니다. Framework는 Vite, Build <code>npm run build</code>, Output <code>dist</code>입니다.</p>
+      <p>수동 운영 배포: <code>npx vercel login</code> 후 프로젝트 루트에서 <code>npx vercel --yes --prod</code>.</p>
+      <p class="warn"><code>.vercel/</code>과 <code>.env.local</code>에는 토큰이 생길 수 있습니다. 저장소에 커밋하지 마세요.</p>
       <h3>GitHub Pages(보조)</h3>
       <p><code>.github/workflows/pages.yml</code>이 <code>main</code> 푸시와 수동 실행으로 <code>dist/</code>를 Pages에 올립니다. 저장소 Settings → Pages → Source를 <strong>GitHub Actions</strong>로 한 뒤 워크플로를 실행하면 <code>https://embrain82.github.io/2608_Pension_Monopoly/</code> 형태가 됩니다. Vite <code>base</code>가 상대경로라 하위 경로에서도 동작합니다.</p>
       <p>배포 후 확인 경로:</p>

@@ -106,14 +106,16 @@ npm run build
 
 ### Vercel
 
-영구 주소는 GitHub 저장소를 [Vercel Import](https://vercel.com/new)에 연결하는 것이 가장 확실합니다. Framework는 Vite, Output은 `dist`입니다. `vercel.json`이 같은 값을 고정합니다.
+운영 주소: [https://pension-road.vercel.app/](https://pension-road.vercel.app/)
+
+프로젝트 `nonsleepers-projects/pension-road`에 GitHub 저장소가 연결되어 있습니다. Framework는 Vite, Output은 `dist`입니다. `vercel.json`이 같은 값을 고정합니다.
 
 ```bash
 npx vercel login
 npx vercel --yes --prod
 ```
 
-에이전트가 만든 익명 미리보기는 배포 응답의 `expiresAt` 이후 내려갈 수 있습니다. PR 본문의 Claim URL(`vercel.com/claim-deployment`, 코드는 보통 24시간)로 소유자 계정에 옮기면 유지됩니다. `.vercel/`은 커밋하지 않습니다.
+`.vercel/`과 `.env.local`은 커밋하지 않습니다.
 
 ### GitHub Pages
 
