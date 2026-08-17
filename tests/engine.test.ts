@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { balanceConfig, lifeEvents, marketScenario, policyRules } from '../src/data/content';
 import { autoplay, createGame, performAction, resolveActionAmount, resolveLifeEvent, startTurn } from '../src/engine/game-engine';
 import { applyMarketStep, generateMarketPath, rateShockReturn } from '../src/engine/market-engine';
-import { buyProduct, portfolioValue, rebalancePortfolio, sellProduct, settleOrders, switchProduct } from '../src/engine/portfolio-engine';
+import { buyProduct, portfolioValue, rebalancePortfolio, rebalanceShares, sellProduct, settleOrders, switchProduct } from '../src/engine/portfolio-engine';
 import { canBuyForProfile, canBuyRiskAsset, contributionCredit, effectiveRiskRatio, maxBuyWithinRiskLimit, riskAssetRatio } from '../src/engine/policy-engine';
 import { calculateScore, monthlyPension } from '../src/engine/scoring-engine';
 import { defaultSave, loadSave, STORAGE_KEY } from '../src/ui/ui-state';
@@ -217,11 +217,22 @@ describe('정책과 주문', () => {
   });
 
   it('리밸런싱은 성향 밖 상품을 담지 않는다', () => {
-    const result = rebalancePortfolio(createGame('rebalance-stable', 'stable'));
+    const shares = rebalanceShares('stable');
+    expect(shares.equityEtf).toBe(0);
+    expect(shares.balanced).toBe(0);
+    expect(shares.longBond).toBe(0);
+    expect(shares.tdf).toBe(0);
+    expect(shares.deposit + shares.shortBond).toBeCloseTo(1, 10);
+    expect(shares.deposit / shares.shortBond).toBeCloseTo(0.3 / 0.15, 10);
+
+    const before = createGame('rebalance-stable', 'stable');
+    const result = rebalancePortfolio(before);
     expect(result.ok).toBe(true);
+    expect(portfolioValue(result.state)).toBeCloseTo(portfolioValue(before), 2);
     expect(result.state.holdings.find((holding) => holding.productId === 'equityEtf')?.amount ?? 0).toBe(0);
     expect(result.state.holdings.find((holding) => holding.productId === 'balanced')?.amount ?? 0).toBe(0);
-    expect(result.state.holdings.find((holding) => holding.productId === 'deposit')?.amount ?? 0).toBeGreaterThan(0);
+    expect(result.state.holdings.find((holding) => holding.productId === 'longBond')?.amount ?? 0).toBe(0);
+    expect(result.state.holdings.find((holding) => holding.productId === 'deposit')?.amount ?? 0).toBeCloseTo(portfolioValue(before) * shares.deposit, 2);
   });
 
   it('예금 중도해지 불이익을 반영한다', () => {

@@ -173,18 +173,25 @@ export function settleOrders(state: GameState): GameState {
   return next;
 }
 
+export function rebalanceShares(profileId: GameState['profileId']): Record<ProductId, number> {
+  const raw = Object.fromEntries(products.map((product) => [
+    product.id,
+    canBuyForProfile(profileId, product.id).ok ? balanceConfig.rebalanceAllocation[product.id] : 0
+  ])) as Record<ProductId, number>;
+  const weightSum = products.reduce((sum, product) => sum + raw[product.id], 0);
+  if (weightSum <= 0) return raw;
+  return Object.fromEntries(products.map((product) => [product.id, raw[product.id] / weightSum])) as Record<ProductId, number>;
+}
+
 export function rebalancePortfolio(state: GameState): ActionResult {
   const total = portfolioValue(state);
   if (total <= 0) return { ok: false, message: '리밸런싱할 자산이 없습니다.', state };
-  const weights = Object.fromEntries(products.map((product) => [
-    product.id,
-    canBuyForProfile(state.profileId, product.id).ok ? balanceConfig.rebalanceAllocation[product.id] : 0
-  ])) as Record<ProductId, number>;
-  const weightSum = products.reduce((sum, product) => sum + weights[product.id], 0);
+  const shares = rebalanceShares(state.profileId);
+  const weightSum = products.reduce((sum, product) => sum + shares[product.id], 0);
   if (weightSum <= 0) return { ok: false, message: '성향에 맞는 리밸런싱 대상 상품이 없습니다.', state };
-  const skipped = products.filter((product) => balanceConfig.rebalanceAllocation[product.id] > 0 && weights[product.id] <= 0);
+  const skipped = products.filter((product) => balanceConfig.rebalanceAllocation[product.id] > 0 && shares[product.id] <= 0);
   const holdings = products.map((product) => {
-    const share = weights[product.id] / weightSum;
+    const share = shares[product.id];
     return {
       productId: product.id,
       amount: total * share,

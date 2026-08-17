@@ -1,7 +1,7 @@
 import { balanceConfig, boardTiles, investorProfiles, learningCards, policyRules, products } from '../data/content';
 import { createGame, performAction, resolveActionAmount, resolveLifeEvent, startTurn, type AmountPreset, type GameAction } from '../engine/game-engine';
 import { getLifeEvent, getLearningCard } from '../engine/content-engine';
-import { portfolioValue, sellProduct } from '../engine/portfolio-engine';
+import { portfolioValue, rebalanceShares, sellProduct } from '../engine/portfolio-engine';
 import { canBuyForProfile, expectedRiskAfterBuy, maxBuyWithinRiskLimit, riskAssetRatio } from '../engine/policy-engine';
 import { randomSeed } from '../engine/random-engine';
 import { pickTileBriefing } from '../engine/tile-briefing';
@@ -334,6 +334,10 @@ export class PensionRoadApp {
   private startGame(seed: string): void {
     this.clearDiceTimer();
     this.game = createGame(seed, this.profileId, this.goalMonthly);
+    this.selectedBuy = 'shortBond';
+    this.selectedSell = 'deposit';
+    this.switchFrom = 'balanced';
+    this.switchTo = 'shortBond';
     this.screen = 'game';
     this.actionView = 'menu';
     this.tipDismissed = false;
@@ -581,9 +585,12 @@ export class PensionRoadApp {
     return `<div class="modal-icon life">♥</div><p class="eyebrow">생활 사건 · ${event.eligibleWithdrawal ? '중도인출 가능 사유 가정' : '중도인출 제한 체험'}</p><h2>${event.title}</h2><p class="modal-lead">${event.body}</p><div class="event-cost">필요 금액 <strong>${formatWon(Math.abs(event.cost))}</strong></div>${event.cost < 0 ? '<button class="primary" data-action="resolve-cash">생활자금에 반영</button>' : `<div class="button-stack"><button class="primary" data-action="resolve-cash">생활자금으로 해결</button><button class="secondary" data-action="resolve-withdraw">IRP 중도인출 요청${event.eligibleWithdrawal ? '' : ' (제한 확인)'}</button></div>`}`;
   }
 
-  private allowedProductId(preferred: ProductId): ProductId {
-    if (!this.game || canBuyForProfile(this.game.profileId, preferred).ok) return preferred;
-    return products.find((product) => canBuyForProfile(this.game!.profileId, product.id).ok)?.id ?? 'deposit';
+  private allowedProductId(preferred: ProductId, avoid?: ProductId): ProductId {
+    if (!this.game) return preferred;
+    if (canBuyForProfile(this.game.profileId, preferred).ok && preferred !== avoid) return preferred;
+    return products.find((product) => product.id !== avoid && canBuyForProfile(this.game!.profileId, product.id).ok)?.id
+      ?? products.find((product) => canBuyForProfile(this.game!.profileId, product.id).ok)?.id
+      ?? 'deposit';
   }
 
   private productOptions(selected: ProductId, holdingsOnly = false, forBuy = false): string {
@@ -651,7 +658,7 @@ export class PensionRoadApp {
         <button class="primary jumbo" data-action="do-sell">매도 실행</button>`;
     }
     if (this.actionView === 'switch') {
-      this.switchTo = this.allowedProductId(this.switchTo);
+      this.switchTo = this.allowedProductId(this.switchTo, this.switchFrom);
       const amount = this.currentAmount('switch', this.switchFrom);
       const suitability = canBuyForProfile(game.profileId, this.switchTo);
       return `<button class="text-button" data-action="action-view" data-view="menu">← 행동 목록</button>
@@ -663,10 +670,11 @@ export class PensionRoadApp {
         <button class="primary jumbo" data-action="do-switch" ${suitability.ok ? '' : 'disabled'}>교체 실행</button>`;
     }
     if (this.actionView === 'rebalance') {
-      const skipped = products.filter((product) => balanceConfig.rebalanceAllocation[product.id] > 0 && !canBuyForProfile(game.profileId, product.id).ok);
+      const shares = rebalanceShares(game.profileId);
+      const skipped = products.filter((product) => balanceConfig.rebalanceAllocation[product.id] > 0 && shares[product.id] <= 0);
       const targets = products
-        .filter((product) => canBuyForProfile(game.profileId, product.id).ok)
-        .map((product) => `${product.shortName} ${(balanceConfig.rebalanceAllocation[product.id] * 100).toFixed(0)}%`)
+        .filter((product) => shares[product.id] > 0)
+        .map((product) => `${product.shortName} ${(shares[product.id] * 100).toFixed(0)}%`)
         .join(' · ');
       const skipNote = skipped.length
         ? `${skipped.map((item) => item.shortName).join('·')}은 성향보다 등급이 높아 빼고 나머지로 맞춥니다.`
