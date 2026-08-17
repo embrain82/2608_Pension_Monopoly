@@ -55,6 +55,8 @@ a { color: var(--green); text-underline-offset: 3px; }
 .disclaimer-check label { color: var(--muted); font-size: .82rem; line-height: 1.45; }
 .disclaimer-check strong { color: var(--ink); }
 .utility-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 16px; margin-top: 14px; }
+.manual-links { margin: 12px 0 0; text-align: center; font-size: .85rem; }
+.manual-links a { font-weight: 800; }
 .record { color: var(--muted); font-size: .78rem; }
 
 .setup-screen, .tutorial-screen { min-height: 100dvh; padding: 48px 0; display: flex; flex-direction: column; justify-content: center; }

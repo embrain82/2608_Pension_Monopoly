@@ -89,6 +89,13 @@ tests/engine.test.ts    핵심 규칙 단위·통합 테스트
 
 출시 전에는 시행 중인 법령·감독규정과 공식 최신 공지를 다시 확인하고 전문가 검수를 받아야 합니다.
 
+## 매뉴얼
+
+빌드에 포함되는 HTML입니다.
+
+- 사용자: [`public/user-manual.html`](./public/user-manual.html) → 배포 후 `/user-manual.html`
+- 운영자: [`public/operator-manual.html`](./public/operator-manual.html) → 배포 후 `/operator-manual.html`
+
 ## 정적 배포
 
 ```bash
@@ -96,6 +103,16 @@ npm run build
 ```
 
 생성된 `dist/` 디렉터리를 정적 호스팅에 그대로 배포할 수 있습니다. Vite `base`가 상대경로로 설정되어 하위 경로 정적 호스팅도 지원합니다. 별도 환경변수나 서버 함수는 없습니다.
+
+### Vercel
+
+GitHub 저장소를 Vercel에 Import하거나, 로그인 후 아래를 실행합니다.
+
+```bash
+npx vercel --yes --prod
+```
+
+Framework는 Vite, Output은 `dist`입니다. `vercel.json`이 같은 값을 고정합니다.
 
 ## 후속 확장 후보
 

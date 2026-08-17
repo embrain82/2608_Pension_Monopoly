@@ -414,6 +414,7 @@ export class PensionRoadApp {
         <button class="text-button" data-action="open-cards">학습 카드 도감 <span class="badge">${this.save.unlockedCards.length}</span></button>
         <button class="text-button" data-action="open-settings">면책 · 출처 · 설정</button>
       </div>
+      <p class="manual-links"><a href="./user-manual.html" target="_blank" rel="noreferrer">사용자 매뉴얼</a> · <a href="./operator-manual.html" target="_blank" rel="noreferrer">운영자 매뉴얼</a></p>
       <p class="record">최고 달성률 <strong>${Math.round(this.save.bestGoalRate * 100)}%</strong> · 최고 수익률 <strong>${signedPercent(this.save.bestReturnRate)}</strong> · ${this.save.bestScore}점</p>
     </section>`;
   }
@@ -725,6 +726,7 @@ export class PensionRoadApp {
         ${renderSettingsHowToButton()}
         <button class="secondary" data-action="open-diagnosis">성향 다시 진단</button>
         <button class="secondary" data-action="open-goal">월 연금 목표 바꾸기</button>
+        <p class="manual-links"><a href="./user-manual.html" target="_blank" rel="noreferrer">사용자 매뉴얼</a> · <a href="./operator-manual.html" target="_blank" rel="noreferrer">운영자 매뉴얼</a></p>
       </div>
       <div class="disclaimer-box"><strong>중요 면책</strong><p>모든 금융 수치는 교육용으로 단순화했습니다. 특정 금융회사·상품을 추천하지 않으며, 수익·원금·세제 혜택을 보장하지 않습니다. 실제 규정과 세무 결과는 개인 상황과 기준일에 따라 달라질 수 있습니다. 은행 계좌·잔고와 연동되지 않는 가상 포트폴리오입니다.</p></div>
       <h3>정책 데이터</h3><p>기준일 ${policyRules.reviewed_at} · 교육용 단순화 ${policyRules.simplified ? '예' : '아니오'}</p>
