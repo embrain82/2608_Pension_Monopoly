@@ -587,7 +587,7 @@ export class PensionRoadApp {
         <article><span>생활자금 부족</span><strong>${this.game.cashShortages}회</strong></article>
       </div>
       <div class="score-breakdown"><span>노후소득 <b>${score.incomeScore}/50</b></span><span>안정성 <b>${score.stabilityScore}/30</b></span><span>제도·운용 이해 <b>${score.knowledgeScore}/20</b></span></div>
-      <article class="behavior-card"><div><small>기준 성향</small><strong>${diagnosed.name}</strong></div><span>→</span><div><small>실제 행동성향</small><strong>${actual.name}</strong></div><p>${score.profileAligned ? '기준 성향과 실제 행동이 큰 차이 없이 이어졌습니다.' : '기준 성향과 실제 위험 선택에 차이가 있었습니다. 감내 가능한 손실을 다시 점검해보세요.'}</p></article>
+      <article class="behavior-card"><div><small>기준 성향</small><strong>${diagnosed.name}</strong></div><span>→</span><div><small>실제 행동성향</small><strong>${actual.name}</strong></div><p>${score.profileAligned ? '공식 리밸런싱 목표 위험비중에 가깝게 끝났습니다.' : '공식 리밸런싱 목표 위험비중과 차이가 있습니다. 한 번 리밸런싱을 검토해보세요.'}</p></article>
       <div class="decision-grid"><article class="good"><span>✓ 가장 좋았던 결정</span><p>${score.bestDecision}</p></article><article class="improve"><span>↗ 다음에 바꿀 한 가지</span><p>${score.improvement}</p></article></div>
       <details class="assumptions"><summary>수익률·월 연금 계산 가정과 면책</summary><p>시작 대비 수익률은 (최종 IRP − 시작 IRP) ÷ 시작 IRP입니다. 운용수익률은 같은 식에서 추가납입을 빼 시장 효과를 구분합니다. 월 연금은 최종 IRP ÷ ${policyRules.receivingMonths}개월의 단순 균등분할입니다. 세전이며 수령 중 수익률, 세금, 비용, 물가를 반영하지 않습니다. 실제 결과와 다를 수 있고 투자 권유가 아닙니다.</p></details>
       <div class="result-actions"><button class="primary" data-action="same-seed">같은 시드로 다시</button><button class="secondary" data-action="new-seed">새 시드로 도전</button><button class="text-button" data-action="open-cards">관련 학습 카드 보기</button><button class="text-button" data-action="to-title">타이틀로</button></div>

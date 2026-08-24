@@ -86,7 +86,7 @@ export function calculateScore(state: GameState): ScoreResult {
       : state.rebalanceCount === 0
         ? '시장 국면이 바뀐 뒤 리밸런싱으로 목표 위험비중을 회복해보세요.'
         : !profileAligned
-          ? '진단 성향과 실제 위험비중의 차이를 줄여보세요.'
+          ? '공식 리밸런싱 목표 위험비중에 더 가깝게 맞춰보세요.'
           : '목표 월 연금을 지키면서 시장에 맞게 매매 타이밍을 실험해보세요.';
 
   return {
