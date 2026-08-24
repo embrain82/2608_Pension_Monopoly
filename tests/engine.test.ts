@@ -165,6 +165,20 @@ describe('정책과 주문', () => {
     expect(acted.state.awaitingAction).toBe(false);
   });
 
+  it('성공한 운용 뒤에는 정산 요약을 붙인다', () => {
+    let state = startTurn(createGame('action-summary'), 1).state;
+    if (state.currentEventId) state = resolveLifeEvent(state, 'cash').state;
+    const result = performAction(state, { kind: 'hold' });
+    expect(result.ok).toBe(true);
+    expect(result.summary?.turn).toBe(state.turn);
+    expect(result.summary?.actionLine).toBe(result.message);
+    expect(result.summary?.nextHints.length).toBeGreaterThan(0);
+
+    const rejected = performAction(state, { kind: 'buy' });
+    expect(rejected.ok).toBe(false);
+    expect(rejected.summary).toBeUndefined();
+  });
+
   it('TDF 예외 속성을 유효 위험비율에 반영한다', () => {
     expect(effectiveRiskRatio('tdf')).toBe(policyRules.tdfAdjustedRiskRatio);
     expect(effectiveRiskRatio('tdf')).toBeLessThan(0.8);

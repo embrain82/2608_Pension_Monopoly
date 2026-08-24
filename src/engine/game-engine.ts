@@ -4,6 +4,7 @@ import { applyMarketStep, emptyMarketStep, generateMarketPath, marketPathOf } fr
 import { pickTileBriefing } from './tile-briefing';
 import { buyProduct, liquidateForLivingCost, portfolioValue, rebalancePortfolio, sellProduct, settleOrders, switchProduct } from './portfolio-engine';
 import { contributionCredit } from './policy-engine';
+import { summarizeTurn } from './settlement-engine';
 import { diceStepsForTurn, hashSeed, nextRandom } from './random-engine';
 
 export interface GameAction {
@@ -242,7 +243,12 @@ export function performAction(state: GameState, action: GameAction): ActionResul
     case 'hold': result = { ok: true, message: '이번 턴은 행동하지 않고 현재 구성을 유지했습니다.', state: { ...state, safeActionCount: state.safeActionCount + 1 } }; break;
   }
   if (!result.ok) return result;
-  return { ...result, state: finalizeTurn({ ...result.state, logs: [...result.state.logs, { turn: state.turn, type: 'action', message: result.message }] }) };
+  const next = finalizeTurn({ ...result.state, logs: [...result.state.logs, { turn: state.turn, type: 'action', message: result.message }] });
+  return {
+    ...result,
+    state: next,
+    summary: summarizeTurn(state, next, result.message)
+  };
 }
 
 export function finalizeTurn(state: GameState): GameState {
