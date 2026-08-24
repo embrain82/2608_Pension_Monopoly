@@ -265,7 +265,7 @@ export function finalizeTurn(state: GameState): GameState {
   };
 }
 
-export type AutoStrategy = 'balanced' | 'passive' | 'contributor' | 'growth';
+export type AutoStrategy = 'balanced' | 'passive' | 'contributor' | 'growth' | 'steward';
 
 export function autoplay(seed: string, strategy: AutoStrategy = 'balanced'): GameState {
   let state = createGame(seed);
@@ -278,7 +278,14 @@ export function autoplay(seed: string, strategy: AutoStrategy = 'balanced'): Gam
     else if (strategy === 'growth') action = state.turn % 2 === 1
       ? { kind: 'contribute' }
       : { kind: 'buy', productId: 'equityEtf', amount: balanceConfig.contributionAmount };
-    else action = state.turn % 4 === 0 || state.turn >= 11
+    else if (strategy === 'steward') {
+      const pension = portfolioValue(state) / policyRules.receivingMonths;
+      action = pension < state.goalMonthly && state.cash > balanceConfig.safeCashThreshold + balanceConfig.contributionAmount
+        ? { kind: 'contribute' }
+        : state.turn >= 9
+          ? { kind: 'rebalance' }
+          : { kind: 'hold' };
+    } else action = state.turn % 4 === 0 || state.turn >= 11
       ? { kind: 'rebalance' }
       : state.cash > balanceConfig.safeCashThreshold + balanceConfig.contributionAmount
         ? { kind: 'contribute' }

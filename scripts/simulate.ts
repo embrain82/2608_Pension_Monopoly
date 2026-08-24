@@ -16,7 +16,7 @@ let unfinished = 0;
 
 for (let index = 0; index < runs; index += 1) {
   try {
-    const strategies: AutoStrategy[] = ['balanced', 'passive', 'contributor', 'growth'];
+    const strategies: AutoStrategy[] = ['balanced', 'passive', 'contributor', 'growth', 'steward'];
     const state = autoplay(`simulation-${index}`, strategies[index % strategies.length]);
     const score = calculateScore(state);
     const values = [state.cash, state.irpCash, score.irpValue, ...state.holdings.map((holding) => holding.amount)];
