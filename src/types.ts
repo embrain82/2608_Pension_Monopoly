@@ -180,11 +180,32 @@ export interface GameState {
   lifeEventSchedule: Array<{ turn: number; eventId: string }>;
 }
 
+export interface TurnProductDelta {
+  productId: ProductId;
+  name: string;
+  delta: number;
+}
+
+export interface TurnSummary {
+  turn: number;
+  actionLine: string;
+  irpBefore: number;
+  irpAfter: number;
+  riskBefore: number;
+  riskAfter: number;
+  marketHeadline: string;
+  shock: boolean;
+  marketLimitExceeded: boolean;
+  productDeltas: TurnProductDelta[];
+  nextHints: string[];
+}
+
 export interface ActionResult {
   ok: boolean;
   message: string;
   state: GameState;
   expectedRiskRatio?: number;
+  summary?: TurnSummary;
 }
 
 export interface ScoreResult {
