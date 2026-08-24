@@ -6,7 +6,7 @@ import { canBuyForProfile, decideBuyAgainstRiskLimit, expectedRiskAfterBuy, maxB
 import { randomSeed } from '../engine/random-engine';
 import { applyProfileToGame, profileFromScore } from '../engine/profile-engine';
 import { pickTileBriefing } from '../engine/tile-briefing';
-import { calculateScore } from '../engine/scoring-engine';
+import { calculateScore, starChecklist } from '../engine/scoring-engine';
 import type { ActionKind, GameState, ProfileId, ProductId, SaveData, TurnSummary } from '../types';
 import { DICE_LAND_HOLD_MS, DICE_ROLL_DURATION_MS, canRevealNextTurn, dicePairForTurn, dicePairLabel, diceSteps, renderDiceMarkup, shouldSkipDiceAnimation } from './dice';
 import { TOKEN_STEP_MS, movePath, renderBoardMarkup } from './board';
@@ -573,8 +573,11 @@ export class PensionRoadApp {
         <div><small>예상 월 연금</small><strong>${formatWon(score.monthlyPension)}</strong><span>목표 ${formatWon(this.game.goalMonthly)} · 달성률 ${Math.round(score.goalRate * 100)}%</span></div>
         <div><small>시작 대비 수익률</small><strong class="${score.returnRate < 0 ? 'neg' : ''}">${signedPercent(score.returnRate)}</strong><span>운용수익률 ${signedPercent(score.investmentReturnRate)} · 낙폭 ${percent(score.maxDrawdown)}</span></div>
       </div>
-      <p class="score-title">보조 점수 <strong>${score.totalScore}점</strong> · 별 ${score.stars}개 · ${score.stars === 3 ? '지속 가능한 연금 설계자' : score.stars >= 1 ? '균형 잡힌 적립가' : '연금 설계 입문자'}</p>
+      <p class="score-title">보조 점수 <strong>${score.totalScore}점</strong> · 별 ${score.stars}개 · ${score.starTitle}</p>
       <div class="stars" role="img" aria-label="3개 중 ${score.stars}개 별">${[1, 2, 3].map((n) => `<span aria-hidden="true" class="${n <= score.stars ? 'earned' : ''}">★</span>`).join('')}</div>
+      <ul class="star-checks">${starChecklist(this.game, score).map((row) =>
+        `<li class="${row.passed ? 'ok' : 'miss'}">${row.passed ? '됨' : '아직'} · ${row.label}</li>`
+      ).join('')}</ul>
       <div class="result-grid">
         <article><span>IRP 최종 평가액</span><strong>${formatWon(score.irpValue)}</strong></article>
         <article><span>추가납입</span><strong>${formatWon(this.game.contributionTotal)}</strong></article>

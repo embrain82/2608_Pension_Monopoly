@@ -31,6 +31,17 @@ export function starTitle(stars: 0 | 1 | 2 | 3): string {
   return ['연금 설계 입문자', '목표에 가까워진 적립가', '균형 잡힌 적립가', '지속 가능한 연금 설계자'][stars];
 }
 
+export function starChecklist(state: GameState, score: ScoreResult): { label: string; passed: boolean }[] {
+  const need = diversificationNeeded(state.profileId);
+  return [
+    { label: `월 연금이 목표의 ${Math.round(balanceConfig.nearGoalRate * 100)}%에 닿음`, passed: score.goalRate >= balanceConfig.nearGoalRate },
+    { label: `생활자금 ${(balanceConfig.safeCashThreshold / 10000).toFixed(0)}만 원`, passed: state.cash >= balanceConfig.safeCashThreshold },
+    { label: `낙폭 ${Math.round(balanceConfig.maxDrawdownThreshold * 100)}% 이하`, passed: state.maxDrawdown <= balanceConfig.maxDrawdownThreshold },
+    { label: `분산 ${need}종 이상`, passed: score.diversification >= need },
+    { label: `성향 목표 위험비중과 ${Math.round(balanceConfig.profileAlignBand * 100)}%p 이내`, passed: score.profileAligned }
+  ];
+}
+
 export function calculateScore(state: GameState): ScoreResult {
   const irpValue = portfolioValue(state);
   const pension = monthlyPension(irpValue);

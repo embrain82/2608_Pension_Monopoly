@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createGame } from '../src/engine/game-engine';
 import { rebalancePortfolio, rebalanceTargetRisk } from '../src/engine/portfolio-engine';
-import { calculateScore, diversificationNeeded, starTitle } from '../src/engine/scoring-engine';
+import { calculateScore, diversificationNeeded, starChecklist, starTitle } from '../src/engine/scoring-engine';
 
 function withHoldings(
   state: ReturnType<typeof createGame>,
@@ -62,5 +62,22 @@ describe('별 사다리 공식', () => {
     expect(score.stars).toBe(3);
     expect(starTitle(3)).toBe('지속 가능한 연금 설계자');
   });
+
+  it('체크리스트는 목표·생활자금·낙폭·분산·정렬 다섯 줄이다', () => {
+    const state = withHoldings(createGame('list'), [
+      { productId: 'deposit', amount: 108_000_000, principal: 108_000_000, depositTurnsHeld: 4 }
+    ], { cash: 10_000_000, goalMonthly: 500_000, maxDrawdown: 0 });
+    const rows = starChecklist(state, calculateScore(state));
+    expect(rows.map((row) => row.label)).toEqual([
+      '월 연금이 목표의 95%에 닿음',
+      '생활자금 600만 원',
+      '낙폭 12% 이하',
+      '분산 3종 이상',
+      '성향 목표 위험비중과 10%p 이내'
+    ]);
+    expect(rows[0].passed).toBe(false);
+    expect(rows[1].passed).toBe(true);
+  });
 });
+
 

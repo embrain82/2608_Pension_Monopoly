@@ -291,6 +291,10 @@ td small { display: block; margin: 3px 0 0 20px; color: var(--muted); font-size:
 .result-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 .result-grid article { display: grid; gap: 8px; padding: 16px; background: rgba(255,255,255,.8); border: 1px solid #fff; border-radius: 14px; }
 .result-grid span { color: var(--muted); font-size: .72rem; }
+.star-checks { display: grid; gap: 6px; margin: 12px 0 0; padding: 0; list-style: none; }
+.star-checks li { padding: 8px 12px; font-size: .82rem; background: var(--cream); border-radius: 10px; }
+.star-checks .ok { color: #1f4d3a; }
+.star-checks .miss { color: var(--muted); }
 .score-breakdown { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; margin: 14px 0; overflow: hidden; background: var(--line); border: 1px solid var(--line); border-radius: 14px; }
 .score-breakdown span { display: grid; gap: 5px; padding: 14px; background: var(--paper); font-size: .75rem; }
 .behavior-card { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; margin-top: 14px; padding: 20px; text-align: center; background: var(--cream); border-radius: 16px; }
