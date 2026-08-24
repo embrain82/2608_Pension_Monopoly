@@ -34,9 +34,16 @@ export function canBuyRiskAsset(state: GameState, productId: ProductId, amount: 
   const addedRisk = effectiveRiskRatio(productId);
   const ratio = expectedRiskAfterBuy(state, productId, amount);
   if (addedRisk > 0 && current > policyRules.riskAssetLimit) {
-    return { ok: false, ratio, reason: '시장 상승으로 현재 위험비중이 한도를 넘었습니다. 안전자산 매수나 리밸런싱이 먼저 필요합니다.' };
+    return { ok: false, ratio, reason: '시장 상승으로 현재 위험비중이 한도를 넘었습니다. 예금·채권 매수나 리밸런싱이 먼저 필요합니다.' };
   }
   if (ratio > policyRules.riskAssetLimit + 0.00001) {
+    if (ratio <= current + 0.00001) {
+      return {
+        ok: true,
+        ratio,
+        reason: `매수 후 예상 위험자산 비중 ${(ratio * 100).toFixed(1)}%. 시장 초과 상태는 유지되지만 비중을 더 키우지 않습니다.`
+      };
+    }
     return { ok: false, ratio, reason: `예상 위험자산 비중이 ${(ratio * 100).toFixed(1)}%로 교육용 한도 ${(policyRules.riskAssetLimit * 100).toFixed(0)}%를 넘습니다.` };
   }
   return { ok: true, ratio, reason: `매수 후 예상 위험자산 비중 ${(ratio * 100).toFixed(1)}%` };

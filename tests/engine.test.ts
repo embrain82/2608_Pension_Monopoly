@@ -133,6 +133,38 @@ describe('정책과 주문', () => {
     expect(canBuyRiskAsset(moved, 'equityEtf', 1_000_000).ok).toBe(false);
   });
 
+  it('사후 한도 초과 뒤에는 예금·채권 매수는 되고 위험자산 매수는 막는다', () => {
+    const base = createGame('safe-after-cap', 'growth');
+    const state = {
+      ...base,
+      awaitingAction: true,
+      currentEventId: null,
+      irpCash: 5_000_000,
+      holdings: [
+        { productId: 'deposit' as const, amount: 30_000_000, principal: 30_000_000, depositTurnsHeld: 4 },
+        { productId: 'equityEtf' as const, amount: 70_000_000, principal: 70_000_000, depositTurnsHeld: 0 }
+      ]
+    };
+    const moved = applyMarketStep(state, {
+      ...state.lastMarket,
+      returns: { ...state.lastMarket.returns, deposit: 0, equityEtf: 0.5 }
+    });
+    expect(moved.marketLimitExceeded).toBe(true);
+    expect(canBuyRiskAsset(moved, 'deposit', 1_000_000).ok).toBe(true);
+    expect(canBuyRiskAsset(moved, 'shortBond', 1_000_000).ok).toBe(true);
+    expect(canBuyRiskAsset(moved, 'equityEtf', 1_000_000).ok).toBe(false);
+    expect(canBuyRiskAsset(moved, 'balanced', 1_000_000).ok).toBe(false);
+
+    const bought = buyProduct(moved, 'deposit', 1_000_000);
+    expect(bought.ok).toBe(true);
+    expect(bought.state.irpCash).toBe(4_000_000);
+    expect(riskAssetRatio(bought.state)).toBeLessThanOrEqual(riskAssetRatio(moved) + 0.00001);
+
+    const acted = performAction(moved, { kind: 'buy', productId: 'deposit', amount: 1_000_000 });
+    expect(acted.ok).toBe(true);
+    expect(acted.state.awaitingAction).toBe(false);
+  });
+
   it('TDF 예외 속성을 유효 위험비율에 반영한다', () => {
     expect(effectiveRiskRatio('tdf')).toBe(policyRules.tdfAdjustedRiskRatio);
     expect(effectiveRiskRatio('tdf')).toBeLessThan(0.8);
