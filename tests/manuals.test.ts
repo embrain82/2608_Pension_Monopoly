@@ -26,6 +26,10 @@ describe('배포용 매뉴얼', () => {
     expect(user).toContain('C19');
     expect(user).toContain('C20');
     expect(user).toContain('도착 칸이');
+    expect(user).toContain('목표에 가까워진 적립가');
+    expect(user).toContain('목표의 95%');
+    expect(user).toContain('C23');
+    expect(user).toContain('리밸런싱 목표 위험비중');
     expect(operator).toContain('구현된 기능');
     expect(operator).toContain('QA 케이스 매트릭스');
     expect(operator).toContain('vercel');
@@ -37,5 +41,7 @@ describe('배포용 매뉴얼', () => {
     expect(operator).toContain('Q18');
     expect(operator).toContain('Q19');
     expect(operator).toContain('Q20');
+    expect(operator).toContain('Q21');
+    expect(operator).toContain('nearGoalRate');
   });
 });
