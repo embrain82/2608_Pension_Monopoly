@@ -400,12 +400,8 @@ describe('점수와 저장 복구', () => {
   it('월 연금과 별 등급을 정확히 계산한다', () => {
     expect(monthlyPension(120_000_000)).toBe(500_000);
     const base = autoplay('stars');
-    const strong = { ...base, cash: 10_000_000, maxDrawdown: 0.05, ruleBreaches: 0, profileId: 'balanced' as const,
-      holdings: [
-        { productId: 'deposit' as const, amount: 50_000_000, principal: 50_000_000, depositTurnsHeld: 4 },
-        { productId: 'shortBond' as const, amount: 30_000_000, principal: 30_000_000, depositTurnsHeld: 0 },
-        { productId: 'equityEtf' as const, amount: 50_000_000, principal: 50_000_000, depositTurnsHeld: 0 }
-      ], irpCash: 0, goalMonthly: 500_000 };
+    const rebalanced = rebalancePortfolio({ ...base, profileId: 'balanced', goalMonthly: 400_000 }).state;
+    const strong = { ...rebalanced, cash: 10_000_000, maxDrawdown: 0.05, goalMonthly: 400_000 };
     expect(calculateScore(strong).stars).toBe(3);
   });
 

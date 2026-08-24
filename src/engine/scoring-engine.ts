@@ -1,6 +1,6 @@
 import { balanceConfig, investorProfiles, policyRules, products } from '../data/content';
 import type { GameState, ProfileId, ScoreResult } from '../types';
-import { portfolioValue } from './portfolio-engine';
+import { portfolioValue, rebalanceTargetRisk } from './portfolio-engine';
 import { canBuyForProfile, riskAssetRatio } from './policy-engine';
 
 export function monthlyPension(irpValue: number): number {
@@ -27,6 +27,10 @@ export function behaviorProfile(state: GameState): ProfileId {
   return closest.id;
 }
 
+export function starTitle(stars: 0 | 1 | 2 | 3): string {
+  return ['연금 설계 입문자', '목표에 가까워진 적립가', '균형 잡힌 적립가', '지속 가능한 연금 설계자'][stars];
+}
+
 export function calculateScore(state: GameState): ScoreResult {
   const irpValue = portfolioValue(state);
   const pension = monthlyPension(irpValue);
@@ -35,17 +39,16 @@ export function calculateScore(state: GameState): ScoreResult {
   const riskRatio = riskAssetRatio(state);
   const diversification = diversificationCount(state);
   const actualProfile = behaviorProfile(state);
-  const diagnosedIndex = investorProfiles.findIndex((profile) => profile.id === state.profileId);
-  const actualIndex = investorProfiles.findIndex((profile) => profile.id === actualProfile);
-  const profileAligned = Math.abs(diagnosedIndex - actualIndex) <= 1;
+  const profileAligned = Math.abs(riskRatio - rebalanceTargetRisk(state.profileId)) <= balanceConfig.profileAlignBand;
   const safeCash = state.cash >= balanceConfig.safeCashThreshold;
-  const obeyedRules = state.ruleBreaches === 0;
   const drawdownOk = state.maxDrawdown <= balanceConfig.maxDrawdownThreshold;
-  const diversified = diversification >= balanceConfig.diversificationMin;
+  const diversified = diversification >= diversificationNeeded(state.profileId);
+  const nearGoal = goalRate >= balanceConfig.nearGoalRate;
 
   let stars: 0 | 1 | 2 | 3 = 0;
-  if (goalMet) stars = 1;
-  if (goalMet && safeCash && obeyedRules) stars = 2;
+  if (nearGoal && !goalMet) stars = 1;
+  if (goalMet && !safeCash) stars = 1;
+  if (goalMet && safeCash) stars = 2;
   if (stars === 2 && drawdownOk && diversified && profileAligned) stars = 3;
 
   const incomeScore = Math.min(50, Math.max(0, goalRate * 50));
@@ -77,7 +80,7 @@ export function calculateScore(state: GameState): ScoreResult {
 
   return {
     monthlyPension: pension, goalRate, goalMet, irpValue, cash: state.cash, riskRatio,
-    diversification, maxDrawdown: state.maxDrawdown, stars, totalScore,
+    diversification, maxDrawdown: state.maxDrawdown, stars, starTitle: starTitle(stars), totalScore,
     incomeScore: Math.round(incomeScore), stabilityScore: Math.round(stabilityScore), knowledgeScore: Math.round(knowledgeScore),
     behaviorProfile: actualProfile, profileAligned, bestDecision, improvement,
     relatedCardIds: ['pension-assumption', !safeCash ? 'emergency-cash' : !diversified ? 'diversification' : 'rebalance'],

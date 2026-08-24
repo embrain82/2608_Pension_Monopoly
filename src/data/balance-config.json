@@ -11,6 +11,8 @@
   "tradeAmount":8000000,
   "safeCashThreshold":6000000,
   "diversificationMin":3,
+  "nearGoalRate":0.95,
+  "profileAlignBand":0.10,
   "maxDrawdownThreshold":0.12,
   "depositMaturityTurns":3,
   "defaultAllocation":{"deposit":0.6,"shortBond":0,"longBond":0,"balanced":0.4,"equityEtf":0,"tdf":0},

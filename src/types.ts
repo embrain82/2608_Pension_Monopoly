@@ -82,6 +82,8 @@ export interface BalanceConfig {
   tradeAmount: number;
   safeCashThreshold: number;
   diversificationMin: number;
+  nearGoalRate: number;
+  profileAlignBand: number;
   maxDrawdownThreshold: number;
   depositMaturityTurns: number;
   defaultAllocation: Record<ProductId, number>;
@@ -218,6 +220,7 @@ export interface ScoreResult {
   diversification: number;
   maxDrawdown: number;
   stars: 0 | 1 | 2 | 3;
+  starTitle: string;
   totalScore: number;
   incomeScore: number;
   stabilityScore: number;

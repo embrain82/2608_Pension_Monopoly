@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { rebalanceTargetRisk } from '../src/engine/portfolio-engine';
-import { diversificationNeeded } from '../src/engine/scoring-engine';
+import { createGame } from '../src/engine/game-engine';
+import { rebalancePortfolio, rebalanceTargetRisk } from '../src/engine/portfolio-engine';
+import { calculateScore, diversificationNeeded, starTitle } from '../src/engine/scoring-engine';
+
+function withHoldings(
+  state: ReturnType<typeof createGame>,
+  holdings: typeof state.holdings,
+  extra: Partial<typeof state> = {}
+) {
+  return { ...state, holdings, irpCash: 0, ...extra };
+}
 
 describe('별 사다리 헬퍼', () => {
   it('위험중립형 리밸런싱 목표 위험은 약 21.7%이다', () => {
@@ -12,3 +21,46 @@ describe('별 사다리 헬퍼', () => {
     expect(diversificationNeeded('balanced')).toBe(3);
   });
 });
+
+describe('별 사다리 공식', () => {
+  it('목표 95% 미만은 0별, 95%대는 1별이다', () => {
+    const base = createGame('score-0');
+    const low = withHoldings(base, [
+      { productId: 'deposit', amount: 108_000_000, principal: 108_000_000, depositTurnsHeld: 4 }
+    ], { cash: 10_000_000, goalMonthly: 500_000 });
+    expect(calculateScore(low).stars).toBe(0);
+
+    const near = withHoldings(base, [
+      { productId: 'deposit', amount: 115_000_000, principal: 115_000_000, depositTurnsHeld: 4 }
+    ], { cash: 10_000_000, goalMonthly: 500_000 });
+    expect(calculateScore(near).stars).toBe(1);
+    expect(calculateScore(near).starTitle).toBe('목표에 가까워진 적립가');
+  });
+
+  it('목표는 됐지만 생활자금이 부족하면 1별이다', () => {
+    const state = withHoldings(createGame('score-cash'), [
+      { productId: 'deposit', amount: 120_000_000, principal: 120_000_000, depositTurnsHeld: 4 }
+    ], { cash: 1_000_000, goalMonthly: 500_000 });
+    expect(calculateScore(state).stars).toBe(1);
+  });
+
+  it('목표+생활자금이면 2별이고, 분산이 부족하면 3별이 아니다', () => {
+    const state = withHoldings(createGame('score-2'), [
+      { productId: 'deposit', amount: 72_000_000, principal: 72_000_000, depositTurnsHeld: 4 },
+      { productId: 'balanced', amount: 48_000_000, principal: 48_000_000, depositTurnsHeld: 0 }
+    ], { cash: 10_000_000, goalMonthly: 500_000, maxDrawdown: 0.05 });
+    const score = calculateScore(state);
+    expect(score.stars).toBe(2);
+    expect(score.starTitle).toBe('균형 잡힌 적립가');
+  });
+
+  it('납입 후 공식 리밸런싱에 가깝고 분산되면 3별이다', () => {
+    const rich = { ...createGame('score-3', 'balanced', 400_000), cash: 10_000_000, maxDrawdown: 0.05 };
+    const rebalanced = rebalancePortfolio(rich).state;
+    const score = calculateScore({ ...rebalanced, cash: 10_000_000, maxDrawdown: 0.05 });
+    expect(score.goalMet).toBe(true);
+    expect(score.stars).toBe(3);
+    expect(starTitle(3)).toBe('지속 가능한 연금 설계자');
+  });
+});
+
