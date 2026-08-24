@@ -14,7 +14,7 @@ import { renderSettlementModal } from '../src/ui/settlement';
 describe('턴 정산 요약', () => {
   it('행동 전후 IRP·위험비중과 힌트를 만든다', () => {
     const started = startTurn(createGame('settle-hold'), 1);
-    let state = started.state;
+    const state = started.state;
     if (state.currentEventId) return;
     const before = state;
     const after = performAction(state, { kind: 'hold' }).state;
