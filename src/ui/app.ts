@@ -7,16 +7,17 @@ import { randomSeed } from '../engine/random-engine';
 import { applyProfileToGame, profileFromScore } from '../engine/profile-engine';
 import { pickTileBriefing } from '../engine/tile-briefing';
 import { calculateScore } from '../engine/scoring-engine';
-import type { ActionKind, GameState, ProfileId, ProductId, SaveData } from '../types';
+import type { ActionKind, GameState, ProfileId, ProductId, SaveData, TurnSummary } from '../types';
 import { DICE_LAND_HOLD_MS, DICE_ROLL_DURATION_MS, canRevealNextTurn, dicePairForTurn, dicePairLabel, diceSteps, renderDiceMarkup, shouldSkipDiceAnimation } from './dice';
 import { TOKEN_STEP_MS, movePath, renderBoardMarkup } from './board';
 import { renderHowToModal, renderSettingsHowToButton, shouldShowHowTo, shouldShowLearningTip } from './howto';
 import { renderTileBriefing } from './tile-briefing';
 import { percent, renderMarketCard, renderMarketTimeline, renderSettingsEntry, renderTurnTrack, signedPercent } from './market-view';
 import { loadSave, saveData } from './ui-state';
+import { renderSettlementModal } from './settlement';
 
 type Screen = 'title' | 'diagnosis' | 'goal' | 'game' | 'result';
-type Modal = 'life' | 'action' | 'portfolio' | 'market' | 'cards' | 'settings' | 'howto' | 'tile' | null;
+type Modal = 'life' | 'action' | 'portfolio' | 'market' | 'cards' | 'settings' | 'howto' | 'tile' | 'settle' | null;
 type ActionView = 'menu' | ActionKind;
 
 const questions = [
@@ -47,6 +48,7 @@ export class PensionRoadApp {
   private switchTo: ProductId = 'shortBond';
   private amountPreset: AmountPreset = 'default';
   private buyLimitConfirm: Extract<BuyLimitDecision, { kind: 'confirm' }> | null = null;
+  private lastSummary: TurnSummary | null = null;
   private actionView: ActionView = 'menu';
   private setupReturn: Screen = 'title';
   private tipDismissed = false;
@@ -173,6 +175,8 @@ export class PensionRoadApp {
       this.runAction({ kind: 'rebalance' });
     } else if (action === 'do-hold') {
       this.runAction({ kind: 'hold' });
+    } else if (action === 'dismiss-settle') {
+      this.modal = null;
     } else if (action === 'open-portfolio') {
       this.modal = 'portfolio';
     } else if (action === 'open-market') {
@@ -276,14 +280,16 @@ export class PensionRoadApp {
     this.game = result.state;
     this.announce(result.message);
     if (!result.ok) return;
-    this.modal = null;
     this.actionView = 'menu';
     this.tipDismissed = false;
+    this.lastSummary = result.summary ?? null;
     if (this.game.status === 'finished') {
+      this.modal = null;
       this.screen = 'result';
       this.persist(true);
       return;
     }
+    this.modal = result.summary ? 'settle' : null;
     this.persist(true);
   }
 
@@ -540,7 +546,7 @@ export class PensionRoadApp {
             <div class="goal-meter"><span style="width:${Math.min(100, score.goalRate * 100)}%"></span></div><div class="goal-caption"><span>목표 ${formatShortWon(state.goalMonthly)}</span><strong>${Math.round(score.goalRate * 100)}%</strong></div>
             <div class="profile-line"><span>투자 성향 <b>${profile?.name ?? ''}</b></span><span>${profile?.maxRiskGrade ?? 0}등급까지 매수</span></div>
             <div class="risk-line"><span>위험자산 비중 <b>${percent(score.riskRatio)}</b></span><span>생활자금 ${formatShortWon(state.cash)}</span></div>
-            ${state.marketLimitExceeded ? '<p class="warning">시장 상승으로 한도 초과 · 위험매수 제한, 리밸런싱 권장</p>' : ''}
+            ${state.marketLimitExceeded ? '<p class="warning">시장 상승으로 한도 초과 · 위험자산 추가매수 제한, 예금·채권 매수나 리밸런싱은 가능</p>' : ''}
             ${pending ? `<p class="order-note">주문 ${pending}건이 다음 턴 기준가·결제를 기다리는 중</p>` : ''}
           </article>
           <div class="turn-log"><strong>최근 기록</strong><p>${state.logs.at(-1)?.message ?? ''}</p></div>
@@ -596,6 +602,7 @@ export class PensionRoadApp {
     if (this.modal === 'cards') content = this.renderCardsModal();
     if (this.modal === 'settings') content = this.renderSettingsModal();
     if (this.modal === 'howto') content = renderHowToModal();
+    if (this.modal === 'settle' && this.lastSummary) content = renderSettlementModal(this.lastSummary);
     if (this.modal === 'tile' && this.game) {
       const tile = boardTiles[this.game.position];
       content = renderTileBriefing(
@@ -608,7 +615,8 @@ export class PensionRoadApp {
       : this.modal === 'life' ? '생활사건'
         : this.modal === 'howto' ? '게임 방법'
           : this.modal === 'tile' ? '도착 칸 설명'
-            : '게임 정보';
+            : this.modal === 'settle' ? '턴 정산 요약'
+              : '게임 정보';
     return `<div class="modal-backdrop"><section class="modal-sheet modal-${this.modal}" role="dialog" aria-modal="true" aria-label="${label}">${close}${content}<p class="modal-feedback" aria-live="polite">${this.feedback}</p></section></div>`;
   }
 

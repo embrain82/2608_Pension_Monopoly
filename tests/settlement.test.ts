@@ -2,12 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { createGame, performAction, startTurn } from '../src/engine/game-engine';
 import { applyMarketStep } from '../src/engine/market-engine';
 import {
+  HINT_DEFAULT,
   HINT_NEAR_LIMIT,
   HINT_OVER_LIMIT,
   HINT_PENDING_FUND,
   summarizeTurn
 } from '../src/engine/settlement-engine';
 import { policyRules } from '../src/data/content';
+import { renderSettlementModal } from '../src/ui/settlement';
 
 describe('턴 정산 요약', () => {
   it('행동 전후 IRP·위험비중과 힌트를 만든다', () => {
@@ -95,5 +97,28 @@ describe('턴 정산 요약', () => {
     expect(summary.riskAfter).toBeGreaterThan(0.62);
     expect(summary.riskAfter).toBeLessThanOrEqual(policyRules.riskAssetLimit + 0.00001);
     expect(summary.nextHints).toContain(HINT_NEAR_LIMIT);
+  });
+
+  it('정산 모달에 전후 숫자와 다음 판단을 그린다', () => {
+    const html = renderSettlementModal({
+      turn: 3,
+      actionLine: '이번 턴은 행동하지 않고 현재 구성을 유지했습니다.',
+      irpBefore: 108_000_000,
+      irpAfter: 109_200_000,
+      riskBefore: 0.2,
+      riskAfter: 0.21,
+      marketHeadline: '금리는 내리고 주가는 올랐습니다',
+      shock: false,
+      marketLimitExceeded: false,
+      productDeltas: [{ productId: 'equityEtf', name: '주식 ETF', delta: 1_200_000 }],
+      nextHints: [HINT_DEFAULT]
+    });
+    expect(html).toContain('3턴 정산');
+    expect(html).toContain('정산 요약');
+    expect(html).toContain('다음 판단');
+    expect(html).toContain('다음 턴 준비');
+    expect(html).toContain('주식 ETF');
+    expect(html).toContain(HINT_DEFAULT);
+    expect(html).toContain('data-action="dismiss-settle"');
   });
 });

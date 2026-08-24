@@ -131,6 +131,9 @@ a { color: var(--green); text-underline-offset: 3px; }
 .preview-box p { margin: 6px 0 0; color: var(--muted); font-size: .84rem; line-height: 1.5; }
 .preview-box.warning { background: #fff0e7; }
 .preview-box.warning p { color: #9a471f; }
+.settle-moves, .settle-hints { margin: 8px 0 0; padding-left: 1.1em; }
+.settle-moves li, .settle-hints li { margin: 4px 0; font-size: .84rem; line-height: 1.45; }
+.settle-shock { margin-left: 8px; padding: 2px 8px; border-radius: 99px; background: #fff0e7; color: #9a471f; font-size: .7rem; font-weight: 800; }
 .modal-sheet label { display: block; margin: 10px 0 4px; color: var(--muted); font-size: .75rem; }
 .modal-sheet select { width: 100%; margin-bottom: 8px; padding: 0 10px; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
 .button-stack.compact { margin: 12px 0; }
