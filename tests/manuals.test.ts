@@ -18,7 +18,9 @@ describe('배포용 매뉴얼', () => {
     expect(user).toContain('C21');
     expect(user).toContain('지금 판에 바로');
     expect(user).toContain('다음 판을 시작할 때');
-    expect(user).toContain('모든 매수');
+    expect(user).toContain('예금·채권 매수는 됩니다');
+    expect(user).toContain('정산 요약');
+    expect(user).toContain('C22');
     expect(user).toContain('3별의 성향 정렬');
     expect(user).toContain('즉시 매도해 지급');
     expect(user).toContain('C19');
@@ -30,9 +32,10 @@ describe('배포용 매뉴얼', () => {
     expect(operator).toContain('pension-road.vercel.app');
     expect(operator).toContain('policy-rules.json');
     expect(operator).toContain('pages.yml');
-    expect(operator).toContain('안전자산 매수도');
+    expect(operator).toContain('비중을 더 키우지 않는');
     expect(operator).toContain('Q17');
     expect(operator).toContain('Q18');
     expect(operator).toContain('Q19');
+    expect(operator).toContain('Q20');
   });
 });
