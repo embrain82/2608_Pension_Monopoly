@@ -1,7 +1,7 @@
-import { balanceConfig, investorProfiles, policyRules } from '../data/content';
+import { balanceConfig, investorProfiles, policyRules, products } from '../data/content';
 import type { GameState, ProfileId, ScoreResult } from '../types';
 import { portfolioValue } from './portfolio-engine';
-import { riskAssetRatio } from './policy-engine';
+import { canBuyForProfile, riskAssetRatio } from './policy-engine';
 
 export function monthlyPension(irpValue: number): number {
   return irpValue / policyRules.receivingMonths;
@@ -11,6 +11,11 @@ export function diversificationCount(state: GameState): number {
   const total = portfolioValue(state);
   if (total <= 0) return 0;
   return state.holdings.filter((holding) => holding.amount / total >= 0.05).length;
+}
+
+export function diversificationNeeded(profileId: ProfileId): number {
+  const allowed = products.filter((product) => canBuyForProfile(profileId, product.id).ok).length;
+  return Math.min(balanceConfig.diversificationMin, Math.max(1, allowed));
 }
 
 export function behaviorProfile(state: GameState): ProfileId {

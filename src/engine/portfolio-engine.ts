@@ -1,6 +1,6 @@
 import { balanceConfig, policyRules, products } from '../data/content';
 import type { ActionResult, GameState, Holding, PendingOrder, ProductId } from '../types';
-import { canBuyForProfile, canBuyRiskAsset, maxBuyWithinRiskLimit, riskAssetRatio } from './policy-engine';
+import { canBuyForProfile, canBuyRiskAsset, effectiveRiskRatio, maxBuyWithinRiskLimit, riskAssetRatio } from './policy-engine';
 
 export function portfolioValue(state: Pick<GameState, 'holdings' | 'irpCash'> & Partial<Pick<GameState, 'pendingOrders'>>): number {
   const pendingValue = state.pendingOrders?.reduce((sum, order) => sum + order.amount, 0) ?? 0;
@@ -231,6 +231,11 @@ export function rebalanceShares(profileId: GameState['profileId']): Record<Produ
   const weightSum = products.reduce((sum, product) => sum + raw[product.id], 0);
   if (weightSum <= 0) return raw;
   return Object.fromEntries(products.map((product) => [product.id, raw[product.id] / weightSum])) as Record<ProductId, number>;
+}
+
+export function rebalanceTargetRisk(profileId: GameState['profileId']): number {
+  const shares = rebalanceShares(profileId);
+  return products.reduce((sum, product) => sum + shares[product.id] * effectiveRiskRatio(product.id), 0);
 }
 
 export function rebalancePortfolio(state: GameState): ActionResult {
