@@ -83,7 +83,7 @@ function briefingFor(
   }
   if (kind === 'equity-drop' || stockChange < 0) {
     return {
-      phase: kind ? '기준금리 인상' : '경기둔화·전환 기대',
+      phase: kind ? '위험자산 충격' : '경기둔화·전환 기대',
       headline: kind ? '긴축과 변동성이 위험자산을 흔듭니다' : '위험자산이 숨을 고릅니다',
       signal: '금리 → · 주식 ↘',
       reason: '높은 금리와 불확실성이 겹치면 주식형 자산이 채권보다 크게 흔들릴 수 있습니다.'

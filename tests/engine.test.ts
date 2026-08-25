@@ -585,10 +585,12 @@ describe('시드 기반 시장 경로', () => {
         if (rateShock) {
           expect(step.returns.longBond).toBeLessThan(step.returns.shortBond);
           expect(text).toMatch(/장기채|금리/);
+          expect(step.phase).toBe('기준금리 인상');
         }
         if (equityShock && !rateShock) {
           expect(step.returns.equityEtf).toBeLessThan(0);
           expect(text).toMatch(/주식|변동/);
+          expect(step.phase).toBe('위험자산 충격');
         }
       }
     }
