@@ -1,5 +1,5 @@
 import { balanceConfig, boardTiles, investorProfiles, learningCards, policyRules, products } from '../data/content';
-import { createGame, performAction, resolveActionAmount, resolveLifeEvent, startTurn, type AmountPreset, type GameAction } from '../engine/game-engine';
+import { applyGoalToGame, clampGoalMonthly, createGame, performAction, resolveActionAmount, resolveLifeEvent, startTurn, type AmountPreset, type GameAction } from '../engine/game-engine';
 import { getLifeEvent, getLearningCard } from '../engine/content-engine';
 import { portfolioValue, rebalanceShares, sellProduct } from '../engine/portfolio-engine';
 import { canBuyForProfile, decideBuyAgainstRiskLimit, expectedRiskAfterBuy, maxBuyWithinRiskLimit, riskAssetRatio, type BuyLimitDecision } from '../engine/policy-engine';
@@ -41,8 +41,8 @@ export class PensionRoadApp {
   private questionIndex = 0;
   private diagnosisScore = 0;
   private profileId: ProfileId = this.save.profileId;
-  private goalMonthly = balanceConfig.defaultGoal;
-  private selectedBuy: ProductId = 'shortBond';
+  private goalMonthly = clampGoalMonthly(this.save.goalMonthly);
+  private selectedBuy: ProductId = 'deposit';
   private selectedSell: ProductId = 'deposit';
   private switchFrom: ProductId = 'balanced';
   private switchTo: ProductId = 'shortBond';
@@ -131,8 +131,12 @@ export class PensionRoadApp {
         this.announce(`성향이 ${investorProfiles.find((item) => item.id === this.profileId)?.name ?? ''}으로 반영되었습니다.`);
       }
     } else if (action === 'goal-next') {
+      this.save.goalMonthly = clampGoalMonthly(this.goalMonthly);
+      this.goalMonthly = this.save.goalMonthly;
+      if (this.game) this.game = applyGoalToGame(this.game, this.goalMonthly);
+      this.persist();
       this.screen = this.setupReturn === 'game' && this.game ? 'game' : 'title';
-      this.announce(`월 연금 목표 ${formatWon(this.goalMonthly)}이 다음 판에 적용됩니다.`);
+      this.announce(`월 연금 목표 ${formatWon(this.goalMonthly)}이 지금 판에 반영되었습니다.`);
     } else if (action === 'roll-dice') {
       this.beginDiceRoll();
       return;
