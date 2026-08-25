@@ -17,7 +17,8 @@ describe('배포용 매뉴얼', () => {
     expect(user).toContain('한도까지');
     expect(user).toContain('C21');
     expect(user).toContain('지금 판에 바로');
-    expect(user).toContain('다음 판을 시작할 때');
+    expect(user).toContain('지금 판에 반영');
+    expect(user).toContain('이 브라우저에 저장');
     expect(user).toContain('예금·채권 매수는 됩니다');
     expect(user).toContain('정산 요약');
     expect(user).toContain('C22');
@@ -43,5 +44,11 @@ describe('배포용 매뉴얼', () => {
     expect(operator).toContain('Q20');
     expect(operator).toContain('Q21');
     expect(operator).toContain('nearGoalRate');
+    expect(user).toContain('대기자금은 0원');
+    expect(user).toContain('먼저 납입하기');
+    expect(user).toContain('위험자산 충격');
+    expect(operator).toContain('goalMonthly');
+    expect(operator).toContain('Q22');
+    expect(operator).toContain('Q23');
   });
 });
