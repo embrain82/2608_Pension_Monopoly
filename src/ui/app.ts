@@ -10,7 +10,7 @@ import { calculateScore, starChecklist } from '../engine/scoring-engine';
 import type { ActionKind, GameState, ProfileId, ProductId, SaveData, TurnSummary } from '../types';
 import { DICE_LAND_HOLD_MS, DICE_ROLL_DURATION_MS, canRevealNextTurn, dicePairForTurn, dicePairLabel, diceSteps, renderDiceMarkup, shouldSkipDiceAnimation } from './dice';
 import { TOKEN_STEP_MS, movePath, renderBoardMarkup } from './board';
-import { renderHowToModal, renderSettingsHowToButton, shouldShowHowTo, shouldShowLearningTip } from './howto';
+import { buyNeedsContribution, renderHowToModal, renderSettingsHowToButton, shouldShowHowTo, shouldShowLearningTip } from './howto';
 import { renderTileBriefing } from './tile-briefing';
 import { percent, renderMarketCard, renderMarketTimeline, renderSettingsEntry, renderTurnTrack, signedPercent } from './market-view';
 import { loadSave, saveData } from './ui-state';
@@ -377,7 +377,7 @@ export class PensionRoadApp {
   private startGame(seed: string): void {
     this.clearDiceTimer();
     this.game = createGame(seed, this.profileId, this.goalMonthly);
-    this.selectedBuy = 'shortBond';
+    this.selectedBuy = 'deposit';
     this.selectedSell = 'deposit';
     this.switchFrom = 'balanced';
     this.switchTo = 'shortBond';
@@ -703,13 +703,19 @@ export class PensionRoadApp {
             ? decision.message
             : `${formatWon(amount)} 매수 후 예상 위험비중 ${percent(expected)}. 대기자금이 없으면 먼저 납입하세요.`;
       const confirm = this.buyLimitConfirm;
+      const contributeCta = buyNeedsContribution(game.irpCash)
+        ? `<button class="secondary" data-action="action-view" data-view="contribute">먼저 납입하기</button>`
+        : '';
       const actions = confirm
         ? `<div class="preview-box"><strong>한도 확인</strong><p>${confirm.message}</p></div>
         <div class="button-stack">
           <button class="primary jumbo" data-action="confirm-buy-cap">진행 · 한도까지 매수</button>
           <button class="secondary" data-action="cancel-buy-cap">보류</button>
         </div>`
-        : `<button class="primary jumbo" data-action="do-buy" ${suitability.ok && decision?.kind !== 'reject' ? '' : 'disabled'}>매수 실행</button>`;
+        : `<div class="button-stack">
+          <button class="primary jumbo" data-action="do-buy" ${suitability.ok && decision?.kind !== 'reject' ? '' : 'disabled'}>매수 실행</button>
+          ${contributeCta}
+        </div>`;
       return `<button class="text-button" data-action="action-view" data-view="menu">← 행동 목록</button>
         <p class="eyebrow">매수 · ${pending}</p><h2>무엇을 살까요?</h2>
         <label for="buy-product">상품</label><select id="buy-product">${this.productOptions(this.selectedBuy, false, true)}</select>

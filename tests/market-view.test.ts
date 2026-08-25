@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createGame, performAction, resolveLifeEvent, startTurn } from '../src/engine/game-engine';
-import { renderHowToModal, renderSettingsHowToButton, shouldShowHowTo, shouldShowLearningTip } from '../src/ui/howto';
+import { buyNeedsContribution, renderHowToModal, renderSettingsHowToButton, shouldShowHowTo, shouldShowLearningTip } from '../src/ui/howto';
 import { renderMarketCard, renderProductReturns, renderSettingsEntry, renderTurnTrack } from '../src/ui/market-view';
 
 function signedPercent(value: number): string {
@@ -51,6 +51,11 @@ describe('게임 방법 팝업', () => {
     expect(markup).toContain('시장');
     expect(markup).toContain('운용');
     expect(markup).toContain('data-action="dismiss-howto"');
+  });
+
+  it('대기자금이 없으면 매수 전에 납입이 필요하다', () => {
+    expect(buyNeedsContribution(0)).toBe(true);
+    expect(buyNeedsContribution(100000)).toBe(false);
   });
 
   it('첫 판에 납입·ETF 제한·정산을 알려 준다', () => {
