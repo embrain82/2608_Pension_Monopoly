@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { balanceConfig, boardTiles, lifeEvents, marketScenario, policyRules } from '../src/data/content';
-import { autoplay, createGame, performAction, resolveActionAmount, resolveLifeEvent, startTurn } from '../src/engine/game-engine';
+import { applyGoalToGame, autoplay, clampGoalMonthly, createGame, performAction, resolveActionAmount, resolveLifeEvent, startTurn } from '../src/engine/game-engine';
 import { applyMarketStep, generateMarketPath, rateShockReturn } from '../src/engine/market-engine';
 import { buyProduct, portfolioValue, rebalancePortfolio, rebalanceShares, sellProduct, settleOrders, switchProduct } from '../src/engine/portfolio-engine';
 import { canBuyForProfile, canBuyRiskAsset, contributionCredit, decideBuyAgainstRiskLimit, effectiveRiskRatio, maxBuyWithinRiskLimit, riskAssetRatio } from '../src/engine/policy-engine';
@@ -397,6 +397,15 @@ describe('시장, 리밸런싱, 생활사건', () => {
 });
 
 describe('점수와 저장 복구', () => {
+  it('월 연금 목표는 지금 판에 바로 들어가고 범위를 벗어나지 않는다', () => {
+    expect(clampGoalMonthly(370_000)).toBe(350_000);
+    expect(clampGoalMonthly(800_000)).toBe(700_000);
+    const game = createGame('goal-now', 'balanced', 500_000);
+    const next = applyGoalToGame(game, 600_000);
+    expect(next.goalMonthly).toBe(600_000);
+    expect(game.goalMonthly).toBe(500_000);
+  });
+
   it('월 연금과 별 등급을 정확히 계산한다', () => {
     expect(monthlyPension(120_000_000)).toBe(500_000);
     const base = autoplay('stars');

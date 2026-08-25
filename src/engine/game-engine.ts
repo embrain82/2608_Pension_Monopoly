@@ -6,6 +6,9 @@ import { buyProduct, liquidateForLivingCost, portfolioValue, rebalancePortfolio,
 import { contributionCredit } from './policy-engine';
 import { summarizeTurn } from './settlement-engine';
 import { diceStepsForTurn, hashSeed, nextRandom } from './random-engine';
+import { applyGoalToGame, clampGoalMonthly } from './goal';
+
+export { applyGoalToGame, clampGoalMonthly };
 
 export interface GameAction {
   kind: ActionKind;
@@ -68,7 +71,7 @@ export function createGame(seed: string, profileId: ProfileId = 'balanced', goal
     turn: 0,
     position: 0,
     phase: market.phase,
-    goalMonthly: Math.min(balanceConfig.maxGoal, Math.max(balanceConfig.minGoal, goalMonthly)),
+    goalMonthly: clampGoalMonthly(goalMonthly),
     profileId,
     cash: balanceConfig.startingCash,
     irpCash: 0,
