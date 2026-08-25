@@ -53,6 +53,14 @@ describe('게임 방법 팝업', () => {
     expect(markup).toContain('data-action="dismiss-howto"');
   });
 
+  it('첫 판에 납입·ETF 제한·정산을 알려 준다', () => {
+    const markup = renderHowToModal();
+    expect(markup).toContain('대기자금은 0원');
+    expect(markup).toContain('먼저 납입');
+    expect(markup).toContain('주식 ETF');
+    expect(markup).toContain('정산 요약');
+  });
+
   it('이 브라우저에서 이미 본 뒤에는 자동으로 열지 않는다', () => {
     expect(shouldShowHowTo(false)).toBe(true);
     expect(shouldShowHowTo(true)).toBe(false);
