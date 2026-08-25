@@ -246,4 +246,5 @@ export interface SaveData {
   playCount: number;
   howtoSeen: boolean;
   profileId: ProfileId;
+  goalMonthly: number;
 }

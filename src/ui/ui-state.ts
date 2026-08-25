@@ -1,3 +1,4 @@
+import { clampGoalMonthly } from '../engine/goal';
 import { isProfileId } from '../engine/profile-engine';
 import type { SaveData } from '../types';
 
@@ -14,7 +15,8 @@ export const defaultSave: SaveData = {
   bestGoalRate: 0,
   playCount: 0,
   howtoSeen: false,
-  profileId: 'balanced'
+  profileId: 'balanced',
+  goalMonthly: 500_000
 };
 
 function finiteNumber(value: unknown): value is number {
@@ -35,6 +37,7 @@ function migrateSave(value: unknown): SaveData | null {
     playCount?: unknown;
     howtoSeen?: unknown;
     profileId?: unknown;
+    goalMonthly?: unknown;
   };
   if (!finiteNumber(data.bestScore) || typeof data.lastSeed !== 'string') return null;
   if (!Array.isArray(data.unlockedCards) || !data.unlockedCards.every((item) => typeof item === 'string')) return null;
@@ -51,7 +54,8 @@ function migrateSave(value: unknown): SaveData | null {
     bestGoalRate: finiteNumber(data.bestGoalRate) ? data.bestGoalRate : 0,
     playCount: finiteNumber(data.playCount) ? data.playCount : 0,
     howtoSeen: data.howtoSeen === true,
-    profileId: isProfileId(data.profileId) ? data.profileId : 'balanced'
+    profileId: isProfileId(data.profileId) ? data.profileId : 'balanced',
+    goalMonthly: clampGoalMonthly(finiteNumber(data.goalMonthly) ? data.goalMonthly : 500_000)
   };
 }
 

@@ -461,6 +461,25 @@ describe('점수와 저장 복구', () => {
     expect(loaded.playCount).toBe(0);
     expect(loaded.howtoSeen).toBe(false);
     expect(loaded.profileId).toBe('balanced');
+    expect(loaded.goalMonthly).toBe(500_000);
+  });
+
+  it('저장 데이터의 월 연금 목표를 복구한다', () => {
+    const stored = {
+      getItem: (key: string) => key === STORAGE_KEY
+        ? JSON.stringify({ ...defaultSave, goalMonthly: 600_000 })
+        : null
+    };
+    expect(loadSave(stored).goalMonthly).toBe(600_000);
+  });
+
+  it('목표 없는 옛 저장은 기본 50만 원이다', () => {
+    const legacy = {
+      getItem: (key: string) => key === STORAGE_KEY
+        ? JSON.stringify({ version: 1, settings: { reducedMotion: true, sound: false }, unlockedCards: ['rate-bond'], bestScore: 88, lastSeed: 'abc' })
+        : null
+    };
+    expect(loadSave(legacy).goalMonthly).toBe(500_000);
   });
 
   it('저장 데이터의 투자자성향을 복구한다', () => {
