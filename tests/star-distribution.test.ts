@@ -17,7 +17,9 @@ describe('별 분포 가드', () => {
     for (let i = 0; i < 200; i += 1) {
       stars[calculateScore(autoplay(`ladder-${i}`, strategies[i % 5])).stars] += 1;
     }
+    expect(stars[0]).toBeGreaterThanOrEqual(5);
     expect(stars[1]).toBeGreaterThanOrEqual(10);
     expect(stars[2]).toBeGreaterThanOrEqual(10);
+    expect(stars[3]).toBeGreaterThanOrEqual(10);
   });
 });

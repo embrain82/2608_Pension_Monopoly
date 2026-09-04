@@ -273,20 +273,52 @@ export function finalizeTurn(state: GameState): GameState {
   };
 }
 
-export type AutoStrategy = 'balanced' | 'passive' | 'contributor' | 'growth' | 'steward';
+export type AutoStrategy = 'balanced' | 'passive' | 'contributor' | 'growth' | 'steward' | 'etfOnly' | 'stopLoss' | 'momentum';
 
-export function autoplay(seed: string, strategy: AutoStrategy = 'balanced'): GameState {
-  let state = createGame(seed);
+export const AUTO_STRATEGIES: AutoStrategy[] = ['balanced', 'passive', 'contributor', 'growth', 'steward', 'etfOnly', 'stopLoss', 'momentum'];
+
+/** 전략이 ETF를 살 수 있도록 성향을 맞춘다. 게이트(성향 밖 매수 거절)는 그대로 둔다. */
+export function defaultProfileFor(strategy: AutoStrategy): ProfileId {
+  if (strategy === 'growth') return 'growth';
+  if (strategy === 'etfOnly' || strategy === 'stopLoss' || strategy === 'momentum') return 'aggressive';
+  return 'balanced';
+}
+
+function holdingOf(state: GameState, productId: ProductId): number {
+  return state.holdings.find((holding) => holding.productId === productId)?.amount ?? 0;
+}
+
+export function autoplay(seed: string, strategy: AutoStrategy = 'balanced', profileId: ProfileId = defaultProfileFor(strategy)): GameState {
+  let state = createGame(seed, profileId);
+  let stoppedOut = false;
   while (state.status === 'playing') {
     state = startTurn(state, diceStepsForTurn(state.seed, state.turn)).state;
     if (state.currentEventId) state = resolveLifeEvent(state, 'cash').state;
+    const etfReturn = state.lastMarket.returns.equityEtf;
     let action: GameAction;
     if (strategy === 'passive') action = { kind: 'hold' };
     else if (strategy === 'contributor') action = state.cash > balanceConfig.contributionAmount ? { kind: 'contribute' } : { kind: 'hold' };
     else if (strategy === 'growth') action = state.turn % 2 === 1
       ? { kind: 'contribute' }
       : { kind: 'buy', productId: 'equityEtf', amount: balanceConfig.contributionAmount };
-    else if (strategy === 'steward') {
+    else if (strategy === 'etfOnly') action = state.turn === 1
+      ? { kind: 'switch', fromProductId: 'deposit', toProductId: 'equityEtf', amount: holdingOf(state, 'deposit') }
+      : state.turn % 2 === 0 && state.irpCash >= 100000
+        ? { kind: 'buy', productId: 'equityEtf', amount: state.irpCash }
+        : state.cash > balanceConfig.contributionAmount ? { kind: 'contribute' } : { kind: 'hold' };
+    else if (strategy === 'stopLoss') {
+      if (state.turn === 1) action = { kind: 'switch', fromProductId: 'deposit', toProductId: 'equityEtf', amount: holdingOf(state, 'deposit') };
+      else if (!stoppedOut && etfReturn <= -0.05 && holdingOf(state, 'equityEtf') >= 100000) {
+        stoppedOut = true;
+        action = { kind: 'sell', productId: 'equityEtf', amount: holdingOf(state, 'equityEtf') };
+      } else action = state.cash > balanceConfig.contributionAmount ? { kind: 'contribute' } : { kind: 'hold' };
+    } else if (strategy === 'momentum') {
+      if (etfReturn >= 0.02) action = state.irpCash >= 100000
+        ? { kind: 'buy', productId: 'equityEtf', amount: state.irpCash }
+        : { kind: 'contribute' };
+      else if (etfReturn <= -0.02 && holdingOf(state, 'equityEtf') >= 200000) action = { kind: 'sell', productId: 'equityEtf', amount: holdingOf(state, 'equityEtf') / 2 };
+      else action = { kind: 'hold' };
+    } else if (strategy === 'steward') {
       const pension = portfolioValue(state) / policyRules.receivingMonths;
       action = pension < state.goalMonthly && state.cash > balanceConfig.safeCashThreshold + balanceConfig.contributionAmount
         ? { kind: 'contribute' }
