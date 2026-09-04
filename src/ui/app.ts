@@ -14,6 +14,9 @@ import { TOKEN_STEP_MS, movePath, renderBoardMarkup } from './board';
 import { buyNeedsContribution, renderHowToModal, renderSettingsHowToButton, shouldShowHowTo, shouldShowLearningTip } from './howto';
 import { renderTileBriefing } from './tile-briefing';
 import { renderNewsFlash } from './news-flash';
+import { animatedNumber } from './fx';
+import { runNumberAnimations } from './fx-dom';
+import { renderGoalMeter, renderRiskMeter } from './hud';
 import { percent, renderMarketCard, renderMarketTimeline, renderSettingsEntry, renderTurnTrack, signedPercent } from './market-view';
 import { loadSave, saveData } from './ui-state';
 import { renderSettlementModal } from './settlement';
@@ -60,6 +63,7 @@ export class PensionRoadApp {
   private tokenFocus = 0;
   private diceFaces: [number, number] = [1, 1];
   private diceTimer = 0;
+  private shown: { seed: string; irp: number; pension: number; returnRate: number } | null = null;
 
   constructor(private readonly root: HTMLElement) {
     this.root.addEventListener('click', (event) => this.onClick(event));
@@ -451,6 +455,7 @@ export class PensionRoadApp {
     }
     const dialog = this.root.querySelector<HTMLElement>('[role="dialog"]');
     if (dialog) requestAnimationFrame(() => dialog.querySelector<HTMLElement>('button:not([disabled]), select, input:not([disabled]), a[href]')?.focus());
+    runNumberAnimations(this.root, shouldSkipDiceAnimation(this.save.settings.reducedMotion, window.matchMedia('(prefers-reduced-motion: reduce)').matches));
   }
 
   private renderTitle(): string {
@@ -530,6 +535,8 @@ export class PensionRoadApp {
     if (!this.game) return '';
     const state = this.game;
     const score = calculateScore(state);
+    const shown = this.shown?.seed === state.seed ? this.shown : null;
+    this.shown = { seed: state.seed, irp: score.irpValue, pension: score.monthlyPension, returnRate: score.returnRate };
     const pending = state.pendingOrders.length;
     const latestCard = getLearningCard(state.unlockedCards.at(-1) ?? '');
     const waitingForDice = canRevealNextTurn(state) || this.diceRolling || this.tokenHopping;
@@ -542,8 +549,8 @@ export class PensionRoadApp {
         <div class="brand-small"><span>연금로드</span><small>금리의 두 얼굴</small></div>
         <div class="mobile-stats">
           <div><small>턴</small><strong>${state.turn}/12</strong></div>
-          <div><small>예상 월 연금</small><strong>${formatShortWon(score.monthlyPension)}</strong></div>
-          <div><small>수익률</small><strong class="${score.returnRate < 0 ? 'neg' : ''}">${signedPercent(score.returnRate)}</strong></div>
+          <div><small>예상 월 연금</small><strong>${animatedNumber('shortWon', shown?.pension ?? null, score.monthlyPension)}</strong></div>
+          <div><small>수익률</small><strong class="${score.returnRate < 0 ? 'neg' : ''}">${animatedNumber('signedPercent', shown?.returnRate ?? null, score.returnRate)}</strong></div>
         </div>
         ${renderSettingsEntry(profile?.name)}
       </header>
@@ -557,11 +564,12 @@ export class PensionRoadApp {
           ${!waitingForDice && state.lastMarket.shock ? '<p class="shock-banner">충격 턴 · 신호를 보고 비중을 조정하세요</p>' : ''}
           ${renderMarketCard(state, waitingForDice)}
           <article class="asset-card"><div class="card-label">나의 은퇴설계</div>
-            <div class="big-number"><span>IRP 평가액</span><strong>${formatShortWon(score.irpValue)}</strong></div>
-            <div class="metric-row"><span><abbr title="최종 IRP 평가액을 240개월로 나눈 교육용 값">예상 월 연금</abbr><strong>${formatWon(score.monthlyPension)}</strong></span><span>시작 대비<strong class="${score.returnRate < 0 ? 'neg' : ''}">${signedPercent(score.returnRate)}</strong></span></div>
-            <div class="goal-meter"><span style="width:${Math.min(100, score.goalRate * 100)}%"></span></div><div class="goal-caption"><span>목표 ${formatShortWon(state.goalMonthly)}</span><strong>${Math.round(score.goalRate * 100)}%</strong></div>
+            <div class="big-number"><span>IRP 평가액</span><strong>${animatedNumber('shortWon', shown?.irp ?? null, score.irpValue)}</strong></div>
+            <div class="metric-row"><span><abbr title="최종 IRP 평가액을 240개월로 나눈 교육용 값">예상 월 연금</abbr><strong>${animatedNumber('won', shown?.pension ?? null, score.monthlyPension)}</strong></span><span>시작 대비<strong class="${score.returnRate < 0 ? 'neg' : ''}">${animatedNumber('signedPercent', shown?.returnRate ?? null, score.returnRate)}</strong></span></div>
+            ${renderGoalMeter(state, score)}
             <div class="profile-line"><span>투자 성향 <b>${profile?.name ?? ''}</b></span><span>${profile?.maxRiskGrade ?? 0}등급까지 매수</span></div>
             <div class="risk-line"><span>위험자산 비중 <b>${percent(score.riskRatio)}</b></span><span>생활자금 ${formatShortWon(state.cash)}</span></div>
+            ${renderRiskMeter(score.riskRatio, policyRules.riskAssetLimit)}
             ${state.marketLimitExceeded ? '<p class="warning">시장 상승으로 한도 초과 · 위험자산 추가매수 제한, 예금·채권 매수나 리밸런싱은 가능</p>' : ''}
             ${pending ? `<p class="order-note">주문 ${pending}건이 다음 턴 기준가·결제를 기다리는 중</p>` : ''}
           </article>

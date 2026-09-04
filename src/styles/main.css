@@ -218,6 +218,7 @@ a { color: var(--green); text-underline-offset: 3px; }
 .news-arrival { margin: 0; color: var(--muted); font-size: .78rem; font-weight: 800; }
 .news-flash .button-stack { margin-top: 4px; }
 
+@keyframes goal-pulse { 50% { filter: brightness(1.15) saturate(1.2); } }
 @keyframes breaking-in { from { opacity: 0; transform: translateY(18px); } }
 @keyframes tape-slide { from { transform: translateX(-100%); } }
 @keyframes type-in { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
@@ -234,8 +235,20 @@ a { color: var(--green); text-underline-offset: 3px; }
 .metric-row > span { display: grid; gap: 4px; padding: 11px; background: var(--cream); border-radius: 10px; font-size: .7rem; }
 .metric-row strong { font-size: .9rem; }
 abbr { text-decoration: underline dotted; text-underline-offset: 3px; cursor: help; }
-.goal-meter { height: 9px; margin-top: 18px; overflow: hidden; background: #dce5df; border-radius: 99px; }
-.goal-meter span { display: block; height: 100%; background: linear-gradient(90deg, var(--green-2), var(--lime)); border-radius: inherit; }
+.goal-meter { position: relative; height: 10px; margin-top: 18px; background: #dce5df; border-radius: 99px; }
+.goal-meter span { display: block; height: 100%; background: linear-gradient(90deg, var(--green-2), var(--lime)); border-radius: inherit; transition: width .6s cubic-bezier(.2,.8,.2,1); }
+.goal-meter .tick { position: absolute; top: -4px; width: 2px; height: 18px; margin-left: -1px; background: var(--orange); border-radius: 2px; opacity: .8; }
+.goal-meter.near span { animation: goal-pulse 1.6s ease-in-out infinite; }
+.goal-meter.met span { background: linear-gradient(90deg, var(--green), var(--green-2)); }
+.goal-status { margin: 6px 0 0; color: var(--ink); font-size: .78rem; font-weight: 800; }
+.goal-status.near { color: #9a471f; }
+.goal-status.met { color: var(--green); }
+.risk-meter { position: relative; height: 6px; margin-top: 6px; background: #e3e9e4; border-radius: 99px; }
+.risk-meter span { display: block; height: 100%; background: var(--blue); border-radius: inherit; transition: width .6s cubic-bezier(.2,.8,.2,1); }
+.risk-meter .limit { position: absolute; top: -3px; width: 2px; height: 12px; margin-left: -1px; background: var(--orange); }
+.risk-meter.over span { background: repeating-linear-gradient(135deg, var(--orange), var(--orange) 4px, #f5d1b8 4px, #f5d1b8 8px); }
+[data-anim].up { color: var(--green); transition: color .4s; }
+[data-anim].down { color: var(--orange); transition: color .4s; }
 .goal-caption, .risk-line, .profile-line { display: flex; justify-content: space-between; margin-top: 6px; color: var(--muted); font-size: .72rem; }
 .profile-line { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
 .profile-line b { color: var(--ink); }
