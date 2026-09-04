@@ -94,55 +94,55 @@ clamp     = ±0.20
 
 **Files:** `src/types.ts`, `src/data/balance-config.json`, `src/data/market-shocks.json`(신규), `src/data/content.ts`, `src/data/market-scenarios.json`, `tests/content.test.ts`(신규)
 
-- [ ] RED: `market-shocks.json`이 6개, id 고유, family ∈ {rate, equity}, forceMax/forceMin 키가 상품 id, phase에 `위험자산 충격` 포함. `balanceConfig.market.regimes` 4개, 전이 확률 합 ≤ 1.
-- [ ] `types.ts`: `Regime`, `MarketAlert`, `MarketShock`, `MarketConfig`, `MarketStep` 확장(`ratePct`, `rateDeltaPct`, `inflationPct`, `stockIndex`, `stockReturn`, `regime`, `shockId?`, `alert?`). `BalanceConfig.market`.
-- [ ] `balance-config.json` `market` 섹션. `market-shocks.json` 작성. `content.ts`에서 `marketShocks` export, `validateContent`에 충격 카탈로그 검사 추가.
-- [ ] `market-scenarios.json` 템플릿 12턴에 새 필드 채움(6턴 `rate-bigstep`, 8턴 `equity-crash`).
-- [ ] GREEN → 커밋 `Add market regime config and shock catalog.`
+- [x] RED: `market-shocks.json`이 6개, id 고유, family ∈ {rate, equity}, forceMax/forceMin 키가 상품 id, phase에 `위험자산 충격` 포함. `balanceConfig.market.regimes` 4개, 전이 확률 합 ≤ 1.
+- [x] `types.ts`: `Regime`, `MarketAlert`, `MarketShock`, `MarketConfig`, `MarketStep` 확장(`ratePct`, `rateDeltaPct`, `inflationPct`, `stockIndex`, `stockReturn`, `regime`, `shockId?`, `alert?`). `BalanceConfig.market`.
+- [x] `balance-config.json` `market` 섹션. `market-shocks.json` 작성. `content.ts`에서 `marketShocks` export, `validateContent`에 충격 카탈로그 검사 추가.
+- [x] `market-scenarios.json` 템플릿 12턴에 새 필드 채움(6턴 `rate-bigstep`, 8턴 `equity-crash`).
+- [x] GREEN → 커밋 `Add market regime config and shock catalog.`
 
 ## Task 2: 국면 엔진·수익률 모델·경로 생성
 
 **Files:** `src/engine/regime-engine.ts`(신규), `src/engine/return-model.ts`(신규), `src/engine/market-engine.ts`, `tests/market-regime.test.ts`(신규), `tests/engine.test.ts`
 
-- [ ] RED `market-regime.test.ts`: 같은 시드 재현; 금리 범위·0.25 스텝; 200시드 평균 이동 턴 ≥ 45%; 빅스텝(≥0.75) 판당 ≥ 1 (충격 포함); 충격 2~3회, 턴 4~11, 12턴 없음, 슬롯 규칙(첫 4~6, 둘째 7~9); 충격 턴 `shockId`·`shock: true`·phase 일치; 강제치 준수; 수익률 ±0.20; 파생 레벨 1~5; ETF 500시드 턴 평균 ∈ [0.006, 0.013], 표준편차 ≥ 0.035.
-- [ ] `regime-engine.ts`: `stepRegime(rng, state, config)`, `levelFromPct`, `levelFromIndex`.
-- [ ] `return-model.ts`: `productReturns(prev, cur, shock, recovery, rng)`, `rateShockReturn`(coef from config).
-- [ ] `market-engine.ts`: `planShocks`, `generateMarketPath` 재작성, `briefingFor(regime, shock, deltas, rng)`(국면별 헤드라인 3변형), `emptyMarketStep` 새 필드.
-- [ ] `engine.test.ts` 512~608 갱신: 충격 2~3회·4~11턴, 클램프 ±0.20, 충격 phase는 카탈로그 `phase`, rate-family 충격은 `longBond`가 `shortBond`와 다른 방향 크기.
-- [ ] GREEN → 커밋 `Generate the market path from rate regimes and a shock catalog.`
+- [x] RED `market-regime.test.ts`: 같은 시드 재현; 금리 범위·0.25 스텝; 200시드 평균 이동 턴 ≥ 45%; 빅스텝(≥0.75) 판당 ≥ 1 (충격 포함); 충격 2~3회, 턴 4~11, 12턴 없음, 슬롯 규칙(첫 4~6, 둘째 7~9); 충격 턴 `shockId`·`shock: true`·phase 일치; 강제치 준수; 수익률 ±0.20; 파생 레벨 1~5; ETF 500시드 턴 평균 ∈ [0.006, 0.013], 표준편차 ≥ 0.035.
+- [x] `regime-engine.ts`: `stepRegime(rng, state, config)`, `levelFromPct`, `levelFromIndex`.
+- [x] `return-model.ts`: `productReturns(prev, cur, shock, recovery, rng)`, `rateShockReturn`(coef from config).
+- [x] `market-engine.ts`: `planShocks`, `generateMarketPath` 재작성, `briefingFor(regime, shock, deltas, rng)`(국면별 헤드라인 3변형), `emptyMarketStep` 새 필드.
+- [x] `engine.test.ts` 512~608 갱신: 충격 2~3회·4~11턴, 클램프 ±0.20, 충격 phase는 카탈로그 `phase`, rate-family 충격은 `longBond`가 `shortBond`와 다른 방향 크기.
+- [x] GREEN → 커밋 `Generate the market path from rate regimes and a shock catalog.`
 
 ## Task 3: 사전 신호·학습 카드·정산 힌트
 
 **Files:** `src/engine/market-engine.ts`, `src/data/learning-cards.json`, `src/engine/game-engine.ts`, `src/engine/settlement-engine.ts`, `tests/market-regime.test.ts`, `tests/settlement.test.ts`
 
-- [ ] RED: 충격 턴 직전 스텝에 `alert` 존재(200시드 중 level 2 비율 0.6~0.95); 12턴 alert 없음; 가짜 신호 비율 0.05~0.30; `startTurn`이 alert 스텝에서 `signal-vs-forecast` 해금; `summarizeTurn`이 `after.lastMarket.alert.hint`를 첫 힌트로.
-- [ ] 구현. `learning-cards.json` 카드 추가(category 시장).
-- [ ] GREEN → 커밋 `Warn one turn ahead of market shocks.`
+- [x] RED: 충격 턴 직전 스텝에 `alert` 존재(200시드 중 level 2 비율 0.6~0.95); 12턴 alert 없음; 가짜 신호 비율 0.05~0.30; `startTurn`이 alert 스텝에서 `signal-vs-forecast` 해금; `summarizeTurn`이 `after.lastMarket.alert.hint`를 첫 힌트로.
+- [x] 구현. `learning-cards.json` 카드 추가(category 시장).
+- [x] GREEN → 커밋 `Warn one turn ahead of market shocks.`
 
 ## Task 4: 화면 — 퍼센트 금리·신호·보드 중앙
 
 **Files:** `src/ui/market-view.ts`, `src/ui/board.ts`, `src/styles/main.css`, `tests/market-view.test.ts`, `tests/board.test.ts`
 
-- [ ] RED: `renderMarketCard`가 `3.25%`·`▲0.50`·`교육용 가상 금리`를 포함; alert 있으면 `market-alert` 마크업과 hint; 대기 상태는 `—`; `renderTurnTrack`이 공개된 alert 다음 칸에 `alert` 클래스; 보드 중앙에 금리 %.
-- [ ] `marketBars` → 금리 `%`+Δ, 물가 `%`, 주가 지수+Δ%. `renderMarketAlert(step)`. `board.ts` 중앙 텍스트에 `금리 n.nn%`. CSS `.market-alert`, `.turn-track .alert`, `@keyframes modal-in` 정의(누락 수정).
-- [ ] GREEN → 커밋 `Show percent rates, deltas, and shock alerts.`
+- [x] RED: `renderMarketCard`가 `3.25%`·`▲0.50`·`교육용 가상 금리`를 포함; alert 있으면 `market-alert` 마크업과 hint; 대기 상태는 `—`; `renderTurnTrack`이 공개된 alert 다음 칸에 `alert` 클래스; 보드 중앙에 금리 %.
+- [x] `marketBars` → 금리 `%`+Δ, 물가 `%`, 주가 지수+Δ%. `renderMarketAlert(step)`. `board.ts` 중앙 텍스트에 `금리 n.nn%`. CSS `.market-alert`, `.turn-track .alert`, `@keyframes modal-in` 정의(누락 수정).
+- [x] GREEN → 커밋 `Show percent rates, deltas, and shock alerts.`
 
 ## Task 5: 자동 전략·시뮬레이션·밸런스 게이트
 
 **Files:** `src/engine/game-engine.ts`, `scripts/simulate.ts`, `tests/balance-gate.test.ts`(신규), `tests/star-distribution.test.ts`, `IMPLEMENTATION_NOTES.md`
 
-- [ ] `autoplay` 성향 인자·전략 3종. `simulate.ts` 전략별 표(목표 달성, 별, 평균/p10/p90 수익률, 평균/최대 낙폭, 생활자금 부족), 주사위–총점 상관, `--json`.
-- [ ] 시뮬 1000회로 상수 조정(`balance-config.market`). 목표: §Locked design 게이트.
-- [ ] RED `balance-gate.test.ts` → GREEN. `star-distribution.test.ts` 하한 재기준.
-- [ ] `IMPLEMENTATION_NOTES.md`에 「시장 국면 엔진 (2026-09-04)」 기준선.
-- [ ] 커밋 `Gate market balance with strategy simulations.`
+- [x] `autoplay` 성향 인자·전략 3종. `simulate.ts` 전략별 표(목표 달성, 별, 평균/p10/p90 수익률, 평균/최대 낙폭, 생활자금 부족), 주사위–총점 상관, `--json`.
+- [x] 시뮬 1000회로 상수 조정(`balance-config.market`). 목표: §Locked design 게이트.
+- [x] RED `balance-gate.test.ts` → GREEN. `star-distribution.test.ts` 하한 재기준.
+- [x] `IMPLEMENTATION_NOTES.md`에 「시장 국면 엔진 (2026-09-04)」 기준선.
+- [x] 커밋 `Gate market balance with strategy simulations.`
 
 ## Task 6: 매뉴얼·검증·PR
 
 **Files:** `public/user-manual.html`, `public/operator-manual.html`, `tests/manuals.test.ts`
 
-- [ ] 사용자: 시장 절(가상 금리 %, 국면 4종, 충격 6종·2~3회·4~11턴, 신호는 예측이 아님), C18 갱신. 운영자: `market` 상수 표, `market-shocks.json`, 시뮬 옵션, 게이트 지표, 새 테스트 파일.
-- [ ] `manuals.test.ts` 문자열 갱신 → GREEN.
-- [ ] `npm run lint && npm run typecheck && npm test && npm run build`, `npm run simulate -- --runs=1000`.
-- [ ] 브라우저: 375×812·1280×900에서 1판 완주, 금리 % 표시·신호·충격 확인.
-- [ ] 푸시, PR(base `main`). 프로덕션 배포는 운영자 결정 뒤.
+- [x] 사용자: 시장 절(가상 금리 %, 국면 4종, 충격 6종·2~3회·4~11턴, 신호는 예측이 아님), C18 갱신. 운영자: `market` 상수 표, `market-shocks.json`, 시뮬 옵션, 게이트 지표, 새 테스트 파일.
+- [x] `manuals.test.ts` 문자열 갱신 → GREEN.
+- [x] `npm run lint && npm run typecheck && npm test && npm run build`, `npm run simulate -- --runs=1000`.
+- [x] 브라우저: 375×812·1280×900에서 1판 완주, 금리 % 표시·신호·충격 확인.
+- [x] 푸시, PR(base `main`). 프로덕션 배포는 운영자 결정 뒤.
