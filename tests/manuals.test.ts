@@ -50,5 +50,18 @@ describe('배포용 매뉴얼', () => {
     expect(operator).toContain('goalMonthly');
     expect(operator).toContain('Q22');
     expect(operator).toContain('Q23');
+    expect(user).toContain('교육용 가상 금리');
+    expect(user).toContain('2~3회');
+    expect(user).toContain('다음 턴 신호');
+    expect(user).toContain('신호는 예측이 아니라');
+    expect(user).toContain('C24');
+    expect(user).toContain('C25');
+    expect(user).not.toContain('3~10턴 사이 2회');
+    expect(operator).toContain('market-shocks.json');
+    expect(operator).toContain('regime-engine.ts');
+    expect(operator).toContain('balance-gate');
+    expect(operator).toContain('Q24');
+    expect(operator).toContain('Q25');
+    expect(operator).toContain('Q26');
   });
 });
