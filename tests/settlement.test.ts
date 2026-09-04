@@ -133,5 +133,25 @@ describe('턴 정산 요약', () => {
     expect(html).toContain('주식 ETF');
     expect(html).toContain(HINT_DEFAULT);
     expect(html).toContain('data-action="dismiss-settle"');
+    expect(html).not.toContain('settle-alert');
+  });
+
+  it('정산 모달은 다음 턴 신호를 따로 강조한다', () => {
+    const html = renderSettlementModal({
+      turn: 5,
+      actionLine: '유지',
+      irpBefore: 100,
+      irpAfter: 101,
+      riskBefore: 0.2,
+      riskAfter: 0.2,
+      marketHeadline: '보합',
+      shock: false,
+      alert: { level: 2, text: '다음 턴 금리 결정 · 빅스텝 인상 우려', hint: '장기채 비중을 점검하세요.' },
+      marketLimitExceeded: false,
+      productDeltas: [],
+      nextHints: ['장기채 비중을 점검하세요.']
+    });
+    expect(html).toContain('settle-alert');
+    expect(html).toContain('다음 턴 금리 결정');
   });
 });

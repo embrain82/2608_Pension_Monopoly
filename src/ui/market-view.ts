@@ -1,4 +1,5 @@
 import { balanceConfig, products } from '../data/content';
+import { formatRateDelta } from '../engine/market-engine';
 import { portfolioValue } from '../engine/portfolio-engine';
 import type { GameState, MarketStep } from '../types';
 import { isCompletedTurn, isRevealedTurn, isUpcomingSpoiler } from './dice';
@@ -21,11 +22,25 @@ export function renderProductReturns(state: GameState): string {
   return `<ul class="product-returns">${rows}</ul>`;
 }
 
+function deltaClass(value: number): string {
+  return value > 1e-9 ? 'up' : value < -1e-9 ? 'down' : 'flat';
+}
+
 function marketBars(step: MarketStep, muted = false): string {
   if (muted) {
     return `<div class="market-bars muted"><span>금리 <i></i>—</span><span>물가 <i></i>—</span><span>주가 <i></i>—</span></div>`;
   }
-  return `<div class="market-bars"><span>금리 <i style="--level:${step.rate}"></i>${step.rate}/5</span><span>물가 <i style="--level:${step.inflation}"></i>${step.inflation}/5</span><span>주가 <i style="--level:${step.stocks}"></i>${step.stocks}/5</span></div>`;
+  return `<div class="market-bars">
+      <span>금리 <i style="--level:${step.rate}"></i><b>${step.ratePct.toFixed(2)}%</b><em class="${deltaClass(step.rateDeltaPct)}">${formatRateDelta(step.rateDeltaPct)}</em></span>
+      <span>물가 <i style="--level:${step.inflation}"></i><b>${step.inflationPct.toFixed(1)}%</b></span>
+      <span>주가 <i style="--level:${step.stocks}"></i><b>${step.stockIndex.toFixed(1)}</b><em class="${deltaClass(step.stockReturn)}">${signedPercent(step.stockReturn)}</em></span>
+    </div>
+    <p class="market-note">교육용 가상 금리 · 실제 금리 전망이 아닙니다</p>`;
+}
+
+export function renderMarketAlert(step: MarketStep): string {
+  if (!step.alert) return '';
+  return `<div class="market-alert level-${step.alert.level}" role="status"><strong>다음 턴 신호</strong><span>${step.alert.text}</span><small>${step.alert.hint}</small></div>`;
 }
 
 export function renderMarketCard(state: GameState, pending: boolean): string {
@@ -47,15 +62,17 @@ export function renderMarketCard(state: GameState, pending: boolean): string {
             <p class="signal">${state.lastMarket.signal}</p>
             <p>${state.lastMarket.reason}</p>
             <p>주사위를 굴려 다음 턴(${nextTurn}턴) 시장을 확인하세요. 시장 국면은 이번 판 시드마다 달라집니다.</p>
+            ${renderMarketAlert(state.lastMarket)}
             ${marketBars(state.lastMarket)}
             ${renderProductReturns(state)}
           </article>`;
   }
-  return `<article class="market-card">
-            <div class="card-label">TURN ${String(state.turn).padStart(2, '0')} · 시장 브리핑</div>
+  return `<article class="market-card${state.lastMarket.shock ? ' shock' : ''}">
+            <div class="card-label">TURN ${String(state.turn).padStart(2, '0')} · 시장 브리핑${state.lastMarket.shock ? ' · 충격' : ''}</div>
             <h2>${state.lastMarket.headline}</h2>
             <p class="signal">${state.lastMarket.signal}</p>
             <p>${state.lastMarket.reason}</p>
+            ${renderMarketAlert(state.lastMarket)}
             ${marketBars(state.lastMarket)}
             ${renderProductReturns(state)}
           </article>`;
@@ -68,19 +85,26 @@ export function renderSettingsEntry(profileName?: string): string {
 
 export function renderTurnTrack(state: GameState, waiting: boolean): string {
   const lifeTurns = new Set(state.lifeEventSchedule.map((item) => item.turn));
+  const alertedTurns = new Set(
+    state.marketPath
+      .filter((step) => step.alert && !isUpcomingSpoiler(step.turn, state.turn))
+      .map((step) => step.turn + 1)
+  );
   const cells = state.marketPath.map((step) => {
     const current = isRevealedTurn(step.turn, state.turn, waiting);
     const past = isCompletedTurn(step.turn, state.turn, waiting);
     const spoiler = isUpcomingSpoiler(step.turn, state.turn);
     const showShock = Boolean(step.shock) && !spoiler;
+    const alerted = spoiler && alertedTurns.has(step.turn);
     const classes = [
       current ? 'current' : '',
       past ? 'past' : '',
       showShock ? 'shock' : '',
-      !spoiler && lifeTurns.has(step.turn) ? 'life' : ''
+      !spoiler && lifeTurns.has(step.turn) ? 'life' : '',
+      alerted ? 'alert' : ''
     ].filter(Boolean).join(' ');
     const label = spoiler
-      ? `${step.turn}턴`
+      ? `${step.turn}턴${alerted ? ' · 신호' : ''}`
       : `${step.phase}${showShock ? ' · 충격' : ''}`;
     return `<i class="${classes}" title="${label}">${step.turn}</i>`;
   }).join('');

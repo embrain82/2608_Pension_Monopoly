@@ -171,6 +171,20 @@ a { color: var(--green); text-underline-offset: 3px; }
 .market-bars span { display: grid; grid-template-columns: auto 1fr; gap: 4px 7px; align-items: center; color: var(--muted); font-size: .67rem; }
 .market-bars i { position: relative; grid-column: 1 / -1; height: 5px; background: #dbe3de; border-radius: 9px; overflow: hidden; }
 .market-bars i::after { content: ""; display: block; width: calc(var(--level) * 20%); height: 100%; background: var(--green-2); }
+.market-bars b { color: var(--ink); font: 800 .95rem Georgia, serif; }
+.market-bars em { justify-self: end; font-style: normal; font-weight: 800; font-size: .7rem; }
+.market-bars em.up { color: var(--orange); }
+.market-bars em.down { color: var(--blue); }
+.market-bars em.flat { color: var(--muted); }
+.market-note { margin: 6px 0 0 !important; color: var(--muted); font-size: .66rem !important; }
+.market-card.shock { border-color: #f0b892; box-shadow: 0 8px 30px rgba(216,110,61,.16); }
+.market-alert { display: grid; gap: 3px; margin: 12px 0 0; padding: 10px 12px; border-radius: 12px; background: #fff7e8; border: 1px solid #f0d2b0; font-size: .8rem; line-height: 1.45; }
+.market-alert strong { color: #9a471f; font-size: .7rem; letter-spacing: .06em; }
+.market-alert small { color: var(--muted); }
+.market-alert.level-2 { background: #fff0e7; border-color: #e6a27a; }
+.settle-alert { border-left: 4px solid var(--orange); }
+.turn-track .alert:not(.current) { box-shadow: inset 0 0 0 2px #e6a27a; color: #9a471f; }
+.board-center .rate { fill: var(--ink); font: 800 16px Georgia, serif; }
 .big-number { display: flex; justify-content: space-between; align-items: baseline; margin: 14px 0; }
 .big-number span { color: var(--muted); font-size: .8rem; }
 .big-number strong { font: 800 1.6rem Georgia, serif; }
@@ -315,6 +329,7 @@ td small { display: block; margin: 3px 0 0 20px; color: var(--muted); font-size:
 .result-actions .text-button { grid-column: auto; }
 
 @keyframes tile-focus { from { filter: drop-shadow(0 0 0 rgba(216,110,61,0)); } to { filter: drop-shadow(0 7px 5px rgba(78,70,45,.18)); } }
+@keyframes modal-in { from { opacity: 0; transform: translateY(14px) scale(.98); } to { opacity: 1; transform: none; } }
 @keyframes dice-cta-pulse { 50% { filter: brightness(1.08); box-shadow: 0 10px 22px rgba(30, 91, 84, .32); } }
 @keyframes dice-tumble {
   0% { transform: rotateX(0deg) rotateY(0deg) rotateX(0deg) rotateY(0deg); }

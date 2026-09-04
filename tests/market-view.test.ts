@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { createGame, performAction, resolveLifeEvent, startTurn } from '../src/engine/game-engine';
 import { buyNeedsContribution, renderHowToModal, renderSettingsHowToButton, shouldShowHowTo, shouldShowLearningTip } from '../src/ui/howto';
-import { renderMarketCard, renderProductReturns, renderSettingsEntry, renderTurnTrack } from '../src/ui/market-view';
+import { formatRateDelta } from '../src/engine/market-engine';
+import { renderMarketAlert, renderMarketCard, renderProductReturns, renderSettingsEntry, renderTurnTrack } from '../src/ui/market-view';
 
 function signedPercent(value: number): string {
   return `${value > 0 ? '+' : ''}${(value * 100).toFixed(1)}%`;
@@ -31,6 +32,63 @@ describe('상품 수익률 표시', () => {
     expect(card).not.toContain('???');
     expect(card).toContain('0.0%');
     expect(card).not.toContain(created.marketPath[0].headline);
+  });
+});
+
+describe('퍼센트 금리와 신호 표시', () => {
+  function revealedState(seed: string) {
+    let state = startTurn(createGame(seed)).state;
+    if (state.currentEventId) state = resolveLifeEvent(state, 'cash').state;
+    return state;
+  }
+
+  it('공개된 시장 카드는 금리를 퍼센트와 변화량으로 보여 주고 가상 금리임을 밝힌다', () => {
+    const state = revealedState('ui-rate-pct');
+    const card = renderMarketCard(state, false);
+    expect(card).toContain(`${state.lastMarket.ratePct.toFixed(2)}%`);
+    expect(card).toContain(formatRateDelta(state.lastMarket.rateDeltaPct));
+    expect(card).toContain(`${state.lastMarket.inflationPct.toFixed(1)}%`);
+    expect(card).toContain(state.lastMarket.stockIndex.toFixed(1));
+    expect(card).toContain('교육용 가상 금리');
+    expect(card).not.toContain('/5');
+  });
+
+  it('첫 주사위 전에는 금리 자리에 대시를 둔다', () => {
+    const card = renderMarketCard(createGame('ui-rate-muted'), true);
+    expect(card).toContain('—');
+    expect(card).not.toContain('2.50%');
+  });
+
+  it('현재 턴에 신호가 있으면 신호 상자와 힌트를 보여 준다', () => {
+    const created = createGame('ui-alert');
+    const alertTurn = created.marketPath.find((step) => step.alert)!.turn;
+    let state = created;
+    while (state.turn < alertTurn) {
+      state = startTurn(state).state;
+      if (state.currentEventId) state = resolveLifeEvent(state, 'cash').state;
+      if (state.turn < alertTurn) state = performAction(state, { kind: 'hold' }).state;
+    }
+    const card = renderMarketCard(state, false);
+    expect(card).toContain('market-alert');
+    expect(card).toContain(state.lastMarket.alert!.text);
+    expect(card).toContain(state.lastMarket.alert!.hint);
+    const quiet = created.marketPath.find((step) => !step.alert && step.turn > 0)!;
+    const markup = renderMarketAlert(quiet);
+    expect(markup).toBe('');
+  });
+
+  it('턴 트랙은 공개된 신호의 다음 칸에만 alert 표시를 붙인다', () => {
+    const created = createGame('ui-alert-track');
+    expect(renderTurnTrack(created, true)).not.toContain('alert');
+    const alertTurn = created.marketPath.find((step) => step.alert)!.turn;
+    let state = created;
+    while (state.turn < alertTurn) {
+      state = startTurn(state).state;
+      if (state.currentEventId) state = resolveLifeEvent(state, 'cash').state;
+      if (state.turn < alertTurn) state = performAction(state, { kind: 'hold' }).state;
+    }
+    const track = renderTurnTrack(state, false);
+    expect(track).toContain(`class="alert" title="${alertTurn + 1}턴 · 신호">${alertTurn + 1}</i>`);
   });
 });
 

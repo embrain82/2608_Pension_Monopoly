@@ -43,6 +43,7 @@ describe('24칸 보드', () => {
     expect(markup.match(/class="tile /g)?.length).toBe(boardTiles.length);
     expect(markup).toContain('player-mark');
     expect(markup).toContain(started.phase);
+    expect(markup).toContain(`금리 ${started.lastMarket.ratePct.toFixed(2)}%`);
   });
 
   it('주사위 대기 중에는 다음 시장 신호를 보드 중앙에 넣지 않는다', () => {
