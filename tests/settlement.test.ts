@@ -28,6 +28,19 @@ describe('턴 정산 요약', () => {
     expect(summary.nextHints.length).toBeLessThanOrEqual(2);
   });
 
+  it('다음 턴 신호가 있으면 그 힌트를 첫 줄에 둔다', () => {
+    const base = createGame('settle-alert');
+    const before = { ...base, turn: 1, awaitingAction: true, currentEventId: null };
+    const after = applyMarketStep(before, {
+      ...before.lastMarket,
+      turn: 1,
+      alert: { level: 2, text: '다음 턴 금리 결정 · 빅스텝 인상 우려', hint: '장기채 비중을 점검하세요.' }
+    });
+    const summary = summarizeTurn(before, after, '그대로 두기');
+    expect(summary.nextHints[0]).toBe('장기채 비중을 점검하세요.');
+    expect(summary.alert?.level).toBe(2);
+  });
+
   it('사후 한도 초과면 안전자산·리밸런싱 힌트를 준다', () => {
     const base = createGame('settle-over');
     const before = {

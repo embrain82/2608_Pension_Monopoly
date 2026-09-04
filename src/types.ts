@@ -275,6 +275,7 @@ export interface TurnSummary {
   riskAfter: number;
   marketHeadline: string;
   shock: boolean;
+  alert?: MarketAlert;
   marketLimitExceeded: boolean;
   productDeltas: TurnProductDelta[];
   nextHints: string[];

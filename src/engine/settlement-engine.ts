@@ -14,6 +14,7 @@ function holdingAmount(state: GameState, productId: ProductId): number {
 
 function nextHints(after: GameState, riskAfter: number): string[] {
   const hints: string[] = [];
+  if (after.lastMarket.alert) hints.push(after.lastMarket.alert.hint);
   if (after.marketLimitExceeded) hints.push(HINT_OVER_LIMIT);
   if (after.pendingOrders.length > 0) hints.push(HINT_PENDING_FUND);
   if (riskAfter > 0.62 && !after.marketLimitExceeded) hints.push(HINT_NEAR_LIMIT);
@@ -41,6 +42,7 @@ export function summarizeTurn(before: GameState, after: GameState, actionLine: s
     riskAfter,
     marketHeadline: after.lastMarket.headline,
     shock: Boolean(after.lastMarket.shock),
+    alert: after.lastMarket.alert,
     marketLimitExceeded: after.marketLimitExceeded,
     productDeltas,
     nextHints: nextHints(after, riskAfter)

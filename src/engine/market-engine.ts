@@ -25,6 +25,10 @@ const SECOND_AFTER_RATE: Record<string, number> = { 'equity-crash': 0.6, 'melt-u
 const SECOND_AFTER_EQUITY: Record<string, number> = { 'rate-bigstep': 0.5, 'inflation-surprise': 0.2, 'emergency-cut': 0.2, 'credit-rally': 0.1 };
 const THIRD_POSITIVE_RATE = 0.7;
 
+export const WEAK_ALERT_TEXT = '시장 경계감이 커집니다 · 방향은 불확실';
+export const WEAK_ALERT_HINT = '신호는 예측이 아니라 대비할 이유입니다. 분산과 생활자금을 점검하세요.';
+export const ALERT_CARD_ID = 'signal-vs-forecast';
+
 const REGIME_HEADLINES: Record<Regime, string[]> = {
   easing: ['금리가 낮아지며 회복 기대가 자랍니다', '완화 기조에 위험자산이 힘을 받습니다', '낮은 금리가 소비와 투자를 데웁니다'],
   hold: ['방향이 뚜렷하지 않은 관망 국면입니다', '금리는 제자리, 시장은 눈치를 봅니다', '지표가 엇갈려 분산을 점검할 때입니다'],
@@ -165,7 +169,26 @@ export function generateMarketPath(seed: string, config: MarketConfig = balanceC
     else if (recoveryLeft > 0) recoveryLeft -= 1;
     macro = { ...next, regime: regimeAfter };
   }
-  return path;
+  return attachAlerts(rng, path, config);
+}
+
+/** 충격 턴 t의 신호는 t−1 스텝에 붙는다. 충격 앞이 아닌 턴에도 낮은 확률로 약한 신호가 온다. */
+export function attachAlerts(rng: Rng, path: MarketStep[], config: MarketConfig = balanceConfig.market): MarketStep[] {
+  return path.map((step, index) => {
+    const next = path[index + 1];
+    if (!next) return step;
+    if (next.shock && next.shockId) {
+      const shock = shockById(next.shockId);
+      const alert = rng.next() < config.alertStrongRate
+        ? { level: 2 as const, text: shock.alertStrong, hint: shock.alertHint }
+        : { level: 1 as const, text: WEAK_ALERT_TEXT, hint: WEAK_ALERT_HINT };
+      return { ...step, alert };
+    }
+    if (rng.next() < config.alertFakeRate) {
+      return { ...step, alert: { level: 1 as const, text: WEAK_ALERT_TEXT, hint: WEAK_ALERT_HINT } };
+    }
+    return step;
+  });
 }
 
 export function marketPathOf(state: Pick<GameState, 'seed' | 'marketPath'>): MarketStep[] {

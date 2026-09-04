@@ -1,4 +1,5 @@
 [
+  {"id":"signal-vs-forecast","category":"시장","title":"신호는 예측이 아니에요","key":"충격 전 신호는 맞을 때도, 빗나갈 때도 있어요. 예측하지 말고 대비하세요.","detail":"게임은 충격 직전 턴에 신호를 보여 주지만 일부는 약하거나 빗나갑니다. 분산과 생활자금은 신호가 틀려도 손해가 아닙니다.","source_url":"https://www.fss.or.kr","reviewed_at":"2026-09-04","simplified":true},
   {"id":"rate-bond","category":"시장","title":"금리와 채권가격","key":"금리가 오르면 기존 채권 가격은 내려갈 수 있어요.","detail":"다른 조건이 같다면 만기가 긴 채권일수록 금리 변화에 더 민감할 수 있습니다.","source_url":"https://www.fss.or.kr","reviewed_at":"2026-08-10","simplified":true},
   {"id":"duration","category":"상품","title":"장기채의 민감도","key":"같은 금리 변화에도 장기채가 더 크게 움직일 수 있어요.","detail":"게임은 단기채 민감도 1, 장기채 민감도 3으로 단순화합니다.","source_url":"https://www.fss.or.kr","reviewed_at":"2026-08-10","simplified":true},
   {"id":"deposit-rate","category":"상품","title":"예금의 두 금리","key":"새 예금금리가 올라도 기존 예금 조건은 그대로일 수 있어요.","detail":"기존 예금을 중도해지하면 약정 이자를 잃거나 불이익이 생길 수 있습니다.","source_url":"https://www.fss.or.kr","reviewed_at":"2026-08-10","simplified":true},

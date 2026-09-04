@@ -141,6 +141,40 @@ describe('금리 국면 경로', () => {
     expect(sd).toBeGreaterThanOrEqual(0.035);
   });
 
+  it('충격 직전 턴에 신호가 붙고 12턴에는 신호가 없다', () => {
+    const catalog = new Map(marketShocks.map((shock) => [shock.id, shock]));
+    let strong = 0;
+    let beforeShock = 0;
+    let fake = 0;
+    let quiet = 0;
+    for (const path of paths) {
+      expect(path[11].alert).toBeUndefined();
+      for (const step of path) {
+        const next = path[step.turn];
+        if (next?.shock) {
+          beforeShock += 1;
+          expect(step.alert).toBeDefined();
+          expect(step.alert!.hint.length).toBeGreaterThan(0);
+          if (step.alert!.level === 2) {
+            strong += 1;
+            expect(step.alert!.text).toBe(catalog.get(next.shockId ?? '')!.alertStrong);
+            expect(step.alert!.hint).toBe(catalog.get(next.shockId ?? '')!.alertHint);
+          }
+        } else if (step.turn < 12) {
+          quiet += 1;
+          if (step.alert) {
+            fake += 1;
+            expect(step.alert.level).toBe(1);
+          }
+        }
+      }
+    }
+    expect(strong / beforeShock).toBeGreaterThanOrEqual(0.6);
+    expect(strong / beforeShock).toBeLessThanOrEqual(0.95);
+    expect(fake / quiet).toBeGreaterThanOrEqual(0.05);
+    expect(fake / quiet).toBeLessThanOrEqual(0.3);
+  });
+
   it('금리 상승 시 장기채가 단기채보다 크게 내린다', () => {
     expect(rateShockReturn('longBond', 1)).toBeLessThan(rateShockReturn('shortBond', 1));
     expect(rateShockReturn('longBond', 1)).toBeCloseTo(-3 * market.bondSensitivityPerPct, 9);

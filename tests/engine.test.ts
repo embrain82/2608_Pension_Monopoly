@@ -104,6 +104,23 @@ describe('시장 우선 턴 루프', () => {
     }
   });
 
+  it('신호가 뜬 턴과 충격 턴에 관련 학습 카드를 해금한다', () => {
+    const created = createGame('alert-cards');
+    const alertTurn = created.marketPath.find((step) => step.alert)!.turn;
+    const shockStep = created.marketPath.find((step) => step.shock)!;
+    let state = created;
+    while (state.turn < Math.max(alertTurn, shockStep.turn)) {
+      state = startTurn(state).state;
+      if (state.turn === alertTurn) expect(state.unlockedCards).toContain('signal-vs-forecast');
+      if (state.turn === shockStep.turn) {
+        const shock = marketShocks.find((item) => item.id === shockStep.shockId)!;
+        expect(state.unlockedCards).toContain(shock.cardId);
+      }
+      if (state.currentEventId) state = resolveLifeEvent(state, 'cash').state;
+      state = performAction(state, { kind: 'hold' }).state;
+    }
+  });
+
   it('금액 프리셋은 기본·절반·가능액을 계산한다', () => {
     const state = { ...createGame('amount'), irpCash: 8_000_000 };
     expect(resolveActionAmount(state, 'buy', 'default')).toBe(balanceConfig.tradeAmount);
