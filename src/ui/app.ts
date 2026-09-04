@@ -4,6 +4,7 @@ import { getLifeEvent, getLearningCard } from '../engine/content-engine';
 import { portfolioValue, rebalanceShares, sellProduct } from '../engine/portfolio-engine';
 import { canBuyForProfile, decideBuyAgainstRiskLimit, expectedRiskAfterBuy, maxBuyWithinRiskLimit, riskAssetRatio, type BuyLimitDecision } from '../engine/policy-engine';
 import { randomSeed } from '../engine/random-engine';
+import { emptyMarketStep } from '../engine/market-engine';
 import { applyProfileToGame, profileFromScore } from '../engine/profile-engine';
 import { pickTileBriefing } from '../engine/tile-briefing';
 import { calculateScore, starChecklist } from '../engine/scoring-engine';
@@ -12,12 +13,13 @@ import { DICE_LAND_HOLD_MS, DICE_ROLL_DURATION_MS, canRevealNextTurn, dicePairFo
 import { TOKEN_STEP_MS, movePath, renderBoardMarkup } from './board';
 import { buyNeedsContribution, renderHowToModal, renderSettingsHowToButton, shouldShowHowTo, shouldShowLearningTip } from './howto';
 import { renderTileBriefing } from './tile-briefing';
+import { renderNewsFlash } from './news-flash';
 import { percent, renderMarketCard, renderMarketTimeline, renderSettingsEntry, renderTurnTrack, signedPercent } from './market-view';
 import { loadSave, saveData } from './ui-state';
 import { renderSettlementModal } from './settlement';
 
 type Screen = 'title' | 'diagnosis' | 'goal' | 'game' | 'result';
-type Modal = 'life' | 'action' | 'portfolio' | 'market' | 'cards' | 'settings' | 'howto' | 'tile' | 'settle' | null;
+type Modal = 'life' | 'action' | 'portfolio' | 'market' | 'cards' | 'settings' | 'howto' | 'news' | 'tile' | 'settle' | null;
 type ActionView = 'menu' | ActionKind;
 
 const questions = [
@@ -196,6 +198,10 @@ export class PensionRoadApp {
       this.modal = null;
     } else if (action === 'dismiss-tile') {
       this.afterTileBriefing();
+    } else if (action === 'dismiss-news') {
+      this.afterNews();
+    } else if (action === 'open-tile') {
+      this.modal = 'tile';
     } else if (action === 'open-diagnosis') {
       this.clearDiceTimer();
       this.diceRolling = false;
@@ -218,6 +224,7 @@ export class PensionRoadApp {
       if (!['life', 'action'].includes(this.modal ?? '')) {
         if (this.modal === 'howto') this.markHowToSeen();
         if (this.modal === 'tile') this.afterTileBriefing();
+        else if (this.modal === 'news') this.afterNews();
         else this.modal = null;
       }
     } else if (action === 'same-seed') {
@@ -317,7 +324,7 @@ export class PensionRoadApp {
       this.diceRolling = false;
       this.tokenHopping = false;
       this.tokenFocus = this.game.position;
-      this.modal = 'tile';
+      this.modal = 'news';
       this.announce(`${label} 이동 · ${next.message}`);
       this.persist(true);
       this.render();
@@ -402,10 +409,15 @@ export class PensionRoadApp {
     this.modal = this.game?.currentEventId ? 'life' : null;
   }
 
+  private afterNews(): void {
+    this.modal = this.game?.currentEventId ? 'life' : null;
+  }
+
   private onKeydown(event: KeyboardEvent): void {
     if (event.key === 'Escape' && this.modal && !['life', 'action'].includes(this.modal)) {
       if (this.modal === 'howto') this.markHowToSeen();
       if (this.modal === 'tile') this.afterTileBriefing();
+      else if (this.modal === 'news') this.afterNews();
       else this.modal = null;
       this.render();
       return;
@@ -610,6 +622,10 @@ export class PensionRoadApp {
     if (this.modal === 'settings') content = this.renderSettingsModal();
     if (this.modal === 'howto') content = renderHowToModal();
     if (this.modal === 'settle' && this.lastSummary) content = renderSettlementModal(this.lastSummary);
+    if (this.modal === 'news' && this.game) {
+      const prev = this.game.marketPath[this.game.turn - 2] ?? emptyMarketStep();
+      content = renderNewsFlash(this.game.lastMarket, prev, boardTiles[this.game.position]);
+    }
     if (this.modal === 'tile' && this.game) {
       const tile = boardTiles[this.game.position];
       content = renderTileBriefing(
@@ -622,8 +638,9 @@ export class PensionRoadApp {
       : this.modal === 'life' ? '생활사건'
         : this.modal === 'howto' ? '게임 방법'
           : this.modal === 'tile' ? '도착 칸 설명'
-            : this.modal === 'settle' ? '턴 정산 요약'
-              : '게임 정보';
+            : this.modal === 'news' ? '시장 속보'
+              : this.modal === 'settle' ? '턴 정산 요약'
+                : '게임 정보';
     return `<div class="modal-backdrop"><section class="modal-sheet modal-${this.modal}" role="dialog" aria-modal="true" aria-label="${label}">${close}${content}<p class="modal-feedback" aria-live="polite">${this.feedback}</p></section></div>`;
   }
 

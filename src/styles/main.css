@@ -183,6 +183,48 @@ a { color: var(--green); text-underline-offset: 3px; }
 .market-alert small { color: var(--muted); }
 .market-alert.level-2 { background: #fff0e7; border-color: #e6a27a; }
 .settle-alert { border-left: 4px solid var(--orange); }
+
+.modal-news { padding-top: 0; overflow-x: hidden; }
+.modal-news .modal-close { margin-top: 14px; }
+.news-flash { position: relative; display: grid; gap: 12px; animation: breaking-in .35s ease-out both; }
+.news-flash.shock::before { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none; background: rgba(216,110,61,.35); animation: flash .6s ease-out both; }
+.news-flash.shock { animation: breaking-in .35s ease-out both, shake .5s ease-in-out .25s both; }
+.news-tape { display: flex; gap: 10px; align-items: center; margin: 0 -28px; padding: 12px 28px; color: #fff; background: #b8372a; font-size: .74rem; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; animation: tape-slide .35s ease-out both; }
+.news-flash.shock .news-tape { background: var(--orange); }
+.news-flash.positive .news-tape { background: #b7891d; }
+.news-badge { padding: 3px 9px; border-radius: 6px; background: rgba(255,255,255,.22); }
+.news-phase { margin-left: auto; letter-spacing: .02em; text-transform: none; }
+.news-headline { margin: 4px 0 0 !important; font-size: clamp(1.5rem, 5.5vw, 2.1rem) !important; overflow: hidden; white-space: normal; animation: type-in .7s steps(24, end) .2s both; }
+.news-dial { display: grid; grid-template-columns: 150px 1fr; gap: 12px; align-items: center; padding: 8px 14px; background: var(--cream); border-radius: 14px; }
+.news-dial svg { width: 150px; height: 90px; overflow: visible; }
+.news-dial .dial-track { fill: none; stroke: #cfdbd3; stroke-width: 12; stroke-linecap: round; }
+.news-dial .dial-needle { transform-origin: 100px 110px; transform: rotate(var(--to)); animation: dial-turn .9s cubic-bezier(.2,.8,.2,1) .25s both; }
+.news-dial .dial-needle line { stroke: var(--ink); stroke-width: 4; stroke-linecap: round; }
+.news-dial .dial-needle circle { fill: var(--ink); }
+.news-dial p { display: grid; margin: 0; }
+.news-dial small { color: var(--muted); font-size: .68rem; }
+.news-dial b { font: 800 1.6rem Georgia, serif; }
+.news-dial em { font-style: normal; font-weight: 800; color: var(--orange); }
+.news-arrows { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 0; padding: 0; list-style: none; }
+.news-arrow { display: grid; grid-template-columns: 1fr auto; grid-template-rows: auto auto; align-items: end; padding: 8px 10px; background: #fff; border: 1px solid var(--line); border-radius: 12px; animation: arrow-pop .4s cubic-bezier(.3,1.4,.5,1) both; animation-delay: calc(.45s + var(--i) * .08s); }
+.news-arrow span { grid-column: 1 / -1; color: var(--muted); font-size: .68rem; font-weight: 800; }
+.news-arrow b { font: 800 .95rem Georgia, serif; }
+.news-arrow i { display: block; width: 14px; height: calc(10px + var(--mag) * 22px); border-radius: 4px; background: #c9d3cc; }
+.news-arrow.up i { background: var(--green-2); clip-path: polygon(50% 0, 100% 40%, 72% 40%, 72% 100%, 28% 100%, 28% 40%, 0 40%); }
+.news-arrow.down i { background: var(--orange); clip-path: polygon(28% 0, 72% 0, 72% 60%, 100% 60%, 50% 100%, 0 60%, 28% 60%); }
+.news-arrow.up b { color: var(--green); }
+.news-arrow.down b { color: var(--orange); }
+.news-reason { margin: 0; color: var(--muted); font-size: .9rem; line-height: 1.6; }
+.news-arrival { margin: 0; color: var(--muted); font-size: .78rem; font-weight: 800; }
+.news-flash .button-stack { margin-top: 4px; }
+
+@keyframes breaking-in { from { opacity: 0; transform: translateY(18px); } }
+@keyframes tape-slide { from { transform: translateX(-100%); } }
+@keyframes type-in { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+@keyframes dial-turn { from { transform: rotate(var(--from)); } }
+@keyframes arrow-pop { from { opacity: 0; transform: translateY(10px) scale(.85); } }
+@keyframes flash { from { opacity: 1; } to { opacity: 0; } }
+@keyframes shake { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-7px) rotate(-.4deg); } 40% { transform: translateX(6px) rotate(.4deg); } 60% { transform: translateX(-4px); } 80% { transform: translateX(3px); } }
 .turn-track .alert:not(.current) { box-shadow: inset 0 0 0 2px #e6a27a; color: #9a471f; }
 .board-center .rate { fill: var(--ink); font: 800 16px Georgia, serif; }
 .big-number { display: flex; justify-content: space-between; align-items: baseline; margin: 14px 0; }
