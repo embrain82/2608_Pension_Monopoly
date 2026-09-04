@@ -85,33 +85,33 @@
 
 **Files:** `src/ui/news-flash.ts`(신규), `src/ui/app.ts`, `src/styles/main.css`, `tests/news-flash.test.ts`(신규)
 
-- [ ] RED: `dialAngle` 경계(0.5→−120, 6.0→120, 3.25→0); `renderNewsFlash(step, prevStep, tile)`에 `속보`, `TURN 06`, 헤드라인, 상품 6개 `news-arrow`, `data-action="dismiss-news"`, `data-action="open-tile"`, 도착 칸 라벨; 충격이면 `shock` 클래스, 긍정 충격이면 `positive`; alert 있으면 `market-alert`; `--from`/`--to` 각도.
-- [ ] 구현. `app.ts`: `Modal`에 `'news'`, `reveal()`에서 `'news'`, 핸들러 `dismiss-news`·`open-tile`, `close-modal`·Escape 분기, `renderModal` 라벨 `시장 속보`.
-- [ ] CSS: `.news-flash`, `.news-tape`, `.news-dial`, `.news-arrows`, 키프레임.
-- [ ] GREEN → 커밋 `Open each turn with a breaking-news market card.`
+- [x] RED: `dialAngle` 경계(0.5→−120, 6.0→120, 3.25→0); `renderNewsFlash(step, prevStep, tile)`에 `속보`, `TURN 06`, 헤드라인, 상품 6개 `news-arrow`, `data-action="dismiss-news"`, `data-action="open-tile"`, 도착 칸 라벨; 충격이면 `shock` 클래스, 긍정 충격이면 `positive`; alert 있으면 `market-alert`; `--from`/`--to` 각도.
+- [x] 구현. `app.ts`: `Modal`에 `'news'`, `reveal()`에서 `'news'`, 핸들러 `dismiss-news`·`open-tile`, `close-modal`·Escape 분기, `renderModal` 라벨 `시장 속보`.
+- [x] CSS: `.news-flash`, `.news-tape`, `.news-dial`, `.news-arrows`, 키프레임.
+- [x] GREEN → 커밋 `Open each turn with a breaking-news market card.`
 
 ## Task 2: 숫자 트윈과 목표·위험 게이지
 
 **Files:** `src/ui/fx.ts`(신규), `src/ui/hud.ts`(신규), `src/ui/app.ts`, `src/styles/main.css`, `tests/fx.test.ts`(신규), `tests/hud.test.ts`(신규)
 
-- [ ] RED `fx.test.ts`: `easeOutCubic(0)=0`, `(1)=1`, 단조증가; `formatByKind('won', 1234567)`=`1,234,567원`, `shortWon`, `percent`, `signedPercent`; `animatedNumber(kind, from, to)`가 `data-anim` 속성 마크업을 만든다.
-- [ ] RED `hud.test.ts`: `goalStatusLine` 4분기; `renderGoalMeter`에 `tick`·`near`·`met`; `renderRiskMeter(0.75, 0.7)`에 `over`.
-- [ ] 구현. `app.ts` HUD 숫자를 `animatedNumber`로, `render()` 끝에 `runNumberAnimations(this.root, skip)`, `shown` 상태 갱신. `.goal-meter`·`.risk-line`을 `hud.ts` 마크업으로 교체.
-- [ ] GREEN → 커밋 `Animate HUD numbers and add goal and risk gauges.`
+- [x] RED `fx.test.ts`: `easeOutCubic(0)=0`, `(1)=1`, 단조증가; `formatByKind('won', 1234567)`=`1,234,567원`, `shortWon`, `percent`, `signedPercent`; `animatedNumber(kind, from, to)`가 `data-anim` 속성 마크업을 만든다.
+- [x] RED `hud.test.ts`: `goalStatusLine` 4분기; `renderGoalMeter`에 `tick`·`near`·`met`; `renderRiskMeter(0.75, 0.7)`에 `over`.
+- [x] 구현. `app.ts` HUD 숫자를 `animatedNumber`로, `render()` 끝에 `runNumberAnimations(this.root, skip)`, `shown` 상태 갱신. `.goal-meter`·`.risk-line`을 `hud.ts` 마크업으로 교체.
+- [x] GREEN → 커밋 `Animate HUD numbers and add goal and risk gauges.`
 
 ## Task 3: 정산 장면
 
 **Files:** `src/engine/settlement-engine.ts`, `src/types.ts`, `src/ui/settlement.ts`, `src/styles/main.css`, `tests/settlement.test.ts`
 
-- [ ] RED: `summarizeTurn` 결과에 `productReturns`·`holdingShares`·`biggestMover`·`reaction`; `reactionLine` 규칙 1·3·5·7; 모달에 `settle-bars`, `settle-returns`, `mover`, `settle-reaction`, 차액 배지.
-- [ ] 구현 + CSS.
-- [ ] GREEN → 커밋 `Turn the settlement summary into an animated scene.`
+- [x] RED: `summarizeTurn` 결과에 `productReturns`·`holdingShares`·`biggestMover`·`reaction`; `reactionLine` 규칙 1·3·5·7; 모달에 `settle-bars`, `settle-returns`, `mover`, `settle-reaction`, 차액 배지.
+- [x] 구현 + CSS.
+- [x] GREEN → 커밋 `Turn the settlement summary into an animated scene.`
 
 ## Task 4: 매뉴얼·검증·PR
 
 **Files:** `public/user-manual.html`, `public/operator-manual.html`, `tests/manuals.test.ts`
 
-- [ ] 사용자 §4 한 턴의 순서(속보 카드, 칸 설명은 선택), §5 화면(게이지·정산 막대·상태 한 줄), C26(속보 카드가 사라지지 않는다=버튼으로 닫음). 운영자 구성표에 `news-flash.ts`·`hud.ts`·`fx.ts`, Q27~Q29.
-- [ ] `npm run lint && npm run typecheck && npm test && npm run build`.
-- [ ] 브라우저 1280·375: 속보 카드 → 계속 → 운용 → 정산 장면, 동작 줄이기 켠 상태에서 즉시 표시.
-- [ ] 푸시, PR(base `main`).
+- [x] 사용자 §4 한 턴의 순서(속보 카드, 칸 설명은 선택), §5 화면(게이지·정산 막대·상태 한 줄), C26(속보 카드가 사라지지 않는다=버튼으로 닫음). 운영자 구성표에 `news-flash.ts`·`hud.ts`·`fx.ts`, Q27~Q29.
+- [x] `npm run lint && npm run typecheck && npm test && npm run build`.
+- [x] 브라우저 1280·375: 속보 카드 → 계속 → 운용 → 정산 장면, 동작 줄이기 켠 상태에서 즉시 표시.
+- [x] 푸시, PR(base `main`).
