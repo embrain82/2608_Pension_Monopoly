@@ -22,17 +22,94 @@ export interface Product {
   riskGrade: number;
 }
 
+export type Regime = 'easing' | 'hold' | 'tightening' | 'pivot';
+export type ShockFamily = 'rate' | 'equity';
+
+export interface MarketAlert {
+  level: 1 | 2;
+  text: string;
+  hint: string;
+}
+
 export interface MarketStep {
   turn: number;
   phase: string;
   headline: string;
   signal: string;
   reason: string;
+  /** 1~5 표시 레벨. ratePct에서 파생. */
   rate: number;
   inflation: number;
   stocks: number;
+  ratePct: number;
+  rateDeltaPct: number;
+  inflationPct: number;
+  stockIndex: number;
+  stockReturn: number;
+  regime: Regime;
   returns: Record<ProductId, number>;
   shock?: boolean;
+  shockId?: string;
+  alert?: MarketAlert;
+}
+
+export interface MarketShock {
+  id: string;
+  family: ShockFamily;
+  positive: boolean;
+  phase: string;
+  headline: string;
+  signal: string;
+  reason: string;
+  rateDeltaPct: number[];
+  inflationDeltaPct: number;
+  stockMovePct: number;
+  forceMax?: Partial<Record<ProductId, number>>;
+  forceMin?: Partial<Record<ProductId, number>>;
+  regimeAfter?: Regime;
+  regimeAfterChance?: number;
+  recovery?: boolean;
+  alertStrong: string;
+  alertHint: string;
+  cardId: string;
+}
+
+export interface RegimeConfig {
+  phase: string;
+  moveChance: number;
+  direction: -1 | 0 | 1;
+  stepWeights: [number, number];
+  stockDrift: number;
+  inflationDrift: number;
+  transitions: Partial<Record<Regime, number>>;
+}
+
+export interface MarketConfig {
+  rateStartPct: number;
+  rateMinPct: number;
+  rateMaxPct: number;
+  rateStepPct: number;
+  inflationStartPct: number;
+  inflationMinPct: number;
+  inflationMaxPct: number;
+  stockStartIndex: number;
+  depositBase: number;
+  depositPerRatePct: number;
+  depositNoise: number;
+  bondCarryPerRatePct: number;
+  bondSensitivityPerPct: number;
+  bondNoise: number;
+  equityPremium: number;
+  stockNoise: number;
+  equityNoise: number;
+  recoveryDrift: number;
+  recoveryTurns: number;
+  returnClamp: number;
+  shockCountWeights: [number, number];
+  shockSlots: [[number, number], [number, number], [number, number]];
+  alertStrongRate: number;
+  alertFakeRate: number;
+  regimes: Record<Regime, RegimeConfig>;
 }
 
 export interface LifeEvent {
@@ -88,6 +165,7 @@ export interface BalanceConfig {
   depositMaturityTurns: number;
   defaultAllocation: Record<ProductId, number>;
   rebalanceAllocation: Record<ProductId, number>;
+  market: MarketConfig;
 }
 
 export interface InvestorProfile {

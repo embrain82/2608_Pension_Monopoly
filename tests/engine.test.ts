@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { balanceConfig, boardTiles, lifeEvents, marketScenario, policyRules } from '../src/data/content';
+import { balanceConfig, boardTiles, lifeEvents, marketScenario, marketShocks, policyRules } from '../src/data/content';
 import { applyGoalToGame, autoplay, clampGoalMonthly, createGame, performAction, resolveActionAmount, resolveLifeEvent, startTurn } from '../src/engine/game-engine';
 import { applyMarketStep, generateMarketPath, rateShockReturn } from '../src/engine/market-engine';
 import { buyProduct, portfolioValue, rebalancePortfolio, rebalanceShares, sellProduct, settleOrders, switchProduct } from '../src/engine/portfolio-engine';
@@ -539,17 +539,19 @@ describe('시드 기반 시장 경로', () => {
     expect(a).not.toEqual(marketScenario);
   });
 
-  it('충격 턴을 2회 두고 모든 상품 수익률을 채운다', () => {
+  it('충격 턴을 2~3회 두고 모든 상품 수익률을 채운다', () => {
     const path = generateMarketPath('market-shocks');
     const shocks = path.filter((step) => step.shock).map((step) => step.turn);
-    expect(shocks).toHaveLength(2);
-    expect(new Set(shocks).size).toBe(2);
-    expect(shocks.every((turn) => turn >= 3 && turn <= 10)).toBe(true);
+    expect(shocks.length).toBeGreaterThanOrEqual(2);
+    expect(shocks.length).toBeLessThanOrEqual(3);
+    expect(new Set(shocks).size).toBe(shocks.length);
+    expect(shocks.every((turn) => turn >= 4 && turn <= 11)).toBe(true);
+    const clamp = balanceConfig.market.returnClamp;
     for (const step of path) {
       for (const productId of ['deposit', 'shortBond', 'longBond', 'balanced', 'equityEtf', 'tdf'] as const) {
         expect(Number.isFinite(step.returns[productId])).toBe(true);
-        expect(step.returns[productId]).toBeGreaterThanOrEqual(-0.15);
-        expect(step.returns[productId]).toBeLessThanOrEqual(0.15);
+        expect(step.returns[productId]).toBeGreaterThanOrEqual(-clamp);
+        expect(step.returns[productId]).toBeLessThanOrEqual(clamp);
       }
     }
   });
@@ -573,24 +575,28 @@ describe('시드 기반 시장 경로', () => {
     expect(created.lastMarket.returns.deposit).toBe(0);
   });
 
-  it('충격 턴은 큰 움직임과 같은 방향의 문구를 갖는다', () => {
+  it('충격 턴은 카탈로그의 국면 이름과 같은 방향의 움직임을 갖는다', () => {
     for (let index = 0; index < 20; index += 1) {
       const shocks = generateMarketPath(`shock-copy-${index}`).filter((step) => step.shock);
-      expect(shocks).toHaveLength(2);
+      expect(shocks.length).toBeGreaterThanOrEqual(2);
       for (const step of shocks) {
+        const shock = marketShocks.find((item) => item.id === step.shockId)!;
+        expect(shock).toBeDefined();
+        expect(step.phase).toBe(shock.phase);
         const text = `${step.headline} ${step.reason} ${step.signal}`;
-        const rateShock = step.returns.longBond <= -0.06;
-        const equityShock = step.returns.equityEtf <= -0.06;
-        expect(rateShock || equityShock).toBe(true);
-        if (rateShock) {
+        if (shock.id === 'rate-bigstep') {
+          expect(step.returns.longBond).toBeLessThanOrEqual(-0.09);
           expect(step.returns.longBond).toBeLessThan(step.returns.shortBond);
           expect(text).toMatch(/장기채|금리/);
-          expect(step.phase).toBe('기준금리 인상');
         }
-        if (equityShock && !rateShock) {
-          expect(step.returns.equityEtf).toBeLessThan(0);
+        if (shock.id === 'equity-crash') {
+          expect(step.returns.equityEtf).toBeLessThanOrEqual(-0.09);
           expect(text).toMatch(/주식|변동/);
           expect(step.phase).toBe('위험자산 충격');
+        }
+        if (shock.positive) {
+          const best = Math.max(...Object.values(step.returns));
+          expect(best).toBeGreaterThanOrEqual(0.05);
         }
       }
     }

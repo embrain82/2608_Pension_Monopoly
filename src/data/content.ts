@@ -6,10 +6,12 @@ import learningJson from './learning-cards.json';
 import profilesJson from './investor-profiles.json';
 import balanceJson from './balance-config.json';
 import tileBriefingsJson from './tile-briefings.json';
-import type { BalanceConfig, BoardTile, InvestorProfile, LearningCard, LifeEvent, MarketStep, PolicyRules, Product, TileBriefingSet } from '../types';
+import marketShocksJson from './market-shocks.json';
+import type { BalanceConfig, BoardTile, InvestorProfile, LearningCard, LifeEvent, MarketShock, MarketStep, PolicyRules, Product, TileBriefingSet } from '../types';
 
 export const products = productsJson as Product[];
 export const marketScenario = marketJson as MarketStep[];
+export const marketShocks = marketShocksJson as MarketShock[];
 export const lifeEvents = lifeJson as LifeEvent[];
 export const policyRules = policyJson as PolicyRules;
 export const learningCards = learningJson as LearningCard[];
@@ -68,5 +70,20 @@ export function validateContent(): void {
   }
   if (investorProfiles.some((profile) => !Number.isInteger(profile.maxRiskGrade) || profile.maxRiskGrade < 1 || profile.maxRiskGrade > 5)) {
     throw new Error('성향별 매수 가능 등급이 올바르지 않습니다.');
+  }
+  const productIds = new Set<string>(products.map((product) => product.id));
+  const shockIds = new Set(marketShocks.map((shock) => shock.id));
+  if (marketShocks.length !== 6 || shockIds.size !== 6) {
+    throw new Error('시장 충격 카탈로그는 서로 다른 6종이어야 합니다.');
+  }
+  if (marketShocks.some((shock) => [...Object.keys(shock.forceMax ?? {}), ...Object.keys(shock.forceMin ?? {})].some((key) => !productIds.has(key)) || !cardIds.has(shock.cardId))) {
+    throw new Error('시장 충격의 강제치 키와 학습 카드가 올바르지 않습니다.');
+  }
+  if (marketScenario.some((step) => step.shock && !shockIds.has(step.shockId ?? ''))) {
+    throw new Error('시장 템플릿의 충격 턴은 카탈로그 id를 가리켜야 합니다.');
+  }
+  const regimes = Object.keys(balanceConfig.market.regimes).sort().join();
+  if (regimes !== 'easing,hold,pivot,tightening') {
+    throw new Error('시장 국면 설정은 easing·hold·tightening·pivot 네 개여야 합니다.');
   }
 }

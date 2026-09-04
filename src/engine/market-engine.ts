@@ -1,10 +1,15 @@
-import { balanceConfig, policyRules, products } from '../data/content';
-import type { GameState, MarketStep, ProductId } from '../types';
-import { hashSeed, nextRandom } from './random-engine';
+import { balanceConfig, marketShocks, policyRules, products } from '../data/content';
+import type { GameState, MarketConfig, MarketShock, MarketStep, ProductId, Regime } from '../types';
+import { hashSeed } from './random-engine';
 import { portfolioValue } from './portfolio-engine';
 import { riskAssetRatio } from './policy-engine';
+import {
+  applyMacroMove, createRng, initialMacro, levelFromIndex, levelFromPct, nextRegime, pickWeighted, regimeMove, triangular,
+  type MacroState, type Rng
+} from './regime-engine';
+import { productReturns, rateShockReturn } from './return-model';
 
-type ShockKind = 'rate-hike' | 'equity-drop';
+export { rateShockReturn };
 
 const ZERO_RETURNS: Record<ProductId, number> = {
   deposit: 0,
@@ -15,9 +20,27 @@ const ZERO_RETURNS: Record<ProductId, number> = {
   tdf: 0
 };
 
-const SHOCK_TURNS = [3, 4, 5, 6, 7, 8, 9, 10];
+const FIRST_SLOT_WEIGHTS: Record<string, number> = { 'rate-bigstep': 0.45, 'equity-crash': 0.35, 'inflation-surprise': 0.2 };
+const SECOND_AFTER_RATE: Record<string, number> = { 'equity-crash': 0.6, 'melt-up': 0.4 };
+const SECOND_AFTER_EQUITY: Record<string, number> = { 'rate-bigstep': 0.5, 'inflation-surprise': 0.2, 'emergency-cut': 0.2, 'credit-rally': 0.1 };
+const THIRD_POSITIVE_RATE = 0.7;
+
+const REGIME_HEADLINES: Record<Regime, string[]> = {
+  easing: ['금리가 낮아지며 회복 기대가 자랍니다', '완화 기조에 위험자산이 힘을 받습니다', '낮은 금리가 소비와 투자를 데웁니다'],
+  hold: ['방향이 뚜렷하지 않은 관망 국면입니다', '금리는 제자리, 시장은 눈치를 봅니다', '지표가 엇갈려 분산을 점검할 때입니다'],
+  tightening: ['물가 압력에 금리 인상이 이어집니다', '긴축이 길어지며 채권이 눌립니다', '높아진 금리가 경제를 식힙니다'],
+  pivot: ['금리 인하 기대가 채권을 받칩니다', '긴축의 끝이 보이며 위험자산이 숨을 고릅니다', '정책 전환 기대가 커집니다']
+};
+
+const REGIME_REASONS: Record<Regime, string> = {
+  easing: '금리가 내려가면 이미 들고 있는 채권 가격은 오르고, 새로 드는 예금 이자는 낮아집니다. 주식은 회복 기대를 먼저 반영합니다.',
+  hold: '한 방향을 예측하기보다 목표 위험비중과 생활자금을 점검할 시점입니다.',
+  tightening: '금리가 오르면 새 예금 조건은 나아지지만, 만기가 긴 채권 가격은 더 크게 떨어질 수 있습니다.',
+  pivot: '앞으로 금리가 낮아질 것이라는 기대는 만기 긴 채권 가격에 더 크게 반영됩니다.'
+};
 
 export function emptyMarketStep(): MarketStep {
+  const config = balanceConfig.market;
   return {
     turn: 0,
     phase: '시작 전',
@@ -27,155 +50,120 @@ export function emptyMarketStep(): MarketStep {
     rate: 0,
     inflation: 0,
     stocks: 0,
+    ratePct: config.rateStartPct,
+    rateDeltaPct: 0,
+    inflationPct: config.inflationStartPct,
+    stockIndex: config.stockStartIndex,
+    stockReturn: 0,
+    regime: 'hold',
     returns: { ...ZERO_RETURNS }
   };
 }
 
-export function rateShockReturn(productId: ProductId, rateStepChange: number): number {
-  const product = products.find((item) => item.id === productId);
-  if (!product) throw new Error(`알 수 없는 상품: ${productId}`);
-  return -0.01 * product.duration * rateStepChange;
+function shockById(id: string): MarketShock {
+  const shock = marketShocks.find((item) => item.id === id);
+  if (!shock) throw new Error(`알 수 없는 시장 충격: ${id}`);
+  return shock;
 }
 
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
+function slotTurn(rng: Rng, slot: [number, number]): number {
+  return slot[0] + Math.floor(rng.next() * (slot[1] - slot[0] + 1));
 }
 
-function clampLevel(value: number): number {
-  return Math.round(clamp(value, 1, 5));
+export function planShocks(rng: Rng, config: MarketConfig = balanceConfig.market): Map<number, MarketShock> {
+  const count = rng.next() < config.shockCountWeights[1] ? 3 : 2;
+  const plan = new Map<number, MarketShock>();
+  const first = shockById(pickWeighted(rng, FIRST_SLOT_WEIGHTS, 'rate-bigstep'));
+  plan.set(slotTurn(rng, config.shockSlots[0]), first);
+  const second = shockById(pickWeighted(rng, first.family === 'rate' ? SECOND_AFTER_RATE : SECOND_AFTER_EQUITY, first.family === 'rate' ? 'equity-crash' : 'rate-bigstep'));
+  plan.set(slotTurn(rng, config.shockSlots[1]), second);
+  if (count === 3) {
+    const used = new Set([first.id, second.id]);
+    const positive = rng.next() < THIRD_POSITIVE_RATE;
+    const pool = marketShocks.filter((shock) => shock.positive === positive && !used.has(shock.id));
+    const candidates = pool.length ? pool : marketShocks.filter((shock) => !used.has(shock.id));
+    plan.set(slotTurn(rng, config.shockSlots[2]), candidates[Math.floor(rng.next() * candidates.length)]);
+  }
+  return plan;
 }
 
-function clampReturn(value: number): number {
-  return clamp(value, -0.15, 0.15);
+function arrow(value: number, threshold: number): string {
+  if (value >= threshold * 2) return '↗↗';
+  if (value >= threshold) return '↗';
+  if (value <= -threshold * 2) return '↘↘';
+  if (value <= -threshold) return '↘';
+  return '→';
 }
 
-function pickShockPlan(rngState: number): { rngState: number; kinds: Map<number, ShockKind> } {
-  const chosen: number[] = [];
-  let state = rngState;
-  while (chosen.length < 2) {
-    const roll = nextRandom(state);
-    state = roll.state;
-    const turn = SHOCK_TURNS[Math.floor(roll.value * SHOCK_TURNS.length)];
-    if (!chosen.includes(turn)) chosen.push(turn);
-  }
-  chosen.sort((left, right) => left - right);
-  const flip = nextRandom(state);
-  const kinds = new Map<number, ShockKind>(
-    flip.value < 0.5
-      ? [[chosen[0], 'rate-hike'], [chosen[1], 'equity-drop']]
-      : [[chosen[0], 'equity-drop'], [chosen[1], 'rate-hike']]
-  );
-  return { rngState: flip.state, kinds };
+export function formatRateDelta(deltaPct: number): string {
+  if (Math.abs(deltaPct) < 1e-9) return '→';
+  return `${deltaPct > 0 ? '▲' : '▼'}${Math.abs(deltaPct).toFixed(2)}`;
 }
 
-function briefingFor(
-  kind: ShockKind | undefined,
-  rateChange: number,
-  stockChange: number
-): Pick<MarketStep, 'phase' | 'headline' | 'signal' | 'reason'> {
-  if (kind === 'rate-hike' || (rateChange > 0 && Math.abs(rateChange) >= Math.abs(stockChange))) {
-    return {
-      phase: kind ? '기준금리 인상' : '물가상승',
-      headline: kind ? '기준금리 인상이 한 번에 크게 반영됩니다' : '물가와 금리 상승 압력이 커집니다',
-      signal: '신규 예금 ↗ · 장기채 ↘',
-      reason: '금리가 오르면 새로 드는 예금 조건은 나아지지만, 만기가 긴 채권 가격은 더 크게 떨어질 수 있습니다.'
-    };
-  }
-  if (kind === 'equity-drop' || stockChange < 0) {
-    return {
-      phase: kind ? '위험자산 충격' : '경기둔화·전환 기대',
-      headline: kind ? '긴축과 변동성이 위험자산을 흔듭니다' : '위험자산이 숨을 고릅니다',
-      signal: '금리 → · 주식 ↘',
-      reason: '높은 금리와 불확실성이 겹치면 주식형 자산이 채권보다 크게 흔들릴 수 있습니다.'
-    };
-  }
-  if (rateChange < 0) {
-    return {
-      phase: '경기둔화·전환 기대',
-      headline: '금리 인하 기대가 채권을 받칩니다',
-      signal: '금리 ↘ · 장기채 ↗',
-      reason: '앞으로 금리가 낮아질 것이라는 기대는 만기 긴 채권 가격에 더 크게 반영됩니다.'
-    };
-  }
-  if (stockChange > 0) {
-    return {
-      phase: '저금리·경기회복',
-      headline: '위험자산이 회복 기대를 반영합니다',
-      signal: '주식 ↗ · 금리 →',
-      reason: '낮은 조달비용과 회복 기대가 주식형 자산에 힘을 보탭니다.'
-    };
-  }
+function regimeBriefing(rng: Rng, regime: Regime, rateDeltaPct: number, stockReturn: number, config: MarketConfig): Pick<MarketStep, 'phase' | 'headline' | 'signal' | 'reason'> {
+  const headlines = REGIME_HEADLINES[regime];
+  const headline = headlines[Math.floor(rng.next() * headlines.length)];
+  const bond = Math.abs(rateDeltaPct) >= config.rateStepPct * 2 ? ` · 장기채 ${arrow(-rateDeltaPct, 0.25)}` : '';
   return {
-    phase: '경기둔화·전환 기대',
-    headline: '방향이 뚜렷하지 않아 분산을 점검할 때입니다',
-    signal: '금리 → · 주식 →',
-    reason: '한 방향을 예측하기보다 목표 위험비중을 점검할 시점입니다.'
+    phase: config.regimes[regime].phase,
+    headline,
+    signal: `금리 ${formatRateDelta(rateDeltaPct)} · 주식 ${arrow(stockReturn, 0.02)}${bond}`,
+    reason: REGIME_REASONS[regime]
   };
 }
 
-export function generateMarketPath(seed: string): MarketStep[] {
-  let rngState = hashSeed(`${seed}:market`);
-  const plan = pickShockPlan(rngState);
-  rngState = plan.rngState;
-  let rate = 2;
-  let inflation = 2;
-  let stocks = 3;
+export function generateMarketPath(seed: string, config: MarketConfig = balanceConfig.market): MarketStep[] {
+  const rng = createRng(hashSeed(`${seed}:market`));
+  const plan = planShocks(rng, config);
+  let macro: MacroState = initialMacro(config, rng);
+  let recoveryLeft = 0;
   const path: MarketStep[] = [];
 
   for (let turn = 1; turn <= balanceConfig.maxTurns; turn += 1) {
-    const kind = plan.kinds.get(turn);
-    const prevRate = rate;
-    const prevStocks = stocks;
-    if (kind === 'rate-hike') {
-      rate = clampLevel(rate + 1);
-      inflation = clampLevel(inflation + 1);
-      stocks = clampLevel(stocks - 1);
-    } else if (kind === 'equity-drop') {
-      stocks = clampLevel(stocks - 2);
-      inflation = clampLevel(inflation);
-    } else {
-      const rateRoll = nextRandom(rngState);
-      const infRoll = nextRandom(rateRoll.state);
-      const stockRoll = nextRandom(infRoll.state);
-      rngState = stockRoll.state;
-      rate = clampLevel(rate + (rateRoll.value - 0.48) * 1.1);
-      inflation = clampLevel(inflation + (infRoll.value - 0.5) * 0.9);
-      stocks = clampLevel(stocks + (stockRoll.value - 0.5) * 1.2);
+    const regime = macro.regime;
+    const shock = plan.get(turn);
+    const move = regimeMove(rng, config.regimes[regime], config);
+    let rateDeltaPct = move.rateDeltaPct;
+    let inflationDeltaPct = move.inflationDeltaPct;
+    let stockReturn = move.stockDrift + (recoveryLeft > 0 ? config.recoveryDrift : 0) + triangular(rng, config.stockNoise);
+    if (shock) {
+      rateDeltaPct = shock.rateDeltaPct[Math.floor(rng.next() * shock.rateDeltaPct.length)];
+      inflationDeltaPct += shock.inflationDeltaPct;
+      stockReturn += shock.stockMovePct;
     }
-    const rateChange = rate - prevRate;
-    const stockChange = stocks - prevStocks;
-    const noise = (): number => {
-      const roll = nextRandom(rngState);
-      rngState = roll.state;
-      return (roll.value - 0.5) * 0.006;
+    const moved = applyMacroMove(macro, { rateDeltaPct, inflationDeltaPct, stockReturn }, config);
+    const next: MacroState = {
+      ...moved,
+      inflationPct: Math.round(moved.inflationPct * 10) / 10,
+      stockIndex: Math.round(moved.stockIndex * 10) / 10
     };
-    let deposit = 0.003 + rate * 0.002 + noise();
-    let shortBond = rateShockReturn('shortBond', rateChange) + 0.004 + noise();
-    let longBond = rateShockReturn('longBond', rateChange) + 0.006 + noise();
-    let equityEtf = 0.012 * stockChange + (stocks - 3) * 0.01 + noise();
-    if (kind === 'rate-hike') {
-      longBond = Math.min(longBond, -0.08);
-      shortBond = Math.min(shortBond, -0.012);
-      deposit = Math.max(deposit, 0.01);
-    } else if (kind === 'equity-drop') {
-      equityEtf = Math.min(equityEtf, -0.07);
-    }
-    deposit = clampReturn(deposit);
-    shortBond = clampReturn(shortBond);
-    longBond = clampReturn(longBond);
-    equityEtf = clampReturn(equityEtf);
-    const balanced = clampReturn(0.25 * shortBond + 0.25 * longBond + 0.5 * equityEtf);
-    const tdf = clampReturn(0.2 * shortBond + 0.2 * longBond + 0.45 * equityEtf + 0.15 * deposit);
-    const briefing = briefingFor(kind, rateChange, stockChange);
+    const actualDelta = Math.round((next.ratePct - macro.ratePct) * 1000) / 1000;
+    const returns = productReturns(rng, { ratePct: next.ratePct, rateDeltaPct: actualDelta, stockReturn, shock }, config);
+    const briefing = shock
+      ? { phase: shock.phase, headline: shock.headline, signal: shock.signal, reason: shock.reason }
+      : regimeBriefing(rng, regime, actualDelta, stockReturn, config);
     path.push({
       turn,
       ...briefing,
-      rate,
-      inflation,
-      stocks,
-      returns: { deposit, shortBond, longBond, balanced, equityEtf, tdf },
-      ...(kind ? { shock: true } : {})
+      rate: levelFromPct(next.ratePct, config.rateMinPct, config.rateMaxPct),
+      inflation: levelFromPct(next.inflationPct, config.inflationMinPct, config.inflationMaxPct),
+      stocks: levelFromIndex(next.stockIndex),
+      ratePct: next.ratePct,
+      rateDeltaPct: actualDelta,
+      inflationPct: next.inflationPct,
+      stockIndex: next.stockIndex,
+      stockReturn,
+      regime,
+      returns,
+      ...(shock ? { shock: true, shockId: shock.id } : {})
     });
+
+    let regimeAfter: Regime;
+    if (shock?.regimeAfter && rng.next() < (shock.regimeAfterChance ?? 1)) regimeAfter = shock.regimeAfter;
+    else regimeAfter = nextRegime(rng, regime, config);
+    if (shock?.recovery) recoveryLeft = config.recoveryTurns;
+    else if (recoveryLeft > 0) recoveryLeft -= 1;
+    macro = { ...next, regime: regimeAfter };
   }
   return path;
 }
