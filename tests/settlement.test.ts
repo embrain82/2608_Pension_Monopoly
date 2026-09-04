@@ -6,10 +6,20 @@ import {
   HINT_NEAR_LIMIT,
   HINT_OVER_LIMIT,
   HINT_PENDING_FUND,
+  REACTION_CONTRIBUTE,
+  REACTION_DEFAULT,
+  reactionLine,
   summarizeTurn
 } from '../src/engine/settlement-engine';
 import { policyRules } from '../src/data/content';
 import { renderSettlementModal } from '../src/ui/settlement';
+
+const sceneFields = {
+  productReturns: { deposit: 0.005, shortBond: 0.004, longBond: 0.006, balanced: 0.01, equityEtf: 0.02, tdf: 0.012 },
+  holdingShares: { deposit: 0.6, shortBond: 0, longBond: 0, balanced: 0.4, equityEtf: 0, tdf: 0 },
+  biggestMover: 'balanced' as const,
+  reaction: REACTION_DEFAULT
+};
 
 describe('턴 정산 요약', () => {
   it('행동 전후 IRP·위험비중과 힌트를 만든다', () => {
@@ -124,7 +134,8 @@ describe('턴 정산 요약', () => {
       shock: false,
       marketLimitExceeded: false,
       productDeltas: [{ productId: 'equityEtf', name: '주식 ETF', delta: 1_200_000 }],
-      nextHints: [HINT_DEFAULT]
+      nextHints: [HINT_DEFAULT],
+      ...sceneFields
     });
     expect(html).toContain('3턴 정산');
     expect(html).toContain('정산 요약');
@@ -134,6 +145,63 @@ describe('턴 정산 요약', () => {
     expect(html).toContain(HINT_DEFAULT);
     expect(html).toContain('data-action="dismiss-settle"');
     expect(html).not.toContain('settle-alert');
+  });
+
+  it('요약에 상품 수익률·보유 비중·가장 큰 변화·반응 한 줄이 들어간다', () => {
+    const base = createGame('settle-scene');
+    const before = { ...base, turn: 2, awaitingAction: true, currentEventId: null };
+    const after = applyMarketStep(before, {
+      ...before.lastMarket,
+      turn: 2,
+      shock: true,
+      returns: { ...before.lastMarket.returns, deposit: 0.01, balanced: -0.04, longBond: -0.09, equityEtf: -0.08 }
+    });
+    const summary = summarizeTurn(before, after, '그대로 두기');
+    expect(summary.productReturns.longBond).toBe(-0.09);
+    expect(summary.holdingShares.deposit).toBeGreaterThan(0.5);
+    expect(summary.holdingShares.equityEtf).toBe(0);
+    expect(summary.biggestMover).toBe('balanced');
+    expect(summary.reaction).toContain('장기채');
+  });
+
+  it('반응 한 줄은 규칙 순서를 따른다', () => {
+    const base = createGame('settle-reaction');
+    const before = { ...base, turn: 3, awaitingAction: true, currentEventId: null };
+    const calm = applyMarketStep(before, { ...before.lastMarket, turn: 3, returns: { ...before.lastMarket.returns } });
+    expect(reactionLine(before, calm, '이번 턴은 행동하지 않고 현재 구성을 유지했습니다.')).toBe(REACTION_DEFAULT);
+    expect(reactionLine(before, calm, '1,000,000원 추가납입, 세액공제 효과 132,000원(교육용)을 생활자금에 반영했습니다.')).toBe(REACTION_CONTRIBUTE);
+    const rally = applyMarketStep(before, { ...before.lastMarket, turn: 3, returns: { ...before.lastMarket.returns, equityEtf: 0.08 } });
+    expect(reactionLine(before, rally, '유지')).toContain('주식이 크게 올랐습니다');
+    const drop = applyMarketStep(before, { ...before.lastMarket, turn: 3, returns: { ...before.lastMarket.returns, balanced: -0.06, deposit: -0.01 } });
+    expect(reactionLine(before, drop, '유지')).toContain('평가액이 줄었습니다');
+  });
+
+  it('정산 모달은 IRP 막대·상품 막대·가장 큰 변화·반응을 그린다', () => {
+    const html = renderSettlementModal({
+      turn: 6,
+      actionLine: '유지',
+      irpBefore: 100_000_000,
+      irpAfter: 97_000_000,
+      riskBefore: 0.2,
+      riskAfter: 0.19,
+      marketHeadline: '기준금리가 한 번에 크게 오릅니다',
+      shock: true,
+      marketLimitExceeded: false,
+      productDeltas: [{ productId: 'balanced', name: '혼합형', delta: -1_800_000 }],
+      nextHints: [HINT_DEFAULT],
+      productReturns: { deposit: 0.012, shortBond: -0.02, longBond: -0.09, balanced: -0.045, equityEtf: -0.03, tdf: -0.035 },
+      holdingShares: { deposit: 0.6, shortBond: 0, longBond: 0, balanced: 0.4, equityEtf: 0, tdf: 0 },
+      biggestMover: 'balanced',
+      reaction: '장기채가 크게 밀렸습니다. 예금·단기채가 방어했는지 보세요.'
+    });
+    expect(html).toContain('settle-bars');
+    expect(html).toContain('settle-returns');
+    expect(html.match(/class="settle-return /g)?.length).toBe(6);
+    expect(html).toContain('mover');
+    expect(html).toContain('settle-reaction');
+    expect(html).toContain('장기채가 크게 밀렸습니다');
+    expect(html).toContain('-3,000,000원');
+    expect(html).toContain('-3.0%');
   });
 
   it('정산 모달은 다음 턴 신호를 따로 강조한다', () => {
@@ -149,7 +217,8 @@ describe('턴 정산 요약', () => {
       alert: { level: 2, text: '다음 턴 금리 결정 · 빅스텝 인상 우려', hint: '장기채 비중을 점검하세요.' },
       marketLimitExceeded: false,
       productDeltas: [],
-      nextHints: ['장기채 비중을 점검하세요.']
+      nextHints: ['장기채 비중을 점검하세요.'],
+      ...sceneFields
     });
     expect(html).toContain('settle-alert');
     expect(html).toContain('다음 턴 금리 결정');
