@@ -117,6 +117,16 @@ npx vercel --yes --prod
 
 `.vercel/`과 `.env.local`은 커밋하지 않습니다.
 
+### 롤백
+
+`main`에 푸시하면 Vercel이 프로덕션을 올립니다. 되돌릴 때는 아래 중 하나를 씁니다.
+
+1. **커밋 되돌리기(권장).** 문제 커밋을 `git revert <sha>`로 뒤집어 `main`에 푸시합니다. 이력이 남고 Vercel이 자동으로 다시 배포합니다.
+2. **태그로 돌아가기.** 배포 기준점에는 `prod-YYYY-MM-DD` 태그를 붙입니다. `git checkout prod-2026-09-04`로 그 시점을 확인하고, 필요하면 `git revert`로 그 상태까지 되돌립니다.
+3. **Vercel 대시보드.** Deployments에서 이전 성공 배포를 골라 Promote to Production을 누르면 코드 변경 없이 즉시 되돌아갑니다.
+
+기능 작업은 `cursor/<이름>-5ed6` 브랜치와 PR로만 `main`에 넣습니다. 큰 변경(시장 엔진·별 기준) 전에는 새 `prod-` 태그를 먹입니다.
+
 ### GitHub Pages
 
 `.github/workflows/pages.yml`이 `main` 푸시에서 `dist/`를 배포합니다. 저장소 Settings → Pages → Source를 GitHub Actions로 켜면 됩니다.
