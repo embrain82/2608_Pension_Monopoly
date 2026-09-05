@@ -82,7 +82,11 @@
           <tr><td><code>src/engine/policy-engine.ts</code></td><td>70% 한도, 성향 적합성, 세액공제</td></tr>
           <tr><td><code>src/engine/profile-engine.ts</code></td><td>진단 점수 → 성향, 진행 중 판에 적용</td></tr>
           <tr><td><code>src/engine/scoring-engine.ts</code></td><td>월 연금, 별, 100점</td></tr>
-          <tr><td><code>src/ui/app.ts</code></td><td>화면·모달·주사위·설정</td></tr>
+          <tr><td><code>src/ui/app.ts</code></td><td>화면·모달·주사위·설정. 모달 순서 <code>news → (tile) → life → action → settle</code></td></tr>
+          <tr><td><code>src/ui/news-flash.ts</code></td><td>속보 카드 마크업, 금리 다이얼 각도(<code>dialAngle</code>)</td></tr>
+          <tr><td><code>src/ui/hud.ts</code></td><td>목표 게이지·상태 한 줄(<code>goalStatusLine</code>), 위험 게이지</td></tr>
+          <tr><td><code>src/ui/fx.ts</code> / <code>fx-dom.ts</code></td><td>숫자 트윈(순수 함수 / DOM 실행). 마크업 <code>data-anim</code>·<code>data-from</code>·<code>data-to</code></td></tr>
+          <tr><td><code>src/ui/settlement.ts</code></td><td>정산 장면: IRP 막대, 상품 수익률 막대, 반응 한 줄(<code>reactionLine</code>는 엔진)</td></tr>
           <tr><td><code>src/ui/ui-state.ts</code></td><td>LocalStorage 로드·마이그레이션</td></tr>
           <tr><td><code>src/data/*.json</code></td><td>상품·성향·정책·사건·학습·칸 설명</td></tr>
           <tr><td><code>public/*.html</code></td><td>이 매뉴얼. 빌드 시 <code>dist/</code>로 복사</td></tr>
@@ -122,7 +126,7 @@ npm run build</code></pre>
       <p>수동 운영 배포: <code>npx vercel login</code> 후 프로젝트 루트에서 <code>npx vercel --yes --prod</code>.</p>
       <p class="warn"><code>.vercel/</code>과 <code>.env.local</code>에는 토큰이 생길 수 있습니다. 저장소에 커밋하지 마세요.</p>
       <h3>GitHub Pages(보조)</h3>
-      <p><code>.github/workflows/pages.yml</code>이 <code>main</code> 푸시와 수동 실행으로 <code>dist/</code>를 Pages에 올립니다. 저장소 Settings → Pages → Source를 <strong>GitHub Actions</strong>로 한 뒤 워크플로를 실행하면 <code>https://embrain82.github.io/2608_Pension_Monopoly/</code> 형태가 됩니다. Vite <code>base</code>가 상대경로라 하위 경로에서도 동작합니다.</p>
+      <p><code>.github/workflows/pages.yml</code>은 <strong>수동 실행 전용</strong>입니다(Pages가 꺼진 저장소에서 <code>main</code> 푸시마다 실패 알림이 오는 것을 막기 위해 자동 트리거를 제거). 저장소 Settings → Pages → Source를 <strong>GitHub Actions</strong>로 한 뒤 Actions 탭에서 워크플로를 직접 실행하면 <code>https://embrain82.github.io/2608_Pension_Monopoly/</code> 형태가 됩니다. Vite <code>base</code>가 상대경로라 하위 경로에서도 동작합니다.</p>
       <p>배포 후 확인 경로:</p>
       <ul>
         <li><code>/</code> 게임</li>
@@ -221,6 +225,9 @@ npm run build</code></pre>
           <tr><td>Q24</td><td>1턴 시장 카드</td><td>금리 <code>n.nn%</code>와 변화량(▲/▼/→), 물가 %, 주가 지수, 「교육용 가상 금리」 문구. <code>/5</code> 표기 없음</td></tr>
           <tr><td>Q25</td><td>충격 직전 턴</td><td>시장 카드에 「다음 턴 신호」 상자, 정산 요약에도 같은 상자, 턴 트랙 다음 칸 테두리. 다음 턴 카드 국면 이름이 카탈로그 6종 중 하나</td></tr>
           <tr><td>Q26</td><td>12턴 완주</td><td>충격 2~3회(4~11턴), 12턴 충격·신호 없음. 도감에 「신호는 예측이 아니에요」 해금</td></tr>
+          <tr><td>Q27</td><td>주사위 뒤</td><td>속보 카드(띠·헤드라인·다이얼·화살표 6개). 충격 턴은 흔들림·번쩍. 「계속」→ 생활사건 또는 운용, 「칸 설명 보기」→ 칸 설명 → 같은 흐름. Esc·× 도 「계속」과 같음</td></tr>
+          <tr><td>Q28</td><td>정산 직후</td><td>정산 전·후 막대와 차액(원·%), 한 줄 정리, 상품 6개 막대, 보유 중 가장 큰 변화에 테두리. 「정산 요약」 문구 유지</td></tr>
+          <tr><td>Q29</td><td>동작 줄이기 켬</td><td>다이얼·화살표·막대·숫자 트윈이 즉시 끝 상태. 정보 누락 없음. 목표 게이지 95% 눈금과 상태 한 줄, 위험 게이지 70% 선은 그대로</td></tr>
           <tr><td>Q9</td><td>안정형 리밸런싱 미리보기</td><td>예금·단기채만, 퍼센트 합 100. 실행 후 ETF/혼합 0</td></tr>
           <tr><td>Q10</td><td>운용 모달 열고 닫기</td><td>턴 유지. 그대로 두기 하면 정산</td></tr>
           <tr><td>Q11</td><td>같은 시드 재시작</td><td>시장 헤드라인·충격 턴 동일</td></tr>

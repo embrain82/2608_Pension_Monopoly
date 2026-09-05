@@ -129,7 +129,7 @@ npx vercel --yes --prod
 
 ### GitHub Pages
 
-`.github/workflows/pages.yml`이 `main` 푸시에서 `dist/`를 배포합니다. 저장소 Settings → Pages → Source를 GitHub Actions로 켜면 됩니다.
+`.github/workflows/pages.yml`은 **수동 실행(workflow_dispatch) 전용**입니다. 저장소 Settings → Pages가 꺼져 있는 상태에서 `main` 푸시마다 실패 알림이 오는 것을 막기 위해 자동 트리거를 뺐습니다. Pages를 쓰려면 Settings → Pages → Source를 GitHub Actions로 켠 뒤 Actions 탭에서 워크플로를 직접 실행하면 됩니다.
 
 ## 후속 확장 후보
 

@@ -1,8 +1,8 @@
 name: GitHub Pages
 
+# 저장소 Settings → Pages가 꺼져 있어 main 푸시마다 실패 알림이 오므로 수동 실행만 남긴다.
+# Pages를 켠 뒤에는 Actions 탭에서 "Run workflow"로 배포할 수 있다.
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:

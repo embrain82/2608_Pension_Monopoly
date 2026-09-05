@@ -279,6 +279,12 @@ export interface TurnSummary {
   marketLimitExceeded: boolean;
   productDeltas: TurnProductDelta[];
   nextHints: string[];
+  productReturns: Record<ProductId, number>;
+  /** 정산 후 IRP 평가액 대비 보유 비중. */
+  holdingShares: Record<ProductId, number>;
+  /** 보유 중 |수익률 × 비중|이 가장 큰 상품. 보유가 없으면 null. */
+  biggestMover: ProductId | null;
+  reaction: string;
 }
 
 export interface ActionResult {

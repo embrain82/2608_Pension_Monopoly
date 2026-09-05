@@ -63,5 +63,15 @@ describe('배포용 매뉴얼', () => {
     expect(operator).toContain('Q24');
     expect(operator).toContain('Q25');
     expect(operator).toContain('Q26');
+    expect(user).toContain('속보 카드');
+    expect(user).toContain('칸 설명 보기');
+    expect(user).toContain('정산 장면');
+    expect(user).toContain('목표 게이지');
+    expect(user).toContain('C26');
+    expect(operator).toContain('news-flash.ts');
+    expect(operator).toContain('hud.ts');
+    expect(operator).toContain('Q27');
+    expect(operator).toContain('Q28');
+    expect(operator).toContain('Q29');
   });
 });
