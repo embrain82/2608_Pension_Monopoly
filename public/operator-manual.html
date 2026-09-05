@@ -91,6 +91,7 @@
           <tr><td><code>src/ui/fx.ts</code> / <code>fx-dom.ts</code></td><td>숫자 트윈(순수 함수 / DOM 실행). 마크업 <code>data-anim</code>·<code>data-from</code>·<code>data-to</code></td></tr>
           <tr><td><code>src/ui/settlement.ts</code></td><td>정산 장면: IRP 막대, 상품 수익률 막대, 반응 한 줄(<code>reactionLine</code>는 엔진). 한 줄 정리·다음 판단은 코치 말풍선</td></tr>
           <tr><td><code>src/ui/avatars.ts</code> / <code>speech.ts</code></td><td>동물 아바타 5종×표정 3종(<code>avatarMood</code>·<code>resultMood</code>), 앵커·코치, 말풍선 그릇(<code>renderSpeech</code>). 캐릭터 끔이면 <code>plain</code></td></tr>
+          <tr><td><code>src/ui/token3d.ts</code></td><td>2.5D 말(퍽) 오버레이. 칸 중심 퍼센트(<code>tokenPercent</code>), 마크업(<code>renderTokenLayer</code>, <code>aria-hidden</code>). SVG 말은 <code>tokenInSvg: false</code>로 생략. 이동은 <code>app.ts</code>의 <code>animateToken</code>이 직전 칸→현재 칸을 Web Animations API로 붙임(렌더마다 노드가 새로 만들어져 CSS transition은 못 씀)</td></tr>
           <tr><td><code>src/ui/sound.ts</code> / <code>sound-dom.ts</code></td><td>효과음 스크립트 8종(순수, 0.6초 이내) / WebAudio 재생기 <code>SoundPlayer</code></td></tr>
           <tr><td><code>src/ui/result-chart.ts</code></td><td>IRP 스파크라인(<code>sparklinePoints</code>), 최대 낙폭 턴(<code>worstTurn</code>)</td></tr>
           <tr><td><code>src/ui/ui-state.ts</code></td><td>LocalStorage 로드·마이그레이션</td></tr>
@@ -239,6 +240,7 @@ npm run build</code></pre>
           <tr><td>Q33</td><td>결과 화면</td><td>별이 0.4초 간격 순차 등장, 아바타 표정(0별 긴장·1별 평온·2별+ 기쁨), 「12턴 IRP 흐름」 곡선에 충격 턴 ⚡와 최대 낙폭 점, 「다음에 바꿀 한 가지」 코치 말풍선</td></tr>
           <tr><td>Q34</td><td>도착 칸 설명</td><td>첫 문장(≤80자 근사)만 노출, 나머지 「자세히」 접기. 도착 직후 칸 bounce와 파티클 1회, 다시 렌더 시 재생 안 함</td></tr>
           <tr><td>Q35</td><td>이동 마지막 칸(동작 줄이기 끔, 8칸 이동)</td><td>마지막 칸 도착 렌더에서 말이 출발 칸으로 튀지 않는다. 도착 칸에 bounce·파티클, 이어서 속보 카드. 위치 결정은 <code>boardViewFor</code>(이동 중엔 항상 <code>tokenFocus</code>)</td></tr>
+          <tr><td>Q36</td><td>2.5D 말(기본, 설정 없음)</td><td>말은 윗면(아바타 또는 「나」)·옆면 테·그림자를 가진 퍽. 항상 칸 중심 약간 위(<code>translate(-50%, -64%)</code>)에 있고 창 크기·기기 회전 뒤에도 같은 칸 중심(퍼센트 좌표). 이동은 칸마다 미끄러짐 + 포물선 hop(<code>rotateX</code> 기울기), 마지막 칸에서 찌그러짐 착지. 모서리 넘어가는 이동(7→8, 13→14, 19→20, 24→1)도 직선으로 붙어 이동. 동작 줄이기 켬이면 즉시 도착. 오버레이 <code>aria-hidden</code>, 위치 문구는 보드 <code>aria-label</code></td></tr>
           <tr><td>Q29</td><td>동작 줄이기 켬</td><td>다이얼·화살표·막대·숫자 트윈이 즉시 끝 상태. 정보 누락 없음. 목표 게이지 95% 눈금과 상태 한 줄, 위험 게이지 70% 선은 그대로</td></tr>
           <tr><td>Q9</td><td>안정형 리밸런싱 미리보기</td><td>예금·단기채만, 퍼센트 합 100. 실행 후 ETF/혼합 0</td></tr>
           <tr><td>Q10</td><td>운용 모달 열고 닫기</td><td>턴 유지. 그대로 두기 하면 정산</td></tr>

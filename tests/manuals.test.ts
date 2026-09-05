@@ -66,6 +66,9 @@ describe('배포용 매뉴얼', () => {
     expect(operator).toContain('Q30');
     expect(operator).toContain('Q32');
     expect(operator).toContain('Q35');
+    expect(operator).toContain('Q36');
+    expect(operator).toContain('token3d.ts');
+    expect(user).toContain('말 모양');
     expect(operator).toContain('settings.characters');
     expect(operator).toContain('avatars.ts');
     expect(operator).toContain('sound.ts');
