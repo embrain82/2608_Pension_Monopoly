@@ -1,6 +1,6 @@
 # 말(토큰) 되돌아감 버그 수정 + 3D 말 구현 플랜
 
-> 상태: **검토 대기**. 운영자 판단 뒤 착수한다. A는 프로덕션 회귀 버그라 3D 결정과 무관하게 먼저 배포하는 것을 권한다.
+> 상태: **A 진행 중(2026-09-05 운영자 결정: A 먼저, B는 A 배포 뒤 결정)**. A는 프로덕션 회귀 버그라 3D 결정과 무관하게 먼저 배포한다.
 
 ## A. 버그 — 도착 직후 말이 출발 칸으로 잠깐 되돌아감
 
@@ -38,7 +38,7 @@
 ### 수정
 
 1. 틱에서 `tokenHopping`을 건드리지 않는다. `landed`만 켠다.
-2. 보드 뷰에서 `hopping: this.tokenHopping && !this.landed` 로 넘겨 도착 렌더는 `hopping` 클래스 없이 `landed` 이펙트만 붙게 한다. `focusIndex`는 이동 중이면 계속 `tokenFocus`(= 도착 칸).
+2. 보드 뷰 결정을 `boardViewFor`로 옮긴다. `focusIndex`는 이동 중이면 계속 `tokenFocus`(= 도착 칸), `hopping`은 그대로 `true`라 중앙 문구가 「N번 이동 중」을 유지한다. 마크업에서 `landed`가 `hopping` 강조(tile-focus)를 대신한다. (첫 시도에서 `hopping`을 `false`로 내렸더니 중앙 문구가 170ms 동안 「대기」로 바뀌는 다른 깜빡임이 녹화에 잡혀, 이렇게 고쳤다.)
 3. `reveal()`은 지금처럼 `tokenHopping = false`, `tokenFocus = position`, 렌더 뒤 `landed = false`.
 
 변경 폭: `app.ts` 6줄. 엔진·데이터 변화 없음.
@@ -47,7 +47,7 @@
 
 `focusIndex`/`hopping` 결정을 `src/ui/board.ts`의 순수 함수 `boardViewFor(state, { tokenHopping, tokenFocus, landed })`로 뽑아 `app.ts`가 그것만 쓰게 하고, `tests/board.test.ts`에 다음을 추가한다.
 
-- 이동 중 마지막 틱(`tokenHopping: true, landed: true, tokenFocus: 도착`) → `focusIndex === 도착`, `hopping === false`, 마크업의 `active` 칸이 도착 칸이고 `landed` 클래스가 붙는다.
+- 이동 중 마지막 틱(`tokenHopping: true, landed: true, tokenFocus: 도착`) → `focusIndex === 도착`, 마크업의 `active` 칸이 도착 칸, `landed` 클래스만 붙고 `hopping` 클래스 없음, 중앙은 「N번 이동 중」(「주사위를 굴려」 아님).
 - 이동 중 중간 틱 → `focusIndex === tokenFocus`, `hopping === true`, `landed` 없음.
 - 이동 아님 → `focusIndex === state.position`.
 
@@ -126,7 +126,7 @@
 
 ### 작업 순서
 
-- [ ] A-1 `boardViewFor` 추출 + 테스트 3건 → 버그 수정 → 매뉴얼 Q35 → PR → 배포·태그 *(3D 결정과 무관하게 선행)*
+- [x] A-1 `boardViewFor` 추출 + 테스트 3건 → 버그 수정 → 매뉴얼 Q35 → PR → 배포·태그 *(3D 결정과 무관하게 선행)*
 - [ ] B-1 `.board-stage` 래퍼와 정사각형 강제, 스크린샷 비교
 - [ ] B-2 `token3d.ts` + 테스트, SVG 말 생략 옵션
 - [ ] B-3 `syncTokenLayer` 노드 보존, 이동·착지 애니메이션, 동작 줄이기

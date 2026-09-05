@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { boardTiles } from '../src/data/content';
 import { createGame, startTurn } from '../src/engine/game-engine';
 import { dicePairForTurn, diceSteps } from '../src/ui/dice';
-import { boardPosition, movePath, renderBoardMarkup, tokenTileIndex } from '../src/ui/board';
+import { boardPosition, movePath, boardViewFor, renderBoardMarkup, tokenTileIndex } from '../src/ui/board';
 
 describe('24칸 보드', () => {
   it('24칸이 사각형 루프의 서로 다른 좌표에 놓인다', () => {
@@ -64,7 +64,44 @@ describe('24칸 보드', () => {
     expect(withAvatar).not.toContain('player-mark');
     expect(withAvatar).toContain(' landed"');
     expect(withAvatar.match(/class="tile-fx"/g)?.length).toBe(1);
-    const hopping = renderBoardMarkup(started, false, { characters: true, landed: true, hopping: true });
-    expect(hopping).not.toContain('tile-fx');
+    const lastHop = renderBoardMarkup(started, false, { characters: true, landed: true, hopping: true });
+    expect(lastHop).toContain('tile-fx');
+    expect(lastHop).not.toContain(' hopping');
+    const midHop = renderBoardMarkup(started, false, { characters: true, landed: false, hopping: true });
+    expect(midHop).not.toContain('tile-fx');
+    expect(midHop).toContain(' hopping');
+  });
+
+  it('이동 마지막 칸 렌더에서 말이 출발 칸으로 되돌아가지 않는다', () => {
+    const state = createGame('board-last-tick');
+    const origin = state.position;
+    const destination = 8;
+    const lastTick = boardViewFor(state, { tokenHopping: true, tokenFocus: destination, landed: true });
+    expect(lastTick).toEqual({ focusIndex: destination, hopping: true, landed: true });
+    const markup = renderBoardMarkup(state, true, lastTick);
+    expect(markup).toContain(`현재 말은 ${destination + 1}번 칸`);
+    expect(markup).not.toContain(`현재 말은 ${origin + 1}번 칸`);
+    expect(markup).toContain(' landed"');
+    expect(markup).not.toContain(' hopping');
+    expect(markup).toContain('이동 중');
+    expect(markup).toContain(`${destination + 1}번`);
+    expect(markup).not.toContain('주사위를 굴려');
+  });
+
+  it('이동 중간 틱은 tokenFocus를 따르고 hopping만 붙는다', () => {
+    const state = createGame('board-mid-tick');
+    const view = boardViewFor(state, { tokenHopping: true, tokenFocus: 3, landed: false });
+    expect(view).toEqual({ focusIndex: 3, hopping: true, landed: false });
+    const markup = renderBoardMarkup(state, true, view);
+    expect(markup).toContain(' hopping"');
+    expect(markup).not.toContain('landed');
+    expect(markup).toContain('이동 중');
+  });
+
+  it('이동이 아니면 state.position을 쓰고, 도착 뒤 첫 렌더는 새 위치에 landed를 붙인다', () => {
+    const started = startTurn(createGame('board-idle'), 5).state;
+    expect(boardViewFor(started, { tokenHopping: false, tokenFocus: 0, landed: false }).focusIndex).toBe(started.position);
+    const reveal = boardViewFor(started, { tokenHopping: false, tokenFocus: started.position, landed: true });
+    expect(reveal).toEqual({ focusIndex: started.position, hopping: false, landed: true });
   });
 });
