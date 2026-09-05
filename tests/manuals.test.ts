@@ -58,6 +58,16 @@ describe('배포용 매뉴얼', () => {
     expect(user).toContain('C25');
     expect(user).not.toContain('3~10턴 사이 2회');
     expect(operator).toContain('market-shocks.json');
+    expect(user).toContain('C27');
+    expect(user).toContain('C28');
+    expect(user).toContain('캐릭터 표시');
+    expect(user).toContain('기본 끔');
+    expect(user).toContain('가장 아슬아슬했던 턴');
+    expect(operator).toContain('Q30');
+    expect(operator).toContain('Q32');
+    expect(operator).toContain('settings.characters');
+    expect(operator).toContain('avatars.ts');
+    expect(operator).toContain('sound.ts');
     expect(operator).toContain('regime-engine.ts');
     expect(operator).toContain('balance-gate');
     expect(operator).toContain('Q24');

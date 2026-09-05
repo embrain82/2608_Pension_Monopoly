@@ -1,6 +1,11 @@
 import { products } from '../data/content';
 import type { TurnSummary } from '../types';
 import { percent, signedPercent } from './market-view';
+import { renderSpeech } from './speech';
+
+export interface SettlementOptions {
+  characters: boolean;
+}
 
 const formatWon = (value: number) => `${Math.round(value).toLocaleString('ko-KR')}원`;
 const signedWon = (value: number) => `${value > 0 ? '+' : ''}${formatWon(value)}`;
@@ -31,7 +36,7 @@ function returnBars(summary: TurnSummary): string {
   return `<ul class="settle-returns">${rows}</ul>`;
 }
 
-export function renderSettlementModal(summary: TurnSummary): string {
+export function renderSettlementModal(summary: TurnSummary, options: SettlementOptions = { characters: true }): string {
   const moves = summary.productDeltas.length
     ? `<ul class="settle-moves">${summary.productDeltas.map((item) => `<li>${item.name} <strong class="${item.delta < 0 ? 'neg' : ''}">${signedWon(item.delta)}</strong></li>`).join('')}</ul>`
     : '<p>보유 구성은 크게 변하지 않았습니다.</p>';
@@ -43,13 +48,13 @@ export function renderSettlementModal(summary: TurnSummary): string {
     <h2>무엇이 바뀌었나요?</h2>
     <p class="settle-headline">${summary.marketHeadline}</p>
     ${irpBars(summary)}
-    <div class="settle-reaction"><strong>한 줄 정리</strong><p>${summary.reaction}</p></div>
+    <div class="settle-reaction">${renderSpeech('coach', `<p>${summary.reaction}</p>`, { characters: options.characters, title: '한 줄 정리', tone: summary.shock ? 'shock' : 'default' })}</div>
     <div class="preview-box"><strong>상품별 이번 턴</strong>${returnBars(summary)}</div>
     <div class="preview-box"><strong>내가 한 일</strong><p>${summary.actionLine}</p>
       <p>위험비중 ${percent(summary.riskBefore)} → ${percent(summary.riskAfter)}</p>
       ${moves}
     </div>
     ${alert}
-    <div class="preview-box"><strong>다음 판단</strong><ul class="settle-hints">${summary.nextHints.map((hint) => `<li>${hint}</li>`).join('')}</ul></div>
+    ${renderSpeech('coach', `<ul class="settle-hints">${summary.nextHints.map((hint) => `<li>${hint}</li>`).join('')}</ul>`, { characters: options.characters, title: '다음 판단' })}
     <button class="primary jumbo" data-action="dismiss-settle">다음 턴 준비</button>`;
 }

@@ -5,8 +5,8 @@ import type { SaveData } from '../types';
 export const STORAGE_KEY = 'pension-road-save-v1';
 
 export const defaultSave: SaveData = {
-  version: 2,
-  settings: { reducedMotion: false, sound: false },
+  version: 3,
+  settings: { reducedMotion: false, sound: false, characters: true },
   unlockedCards: [],
   bestScore: 0,
   lastSeed: '',
@@ -27,7 +27,7 @@ function migrateSave(value: unknown): SaveData | null {
   if (!value || typeof value !== 'object') return null;
   const data = value as {
     version?: number;
-    settings?: SaveData['settings'];
+    settings?: { reducedMotion?: unknown; sound?: unknown; characters?: unknown };
     unlockedCards?: unknown;
     bestScore?: unknown;
     lastSeed?: unknown;
@@ -42,10 +42,15 @@ function migrateSave(value: unknown): SaveData | null {
   if (!finiteNumber(data.bestScore) || typeof data.lastSeed !== 'string') return null;
   if (!Array.isArray(data.unlockedCards) || !data.unlockedCards.every((item) => typeof item === 'string')) return null;
   if (!data.settings || typeof data.settings.reducedMotion !== 'boolean' || typeof data.settings.sound !== 'boolean') return null;
-  if (data.version !== 1 && data.version !== 2) return null;
+  if (data.version !== 1 && data.version !== 2 && data.version !== 3) return null;
   return {
-    version: 2,
-    settings: data.settings,
+    version: 3,
+    settings: {
+      reducedMotion: data.settings.reducedMotion,
+      sound: data.settings.sound,
+      // v1·v2 저장에는 없던 값. 캐릭터는 기본 켬.
+      characters: typeof data.settings.characters === 'boolean' ? data.settings.characters : true
+    },
     unlockedCards: data.unlockedCards,
     bestScore: data.bestScore,
     lastSeed: data.lastSeed,

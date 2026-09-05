@@ -61,7 +61,10 @@
           <tr><td>성향 적합성</td><td>구현</td><td>등급 1~5. 바꾸기는 성향 밖이면 매도 전 거절</td></tr>
           <tr><td>진단 → 현재 판</td><td>구현</td><td><code>applyProfileToGame</code>, LocalStorage <code>profileId</code></td></tr>
           <tr><td>리밸런싱 재정규화</td><td>구현</td><td>미리보기 = 엔진 <code>rebalanceShares</code></td></tr>
-          <tr><td>결과·별·수익률</td><td>구현</td><td>시작 대비 / 납입 제외 구분</td></tr>
+          <tr><td>결과·별·수익률</td><td>구현</td><td>시작 대비 / 납입 제외 구분. 별 순차 등장, 12턴 IRP 스파크라인(<code>irpHistory</code>), 가장 아슬아슬했던 턴</td></tr>
+          <tr><td>캐릭터</td><td>구현</td><td>성향별 동물 아바타 5종 × 표정 3종, 앵커 부엉이·코치 펭귄 말풍선. 인라인 SVG. <code>settings.characters</code>(기본 켬)</td></tr>
+          <tr><td>효과음</td><td>구현</td><td>WebAudio 합성 8종, 파일 없음, <code>settings.sound</code> 기본 끔. HUD <code>♪</code> 토글. 첫 클릭 뒤 <code>AudioContext</code> 생성</td></tr>
+          <tr><td>보드 이펙트</td><td>구현</td><td>도착 칸 bounce·종류별 파티클(<code>landed</code>). 칸 설명 첫 문장 노출 + 「자세히」 접기. 엔진 규칙 변화 없음</td></tr>
           <tr><td>사용자·운영 매뉴얼</td><td>구현</td><td><code>/user-manual.html</code>, <code>/operator-manual.html</code></td></tr>
           <tr><td>중간 저장</td><td>제외</td><td>범위 밖. 성향·기록만 저장</td></tr>
           <tr><td>은행 연동·로그인</td><td>제외</td><td>가상 숫자만</td></tr>
@@ -86,7 +89,10 @@
           <tr><td><code>src/ui/news-flash.ts</code></td><td>속보 카드 마크업, 금리 다이얼 각도(<code>dialAngle</code>)</td></tr>
           <tr><td><code>src/ui/hud.ts</code></td><td>목표 게이지·상태 한 줄(<code>goalStatusLine</code>), 위험 게이지</td></tr>
           <tr><td><code>src/ui/fx.ts</code> / <code>fx-dom.ts</code></td><td>숫자 트윈(순수 함수 / DOM 실행). 마크업 <code>data-anim</code>·<code>data-from</code>·<code>data-to</code></td></tr>
-          <tr><td><code>src/ui/settlement.ts</code></td><td>정산 장면: IRP 막대, 상품 수익률 막대, 반응 한 줄(<code>reactionLine</code>는 엔진)</td></tr>
+          <tr><td><code>src/ui/settlement.ts</code></td><td>정산 장면: IRP 막대, 상품 수익률 막대, 반응 한 줄(<code>reactionLine</code>는 엔진). 한 줄 정리·다음 판단은 코치 말풍선</td></tr>
+          <tr><td><code>src/ui/avatars.ts</code> / <code>speech.ts</code></td><td>동물 아바타 5종×표정 3종(<code>avatarMood</code>·<code>resultMood</code>), 앵커·코치, 말풍선 그릇(<code>renderSpeech</code>). 캐릭터 끔이면 <code>plain</code></td></tr>
+          <tr><td><code>src/ui/sound.ts</code> / <code>sound-dom.ts</code></td><td>효과음 스크립트 8종(순수, 0.6초 이내) / WebAudio 재생기 <code>SoundPlayer</code></td></tr>
+          <tr><td><code>src/ui/result-chart.ts</code></td><td>IRP 스파크라인(<code>sparklinePoints</code>), 최대 낙폭 턴(<code>worstTurn</code>)</td></tr>
           <tr><td><code>src/ui/ui-state.ts</code></td><td>LocalStorage 로드·마이그레이션</td></tr>
           <tr><td><code>src/data/*.json</code></td><td>상품·성향·정책·사건·학습·칸 설명</td></tr>
           <tr><td><code>public/*.html</code></td><td>이 매뉴얼. 빌드 시 <code>dist/</code>로 복사</td></tr>
@@ -227,6 +233,11 @@ npm run build</code></pre>
           <tr><td>Q26</td><td>12턴 완주</td><td>충격 2~3회(4~11턴), 12턴 충격·신호 없음. 도감에 「신호는 예측이 아니에요」 해금</td></tr>
           <tr><td>Q27</td><td>주사위 뒤</td><td>속보 카드(띠·헤드라인·다이얼·화살표 6개). 충격 턴은 흔들림·번쩍. 「계속」→ 생활사건 또는 운용, 「칸 설명 보기」→ 칸 설명 → 같은 흐름. Esc·× 도 「계속」과 같음</td></tr>
           <tr><td>Q28</td><td>정산 직후</td><td>정산 전·후 막대와 차액(원·%), 한 줄 정리, 상품 6개 막대, 보유 중 가장 큰 변화에 테두리. 「정산 요약」 문구 유지</td></tr>
+          <tr><td>Q30</td><td>캐릭터 표시 켬(기본)</td><td>보드 말 = 성향 동물, 대시보드 「나의 은퇴설계」 옆 같은 얼굴. 충격 턴·5% 낙폭에 긴장, 목표 달성에 기쁨. 속보 원인 = 부엉이 말풍선, 정산 한 줄 정리·다음 판단 = 펭귄 말풍선 2개. 시장 뉴스 칸 도착 시 속보 띠에 「현장 연결」</td></tr>
+          <tr><td>Q31</td><td>캐릭터 표시 끔</td><td>말 = 주황 원 「나」, 말풍선 = 아바타 없는 상자(<code>plain</code>), 문구 동일. 아바타·SVG 0개</td></tr>
+          <tr><td>Q32</td><td>효과음</td><td>기본 끔(<code>♪ 끔</code>). 토글 시 짧은 확인음, <code>aria-pressed</code> 반전, 설정 체크박스와 동기. 켬 상태에서 주사위·hop·도착·속보/충격·정산 오름/내림·별 소리. 끔에서는 <code>AudioContext</code>를 만들지 않음</td></tr>
+          <tr><td>Q33</td><td>결과 화면</td><td>별이 0.4초 간격 순차 등장, 아바타 표정(0별 긴장·1별 평온·2별+ 기쁨), 「12턴 IRP 흐름」 곡선에 충격 턴 ⚡와 최대 낙폭 점, 「다음에 바꿀 한 가지」 코치 말풍선</td></tr>
+          <tr><td>Q34</td><td>도착 칸 설명</td><td>첫 문장(≤80자 근사)만 노출, 나머지 「자세히」 접기. 도착 직후 칸 bounce와 파티클 1회, 다시 렌더 시 재생 안 함</td></tr>
           <tr><td>Q29</td><td>동작 줄이기 켬</td><td>다이얼·화살표·막대·숫자 트윈이 즉시 끝 상태. 정보 누락 없음. 목표 게이지 95% 눈금과 상태 한 줄, 위험 게이지 70% 선은 그대로</td></tr>
           <tr><td>Q9</td><td>안정형 리밸런싱 미리보기</td><td>예금·단기채만, 퍼센트 합 100. 실행 후 ETF/혼합 0</td></tr>
           <tr><td>Q10</td><td>운용 모달 열고 닫기</td><td>턴 유지. 그대로 두기 하면 정산</td></tr>
@@ -243,11 +254,13 @@ npm run build</code></pre>
 
     <section id="save">
       <h2>9. 저장 데이터</h2>
-      <p>키 <code>pension-road-save-v1</code>, 버전 2.</p>
+      <p>키 <code>pension-road-save-v1</code>, 버전 3.</p>
       <table>
         <thead><tr><th>필드</th><th>의미</th></tr></thead>
         <tbody>
           <tr><td>settings.reducedMotion</td><td>동작 줄이기</td></tr>
+          <tr><td>settings.characters</td><td>캐릭터 표시. v1·v2 저장은 true로 승격</td></tr>
+          <tr><td>settings.sound</td><td>효과음. 기본 false</td></tr>
           <tr><td>unlockedCards</td><td>도감 해금</td></tr>
           <tr><td>bestScore / bestReturnRate / bestGoalRate / playCount</td><td>타이틀 기록</td></tr>
           <tr><td>lastSeed</td><td>마지막 시드</td></tr>
@@ -257,7 +270,7 @@ npm run build</code></pre>
           <tr><td>goalMonthly</td><td>월 연금 목표. 없으면 50만 원. 지금 판과 새로고침 후 유지</td></tr>
         </tbody>
       </table>
-      <p>판 도중 포트폴리오는 저장하지 않습니다. 깨진 JSON은 <code>defaultSave</code>로 복구합니다. v1 저장은 v2 기본 필드를 채웁니다.</p>
+      <p>판 도중 포트폴리오는 저장하지 않습니다. 깨진 JSON은 <code>defaultSave</code>로 복구합니다. v1·v2 저장은 v3 기본 필드를 채웁니다.</p>
     </section>
 
     <section id="limits">

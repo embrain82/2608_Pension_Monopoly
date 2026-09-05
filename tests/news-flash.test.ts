@@ -52,4 +52,17 @@ describe('속보 카드', () => {
     expect(html).toContain('market-alert');
     expect(html).toContain(alerted.alert!.text);
   });
+
+  it('앵커 말풍선에 원인을 담고, 캐릭터 끔이면 아바타 없이 같은 문구를 보인다', () => {
+    const game = createGame('news-anchor');
+    const step = game.marketPath[0];
+    const on = renderNewsFlash(step, emptyMarketStep(), boardTiles[5]);
+    const off = renderNewsFlash(step, emptyMarketStep(), boardTiles[5], { characters: false });
+    expect(on).toContain('앵커 부엉이');
+    expect(off).not.toContain('앵커 부엉이');
+    expect(off).toContain(step.reason);
+    const marketTile = boardTiles.find((tile) => tile.kind === 'market')!;
+    expect(renderNewsFlash(step, emptyMarketStep(), marketTile)).toContain('현장 연결');
+    expect(on).not.toContain('현장 연결');
+  });
 });

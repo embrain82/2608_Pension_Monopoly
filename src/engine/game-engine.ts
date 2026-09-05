@@ -82,6 +82,7 @@ export function createGame(seed: string, profileId: ProfileId = 'balanced', goal
     taxCreditBenefit: 0,
     maxIrpValue: balanceConfig.startingIrp,
     maxDrawdown: 0,
+    irpHistory: [balanceConfig.startingIrp],
     cashShortages: 0,
     ruleBreaches: 0,
     marketLimitExceeded: false,
@@ -269,6 +270,7 @@ export function finalizeTurn(state: GameState): GameState {
     ...next,
     status: state.turn >= balanceConfig.maxTurns ? 'finished' : 'playing',
     awaitingAction: false,
+    irpHistory: [...next.irpHistory, portfolioValue(next)],
     logs: [...next.logs, { turn: state.turn, type: 'settle', message: `${state.turn}턴 기준가·이자·비용 반영 완료` }]
   };
 }

@@ -20,6 +20,11 @@ import { renderGoalMeter, renderRiskMeter } from './hud';
 import { percent, renderMarketCard, renderMarketTimeline, renderSettingsEntry, renderTurnTrack, signedPercent } from './market-view';
 import { loadSave, saveData } from './ui-state';
 import { renderSettlementModal } from './settlement';
+import { avatarMood, renderAvatar, resultMood } from './avatars';
+import { renderSpeech } from './speech';
+import { settlementSound } from './sound';
+import { SoundPlayer } from './sound-dom';
+import { renderIrpSparkline, worstTurnLine } from './result-chart';
 
 type Screen = 'title' | 'diagnosis' | 'goal' | 'game' | 'result';
 type Modal = 'life' | 'action' | 'portfolio' | 'market' | 'cards' | 'settings' | 'howto' | 'news' | 'tile' | 'settle' | null;
@@ -64,6 +69,9 @@ export class PensionRoadApp {
   private diceFaces: [number, number] = [1, 1];
   private diceTimer = 0;
   private shown: { seed: string; irp: number; pension: number; returnRate: number } | null = null;
+  private readonly sound = new SoundPlayer(() => this.save.settings.sound);
+  private landed = false;
+  private starTimers: number[] = [];
 
   constructor(private readonly root: HTMLElement) {
     this.root.addEventListener('click', (event) => this.onClick(event));
@@ -110,6 +118,13 @@ export class PensionRoadApp {
       document.documentElement.dataset.reduceMotion = String(target.checked);
       this.persist();
     }
+    if (target.id === 'characters' && target instanceof HTMLInputElement) {
+      this.save.settings.characters = target.checked;
+      this.persist();
+    }
+    if (target.id === 'sound' && target instanceof HTMLInputElement) {
+      this.setSound(target.checked);
+    }
     this.render();
   }
 
@@ -118,6 +133,12 @@ export class PensionRoadApp {
     if (!button) return;
     const action = button.dataset.action;
     if (!action) return;
+    this.sound.unlock();
+    if (action === 'toggle-sound') {
+      this.setSound(!this.save.settings.sound);
+      this.render();
+      return;
+    }
     if ((this.diceRolling || this.tokenHopping) && action !== 'to-title') return;
 
     if (action === 'begin' && this.canStart()) {
@@ -242,6 +263,16 @@ export class PensionRoadApp {
     this.render();
   }
 
+  private setSound(on: boolean): void {
+    this.save.settings.sound = on;
+    this.persist();
+    if (on) {
+      this.sound.unlock();
+      this.sound.play('arrive');
+    }
+    this.announce(on ? '효과음을 켰습니다.' : '효과음을 껐습니다.');
+  }
+
   private canStart(): boolean {
     return this.save.disclaimerAccepted || this.disclaimerChecked;
   }
@@ -302,10 +333,27 @@ export class PensionRoadApp {
       this.modal = null;
       this.screen = 'result';
       this.persist(true);
+      this.scheduleStarSounds(calculateScore(this.game).stars);
       return;
     }
     this.modal = result.summary ? 'settle' : null;
+    if (result.summary) {
+      const goalNow = calculateScore(this.game).goalMet;
+      const goalBefore = result.summary.irpBefore / policyRules.receivingMonths >= this.game.goalMonthly;
+      const cue = goalNow && !goalBefore ? 'star' : settlementSound(result.summary.irpBefore, result.summary.irpAfter, result.summary.shock);
+      if (cue) this.sound.play(cue);
+    }
     this.persist(true);
+  }
+
+  /** 별이 0.4초 간격으로 하나씩 뜨는 동안 같은 박자로 소리를 낸다. */
+  private scheduleStarSounds(stars: number): void {
+    this.starTimers.forEach((timer) => window.clearTimeout(timer));
+    this.starTimers = [];
+    const instant = shouldSkipDiceAnimation(this.save.settings.reducedMotion, window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    for (let index = 0; index < stars; index += 1) {
+      this.starTimers.push(window.setTimeout(() => this.sound.play('star'), instant ? 0 : 400 * (index + 1)));
+    }
   }
 
   private clearDiceTimer(): void {
@@ -331,7 +379,9 @@ export class PensionRoadApp {
       this.modal = 'news';
       this.announce(`${label} 이동 · ${next.message}`);
       this.persist(true);
+      this.sound.play(this.game.lastMarket.shock ? 'shock' : 'news');
       this.render();
+      this.landed = false;
     };
 
     const hop = (): void => {
@@ -347,7 +397,14 @@ export class PensionRoadApp {
         if (!this.game || !this.tokenHopping) return;
         this.tokenFocus = path[index];
         this.announce(`${index + 1}/${steps}칸`);
+        const last = index + 1 >= path.length;
+        if (last) {
+          this.tokenHopping = false;
+          this.landed = true;
+        }
+        this.sound.play(last ? 'arrive' : 'hop');
         this.render();
+        if (last) this.tokenHopping = true;
         index += 1;
         if (index >= path.length) {
           this.diceTimer = window.setTimeout(reveal, TOKEN_STEP_MS);
@@ -362,11 +419,13 @@ export class PensionRoadApp {
       this.save.settings.reducedMotion,
       window.matchMedia('(prefers-reduced-motion: reduce)').matches
     )) {
+      this.landed = true;
       reveal();
       return;
     }
 
     this.diceRolling = true;
+    this.sound.play('dice');
     this.announce('주사위를 굴리는 중');
     this.render();
     this.clearDiceTimer();
@@ -508,7 +567,10 @@ export class PensionRoadApp {
   private renderBoard(state: GameState, waiting: boolean): string {
     return renderBoardMarkup(state, waiting, {
       focusIndex: this.tokenHopping ? this.tokenFocus : state.position,
-      hopping: this.tokenHopping
+      hopping: this.tokenHopping,
+      characters: this.save.settings.characters,
+      mood: avatarMood(state, calculateScore(state).goalMet),
+      landed: this.landed
     });
   }
 
@@ -552,7 +614,10 @@ export class PensionRoadApp {
           <div><small>예상 월 연금</small><strong>${animatedNumber('shortWon', shown?.pension ?? null, score.monthlyPension)}</strong></div>
           <div><small>수익률</small><strong class="${score.returnRate < 0 ? 'neg' : ''}">${animatedNumber('signedPercent', shown?.returnRate ?? null, score.returnRate)}</strong></div>
         </div>
-        ${renderSettingsEntry(profile?.name)}
+        <div class="topbar-tools">
+          ${this.renderSoundToggle()}
+          ${renderSettingsEntry(profile?.name)}
+        </div>
       </header>
       <div class="game-layout">
         <div class="board-wrap">
@@ -563,7 +628,7 @@ export class PensionRoadApp {
           ${learningTip}
           ${!waitingForDice && state.lastMarket.shock ? '<p class="shock-banner">충격 턴 · 신호를 보고 비중을 조정하세요</p>' : ''}
           ${renderMarketCard(state, waitingForDice)}
-          <article class="asset-card"><div class="card-label">나의 은퇴설계</div>
+          <article class="asset-card"><div class="card-label-row"><div class="card-label">나의 은퇴설계</div>${this.save.settings.characters ? renderAvatar(state.profileId, avatarMood(state, score.goalMet), 44) : ''}</div>
             <div class="big-number"><span>IRP 평가액</span><strong>${animatedNumber('shortWon', shown?.irp ?? null, score.irpValue)}</strong></div>
             <div class="metric-row"><span><abbr title="최종 IRP 평가액을 240개월로 나눈 교육용 값">예상 월 연금</abbr><strong>${animatedNumber('won', shown?.pension ?? null, score.monthlyPension)}</strong></span><span>시작 대비<strong class="${score.returnRate < 0 ? 'neg' : ''}">${animatedNumber('signedPercent', shown?.returnRate ?? null, score.returnRate)}</strong></span></div>
             ${renderGoalMeter(state, score)}
@@ -584,21 +649,29 @@ export class PensionRoadApp {
     </section>`;
   }
 
+  private renderSoundToggle(): string {
+    const on = this.save.settings.sound;
+    return `<button class="sound-toggle ${on ? 'on' : ''}" type="button" data-action="toggle-sound" aria-pressed="${on}" aria-label="효과음 ${on ? '끄기' : '켜기'}"><span aria-hidden="true">♪</span><small>${on ? '켬' : '끔'}</small></button>`;
+  }
+
   private renderResult(): string {
     if (!this.game) return '';
     const score = calculateScore(this.game);
     const diagnosed = investorProfiles.find((item) => item.id === this.game!.profileId)!;
     const actual = investorProfiles.find((item) => item.id === score.behaviorProfile)!;
     const headline = score.goalMet ? '목표에 도착했습니다' : `목표까지 ${formatWon(Math.max(0, this.game.goalMonthly - score.monthlyPension))}`;
+    const characters = this.save.settings.characters;
+    const shockTurns = this.game.marketPath.filter((step) => step.shock).map((step) => step.turn);
     return `<section class="result-screen">
       <div class="eyebrow">12턴 은퇴설계 리포트</div>
-      <h1>${headline}</h1>
+      <div class="result-headline">${characters ? renderAvatar(this.game.profileId, resultMood(score.stars), 72) : ''}<h1>${headline}</h1></div>
       <div class="result-hero dual">
         <div><small>예상 월 연금</small><strong>${formatWon(score.monthlyPension)}</strong><span>목표 ${formatWon(this.game.goalMonthly)} · 달성률 ${Math.round(score.goalRate * 100)}%</span></div>
         <div><small>시작 대비 수익률</small><strong class="${score.returnRate < 0 ? 'neg' : ''}">${signedPercent(score.returnRate)}</strong><span>운용수익률 ${signedPercent(score.investmentReturnRate)} · 낙폭 ${percent(score.maxDrawdown)}</span></div>
       </div>
       <p class="score-title">보조 점수 <strong>${score.totalScore}점</strong> · 별 ${score.stars}개 · ${score.starTitle}</p>
-      <div class="stars" role="img" aria-label="3개 중 ${score.stars}개 별">${[1, 2, 3].map((n) => `<span aria-hidden="true" class="${n <= score.stars ? 'earned' : ''}">★</span>`).join('')}</div>
+      <div class="stars" role="img" aria-label="3개 중 ${score.stars}개 별">${[1, 2, 3].map((n) => `<span aria-hidden="true" class="${n <= score.stars ? 'earned' : ''}" style="--i:${n}">★</span>`).join('')}</div>
+      <article class="result-journey"><div class="card-label">12턴 IRP 흐름</div>${renderIrpSparkline(this.game.irpHistory, shockTurns)}<p>${worstTurnLine(this.game.irpHistory)}${shockTurns.length ? ` · 충격 ${shockTurns.map((turn) => `${turn}턴`).join('·')}` : ''}</p></article>
       <ul class="star-checks">${starChecklist(this.game, score).map((row) =>
         `<li class="${row.passed ? 'ok' : 'miss'}">${row.passed ? '됨' : '아직'} · ${row.label}</li>`
       ).join('')}</ul>
@@ -612,7 +685,7 @@ export class PensionRoadApp {
       </div>
       <div class="score-breakdown"><span>노후소득 <b>${score.incomeScore}/50</b></span><span>안정성 <b>${score.stabilityScore}/30</b></span><span>제도·운용 이해 <b>${score.knowledgeScore}/20</b></span></div>
       <article class="behavior-card"><div><small>기준 성향</small><strong>${diagnosed.name}</strong></div><span>→</span><div><small>실제 행동성향</small><strong>${actual.name}</strong></div><p>${score.profileAligned ? '공식 리밸런싱 목표 위험비중에 가깝게 끝났습니다.' : '공식 리밸런싱 목표 위험비중과 차이가 있습니다. 한 번 리밸런싱을 검토해보세요.'}</p></article>
-      <div class="decision-grid"><article class="good"><span>✓ 가장 좋았던 결정</span><p>${score.bestDecision}</p></article><article class="improve"><span>↗ 다음에 바꿀 한 가지</span><p>${score.improvement}</p></article></div>
+      <div class="decision-grid"><article class="good"><span>✓ 가장 좋았던 결정</span><p>${score.bestDecision}</p></article><article class="improve"><span>↗ 다음에 바꿀 한 가지</span>${renderSpeech('coach', `<p>${score.improvement}</p>`, { characters })}</article></div>
       <details class="assumptions"><summary>수익률·월 연금 계산 가정과 면책</summary><p>시작 대비 수익률은 (최종 IRP − 시작 IRP) ÷ 시작 IRP입니다. 운용수익률은 같은 식에서 추가납입을 빼 시장 효과를 구분합니다. 월 연금은 최종 IRP ÷ ${policyRules.receivingMonths}개월의 단순 균등분할입니다. 세전이며 수령 중 수익률, 세금, 비용, 물가를 반영하지 않습니다. 실제 결과와 다를 수 있고 투자 권유가 아닙니다.</p></details>
       <div class="result-actions"><button class="primary" data-action="same-seed">같은 시드로 다시</button><button class="secondary" data-action="new-seed">새 시드로 도전</button><button class="text-button" data-action="open-cards">관련 학습 카드 보기</button><button class="text-button" data-action="to-title">타이틀로</button></div>
     </section>`;
@@ -628,11 +701,12 @@ export class PensionRoadApp {
     if (this.modal === 'market') content = this.renderMarketModal();
     if (this.modal === 'cards') content = this.renderCardsModal();
     if (this.modal === 'settings') content = this.renderSettingsModal();
-    if (this.modal === 'howto') content = renderHowToModal();
-    if (this.modal === 'settle' && this.lastSummary) content = renderSettlementModal(this.lastSummary);
+    const characters = this.save.settings.characters;
+    if (this.modal === 'howto') content = renderHowToModal(characters);
+    if (this.modal === 'settle' && this.lastSummary) content = renderSettlementModal(this.lastSummary, { characters });
     if (this.modal === 'news' && this.game) {
       const prev = this.game.marketPath[this.game.turn - 2] ?? emptyMarketStep();
-      content = renderNewsFlash(this.game.lastMarket, prev, boardTiles[this.game.position]);
+      content = renderNewsFlash(this.game.lastMarket, prev, boardTiles[this.game.position], { characters });
     }
     if (this.modal === 'tile' && this.game) {
       const tile = boardTiles[this.game.position];
@@ -821,6 +895,8 @@ export class PensionRoadApp {
     return `<p class="eyebrow">설정 · 면책 · 출처</p><h2>교육용 게임 안내</h2>
       <p class="profile-note">${profileNote}</p>
       <label class="setting-row" for="reduced-motion"><span><strong>동작 줄이기</strong><small>전환·주사위 애니메이션을 즉시 표시합니다.</small></span><input id="reduced-motion" type="checkbox" ${this.save.settings.reducedMotion ? 'checked' : ''}></label>
+      <label class="setting-row" for="characters"><span><strong>캐릭터 표시</strong><small>성향별 동물 말, 앵커·코치 말풍선을 보입니다. 끄면 문구만 남습니다.</small></span><input id="characters" type="checkbox" ${this.save.settings.characters ? 'checked' : ''}></label>
+      <label class="setting-row" for="sound"><span><strong>효과음</strong><small>주사위·속보·정산·별 소리. 기본 끔이며 게임 화면 오른쪽 위에서도 바꿀 수 있습니다.</small></span><input id="sound" type="checkbox" ${this.save.settings.sound ? 'checked' : ''}></label>
       <div class="button-stack compact">
         ${renderSettingsHowToButton()}
         <button class="secondary" data-action="open-diagnosis">성향 다시 진단</button>
@@ -830,6 +906,6 @@ export class PensionRoadApp {
       <div class="disclaimer-box"><strong>중요 면책</strong><p>모든 금융 수치는 교육용으로 단순화했습니다. 특정 금융회사·상품을 추천하지 않으며, 수익·원금·세제 혜택을 보장하지 않습니다. 실제 규정과 세무 결과는 개인 상황과 기준일에 따라 달라질 수 있습니다. 은행 계좌·잔고와 연동되지 않는 가상 포트폴리오입니다.</p></div>
       <h3>정책 데이터</h3><p>기준일 ${policyRules.reviewed_at} · 교육용 단순화 ${policyRules.simplified ? '예' : '아니오'}</p>
       <ul class="source-list"><li><a href="${policyRules.source_urls[0]}" target="_blank" rel="noreferrer">금융감독원 · 위험자산별 투자한도</a></li><li><a href="${policyRules.source_urls[1]}" target="_blank" rel="noreferrer">금융감독원 · 퇴직연금 세제—세액공제</a></li><li><a href="${policyRules.source_urls[2]}" target="_blank" rel="noreferrer">금융감독원 · 퇴직연금 세제—연금수령</a></li></ul>
-      <p class="version">연금로드 v1.1 · 저장 데이터는 이 브라우저에만 보관됩니다.</p>`;
+      <p class="version">연금로드 v1.2 · 저장 데이터는 이 브라우저에만 보관됩니다.</p>`;
   }
 }
