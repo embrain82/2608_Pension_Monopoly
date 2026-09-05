@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { boardTiles } from '../src/data/content';
 import { createGame, startTurn } from '../src/engine/game-engine';
-import { renderBoardMarkup } from '../src/ui/board';
-import { HOP_KEYFRAMES, HOP_SHADOW_KEYFRAMES, LAND_KEYFRAMES, LAND_MS, TOKEN_BASE, renderTokenLayer, tokenClasses, tokenPercent, tokenTranslate } from '../src/ui/token3d';
+import { TOKEN_STEP_MS, renderBoardMarkup } from '../src/ui/board';
+import { HOP_AIR, HOP_HEIGHT, HOP_MS, LAND_MS, TOKEN_BASE, hopPlan, renderTokenLayer, slideKeyframes, tokenClasses, tokenPercent, tokenTranslate } from '../src/ui/token3d';
 
 describe('2.5D 말 오버레이', () => {
   it('24칸 모두 칸 중심 퍼센트가 0~100 안이고 네 모서리가 맞는다', () => {
@@ -44,20 +44,44 @@ describe('2.5D 말 오버레이', () => {
     expect(markup).not.toMatch(/\b(hop|land)\b/);
   });
 
-  it('hop·그림자·착지 키프레임은 모두 기본 자세에서 출발해 기본 자세로 돌아온다', () => {
-    for (const frames of [HOP_KEYFRAMES, LAND_KEYFRAMES]) {
-      expect(frames[frames.length - 1].transform).toBe(TOKEN_BASE);
-      expect(frames.length).toBeGreaterThanOrEqual(3);
-      for (const f of frames) expect(f.transform?.startsWith(TOKEN_BASE)).toBe(true);
+  it('점프 계획: 첫 칸부터 마지막 칸까지 같은 높이·같은 공중 시간, 마지막 칸만 착지가 크고 길다', () => {
+    const step = hopPlan(false);
+    const last = hopPlan(true);
+    expect(step.duration).toBe(TOKEN_STEP_MS);
+    expect(step.land).toBeCloseTo(HOP_AIR);
+    expect(last.duration).toBe(TOKEN_STEP_MS * HOP_AIR + LAND_MS);
+    expect(last.land * last.duration).toBeCloseTo(step.land * step.duration);
+    for (const plan of [step, last]) {
+      expect(plan.puck[0].transform).toBe(TOKEN_BASE);
+      expect(plan.puck[plan.puck.length - 1].transform).toBe(TOKEN_BASE);
+      const peak = plan.puck[1];
+      expect(peak.transform).toContain(`translateY(-${HOP_HEIGHT})`);
+      expect(peak.offset).toBeCloseTo(plan.land / 2);
+      const touch = plan.puck[2];
+      expect(touch.offset).toBeCloseTo(plan.land);
+      expect(touch.transform).toContain('scale(1.');
+      for (const f of plan.puck) expect(f.transform?.startsWith(TOKEN_BASE)).toBe(true);
+      const offsets = plan.puck.map((f) => f.offset ?? 0);
+      expect([...offsets].sort((a, b) => a - b)).toEqual(offsets);
+      expect(plan.shadow[0].opacity).toBe(1);
+      expect(plan.shadow[1].opacity).toBeLessThan(1);
+      expect(plan.shadow[plan.shadow.length - 1].opacity).toBe(1);
     }
-    expect(HOP_KEYFRAMES[0].transform).toBe(TOKEN_BASE);
-    expect(HOP_KEYFRAMES[1].transform).toContain('translateY(-');
-    expect(LAND_KEYFRAMES[0].transform).toContain('scale(1.16, 0.82)');
-    expect(HOP_SHADOW_KEYFRAMES[0].opacity).toBe(1);
-    expect(HOP_SHADOW_KEYFRAMES[HOP_SHADOW_KEYFRAMES.length - 1].opacity).toBe(1);
-    expect(HOP_SHADOW_KEYFRAMES[1].opacity).toBeLessThan(1);
+    expect(step.puck[1].transform).toBe(last.puck[1].transform);
+    expect(step.puck[2].transform).toContain('scale(1.08, 0.92)');
+    expect(last.puck[2].transform).toContain('scale(1.16, 0.82)');
+    expect(HOP_MS).toBe(TOKEN_STEP_MS);
     expect(LAND_MS).toBeGreaterThan(0);
-    expect(LAND_MS).toBeLessThan(600);
+  });
+
+  it('가로 이동은 공중에 있는 동안만 움직이고 닿은 뒤엔 도착 칸에 고정된다', () => {
+    const frames = slideKeyframes(1, 2, 0.75);
+    expect(frames[0].transform).toBe(tokenTranslate(1));
+    expect(frames[0].offset).toBe(0);
+    expect(frames[1].transform).toBe(tokenTranslate(2));
+    expect(frames[1].offset).toBe(0.75);
+    expect(frames[2].transform).toBe(tokenTranslate(2));
+    expect(frames[2].offset).toBe(1);
   });
 
   it('오버레이를 쓰면 SVG에는 말을 그리지 않되 위치 aria-label은 남는다', () => {

@@ -505,9 +505,9 @@ td small { display: block; margin: 3px 0 0 20px; color: var(--muted); font-size:
 
 /* 보드 말·도착 이펙트 */
 .player-avatar { overflow: visible; filter: drop-shadow(0 4px 3px rgba(24,54,53,.25)); }
-.tile.landed rect { transform-box: fill-box; transform-origin: center; animation: tile-bounce .55s cubic-bezier(.34, 1.56, .64, 1) .17s both; }
+.tile.landed rect { transform-box: fill-box; transform-origin: center; animation: tile-bounce .55s cubic-bezier(.34, 1.56, .64, 1) .18s both; }
 .tile.landed .player-avatar, .tile.landed .player, .tile.landed .player-mark { transform-box: fill-box; transform-origin: center bottom; animation: token-land .55s cubic-bezier(.34, 1.56, .64, 1) both; }
-.tile-fx circle { opacity: 0; transform-box: fill-box; transform-origin: center; animation: particle .7s ease-out both; animation-delay: calc(.17s + var(--i) * 40ms); }
+.tile-fx circle { opacity: 0; transform-box: fill-box; transform-origin: center; animation: particle .7s ease-out both; animation-delay: calc(.18s + var(--i) * 40ms); }
 .tile-fx circle:nth-child(1) { --tx: -30px; --ty: -34px; }
 .tile-fx circle:nth-child(2) { --tx: 30px; --ty: -30px; }
 .tile-fx circle:nth-child(3) { --tx: -36px; --ty: 10px; }
@@ -557,7 +557,7 @@ td small { display: block; margin: 3px 0 0 20px; color: var(--muted); font-size:
 .token-face b { color: #fff; font-size: clamp(.7rem, 1.9vw, 1.05rem); font-weight: 900; }
 .token3d.plain .token-face { background: radial-gradient(circle at 35% 30%, #f5a86f 0%, var(--orange) 55%, #b95a2e 100%); }
 .token3d.plain .token-rim { background: linear-gradient(#b95a2e, #8a3f1e); box-shadow: 0 1px 0 #7a361a, 0 2px 0 #6a2e15; }
-/* hop·착지는 app.ts의 animateToken이 WAAPI로 붙인다(token3d.ts 키프레임). 여기엔 정지 자세만. */
+/* 점프·착지는 app.ts의 animateToken이 WAAPI로 붙인다(token3d.ts hopPlan). 여기엔 정지 자세만. 도착 칸 bounce·파티클 지연 .18s = TOKEN_STEP_MS × HOP_AIR. */
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }

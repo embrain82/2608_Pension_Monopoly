@@ -2,7 +2,8 @@ import { boardTiles } from '../data/content';
 import type { GameState, TileKind } from '../types';
 import { AVATAR_ANIMALS, avatarBody, type Mood } from './avatars';
 
-export const TOKEN_STEP_MS = 170;
+/** 한 칸 점프 한 번의 길이(ms). 공중 70% + 칸 위에 내려앉은 박자 30%(token3d.ts HOP_AIR). */
+export const TOKEN_STEP_MS = 260;
 
 export interface BoardView {
   focusIndex?: number;
