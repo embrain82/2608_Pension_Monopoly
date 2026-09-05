@@ -61,8 +61,8 @@ function turtle(mood: Mood): string {
 function koala(mood: Mood): string {
   return `<circle cx="18" cy="38" r="15" fill="#9aa8a6" ${STROKE}/><circle cx="82" cy="38" r="15" fill="#9aa8a6" ${STROKE}/>
     <circle cx="18" cy="38" r="7" fill="#f3c9c1"/><circle cx="82" cy="38" r="7" fill="#f3c9c1"/>
-    <circle cx="50" cy="54" r="30" fill="#b8c4c2" ${STROKE}/>${face(mood, 50, 48, 13)}
-    <ellipse cx="50" cy="62" rx="8" ry="10" fill="${INK}"/>`;
+    <circle cx="50" cy="54" r="30" fill="#b8c4c2" ${STROKE}/>${face(mood, 50, 48, 14)}
+    <ellipse cx="50" cy="53" rx="6" ry="5" fill="${INK}"/>`;
 }
 
 function fox(mood: Mood): string {
