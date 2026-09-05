@@ -14,6 +14,28 @@ export interface BoardView {
   landed?: boolean;
 }
 
+export interface TokenMotion {
+  /** 말이 칸을 건너뛰는 중(마지막 칸 도착 렌더 포함) */
+  tokenHopping: boolean;
+  /** 이동 중 말이 지금 놓인 칸 */
+  tokenFocus: number;
+  /** 마지막 칸 도착 렌더 */
+  landed: boolean;
+}
+
+/**
+ * 말 위치·이펙트 결정. 이동 중(마지막 칸 도착 렌더 포함)에는 `state.position`(아직 startTurn 전이라
+ * 출발 칸)을 쓰지 않고 항상 `tokenFocus`를 쓴다. 중앙 문구도 계속 「N번 이동 중」이다.
+ * 도착 렌더는 landed 이펙트가 hop 강조를 대신한다(마크업에서 처리).
+ */
+export function boardViewFor(state: GameState, motion: TokenMotion): Pick<BoardView, 'focusIndex' | 'hopping' | 'landed'> {
+  return {
+    focusIndex: motion.tokenHopping ? motion.tokenFocus : state.position,
+    hopping: motion.tokenHopping,
+    landed: motion.landed
+  };
+}
+
 /** 칸 종류별 파티클 색. 시장 뉴스=신문지, 생활=경고등, 상품·거래=코인, 리밸런싱=저울. */
 const FX_COLORS: Partial<Record<TileKind, string>> = {
   market: '#5b8fb9',
@@ -73,8 +95,9 @@ export function renderBoardMarkup(
   const tiles = boardTiles.map((item) => {
     const { x, y } = boardPosition(item.index);
     const active = item.index === token;
-    const landed = active && view.landed && !view.hopping;
-    return `<g class="tile tile-${item.kind}${active ? ' active' : ''}${view.hopping && active ? ' hopping' : ''}${landed ? ' landed' : ''}" transform="translate(${x} ${y})">
+    const landed = active && Boolean(view.landed);
+    const hopping = active && Boolean(view.hopping) && !landed;
+    return `<g class="tile tile-${item.kind}${active ? ' active' : ''}${hopping ? ' hopping' : ''}${landed ? ' landed' : ''}" transform="translate(${x} ${y})">
         <rect x="3" y="3" width="94" height="94" rx="15"></rect>
         <text class="tile-icon" x="14" y="30">${TILE_ICONS[item.kind]}</text>
         <text class="tile-number" x="84" y="24" text-anchor="end">${String(item.index + 1).padStart(2, '0')}</text>

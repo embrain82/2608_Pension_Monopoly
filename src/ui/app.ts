@@ -10,7 +10,7 @@ import { pickTileBriefing } from '../engine/tile-briefing';
 import { calculateScore, starChecklist } from '../engine/scoring-engine';
 import type { ActionKind, GameState, ProfileId, ProductId, SaveData, TurnSummary } from '../types';
 import { DICE_LAND_HOLD_MS, DICE_ROLL_DURATION_MS, canRevealNextTurn, dicePairForTurn, dicePairLabel, diceSteps, renderDiceMarkup, shouldSkipDiceAnimation } from './dice';
-import { TOKEN_STEP_MS, movePath, renderBoardMarkup } from './board';
+import { TOKEN_STEP_MS, boardViewFor, movePath, renderBoardMarkup } from './board';
 import { buyNeedsContribution, renderHowToModal, renderSettingsHowToButton, shouldShowHowTo, shouldShowLearningTip } from './howto';
 import { renderTileBriefing } from './tile-briefing';
 import { renderNewsFlash } from './news-flash';
@@ -398,13 +398,9 @@ export class PensionRoadApp {
         this.tokenFocus = path[index];
         this.announce(`${index + 1}/${steps}칸`);
         const last = index + 1 >= path.length;
-        if (last) {
-          this.tokenHopping = false;
-          this.landed = true;
-        }
+        if (last) this.landed = true;
         this.sound.play(last ? 'arrive' : 'hop');
         this.render();
-        if (last) this.tokenHopping = true;
         index += 1;
         if (index >= path.length) {
           this.diceTimer = window.setTimeout(reveal, TOKEN_STEP_MS);
@@ -566,11 +562,9 @@ export class PensionRoadApp {
 
   private renderBoard(state: GameState, waiting: boolean): string {
     return renderBoardMarkup(state, waiting, {
-      focusIndex: this.tokenHopping ? this.tokenFocus : state.position,
-      hopping: this.tokenHopping,
+      ...boardViewFor(state, { tokenHopping: this.tokenHopping, tokenFocus: this.tokenFocus, landed: this.landed }),
       characters: this.save.settings.characters,
-      mood: avatarMood(state, calculateScore(state).goalMet),
-      landed: this.landed
+      mood: avatarMood(state, calculateScore(state).goalMet)
     });
   }
 
