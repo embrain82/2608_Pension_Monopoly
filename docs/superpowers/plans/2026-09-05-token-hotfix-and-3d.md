@@ -139,3 +139,4 @@
 - 헤드리스 Chrome 추적(25ms 샘플): 1→9 이동에서 53개 프레임, 칸 사이 중간 위치 35개, 출발 칸 재방문 0, 착지 후 칸 중심 x 오차 0px. `prefers-reduced-motion: reduce`에서는 즉시 도착.
 - 크기: 퍽 폭 = 보드의 7.8%(칸의 약 55%). 처음 9.2%는 칸 번호·라벨을 다 덮어 줄였다.
 - 번들: JS +1.4KB, CSS +2.0KB(gzip 전). 예산(≤5KB) 안.
+- **칸 강조 제거.** 퍽이 위치를 충분히 보여 주므로 현재 칸의 주황 6px 테두리(`.tile.active rect`)와 칸별 hop 그림자 깜빡임(`.tile.hopping`, `tile-focus`)을 지웠다. 마크업의 `hopping` 클래스도 함께 제거(중앙 문구용 `view.hopping`은 유지). 도착 순간의 칸 bounce·파티클은 남겼다.

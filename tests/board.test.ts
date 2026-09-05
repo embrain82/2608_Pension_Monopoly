@@ -66,10 +66,21 @@ describe('24칸 보드', () => {
     expect(withAvatar.match(/class="tile-fx"/g)?.length).toBe(1);
     const lastHop = renderBoardMarkup(started, false, { characters: true, landed: true, hopping: true });
     expect(lastHop).toContain('tile-fx');
-    expect(lastHop).not.toContain(' hopping');
     const midHop = renderBoardMarkup(started, false, { characters: true, landed: false, hopping: true });
     expect(midHop).not.toContain('tile-fx');
-    expect(midHop).toContain(' hopping');
+  });
+
+  it('칸은 이동 중에도 강조 클래스를 받지 않는다(위치는 말이 보여 준다)', () => {
+    const state = createGame('board-no-outline');
+    for (const view of [
+      boardViewFor(state, { tokenHopping: false, tokenFocus: 0, landed: false }),
+      boardViewFor(state, { tokenHopping: true, tokenFocus: 3, landed: false }),
+      boardViewFor(state, { tokenHopping: true, tokenFocus: 8, landed: true })
+    ]) {
+      const markup = renderBoardMarkup(state, true, view);
+      expect(markup).not.toContain(' hopping');
+      expect(markup.match(/ active/g)?.length).toBe(1);
+    }
   });
 
   it('이동 마지막 칸 렌더에서 말이 출발 칸으로 되돌아가지 않는다', () => {
@@ -82,18 +93,17 @@ describe('24칸 보드', () => {
     expect(markup).toContain(`현재 말은 ${destination + 1}번 칸`);
     expect(markup).not.toContain(`현재 말은 ${origin + 1}번 칸`);
     expect(markup).toContain(' landed"');
-    expect(markup).not.toContain(' hopping');
     expect(markup).toContain('이동 중');
     expect(markup).toContain(`${destination + 1}번`);
     expect(markup).not.toContain('주사위를 굴려');
   });
 
-  it('이동 중간 틱은 tokenFocus를 따르고 hopping만 붙는다', () => {
+  it('이동 중간 틱은 tokenFocus를 따르고 landed는 붙지 않는다', () => {
     const state = createGame('board-mid-tick');
     const view = boardViewFor(state, { tokenHopping: true, tokenFocus: 3, landed: false });
     expect(view).toEqual({ focusIndex: 3, hopping: true, landed: false });
     const markup = renderBoardMarkup(state, true, view);
-    expect(markup).toContain(' hopping"');
+    expect(markup).toContain('현재 말은 4번 칸');
     expect(markup).not.toContain('landed');
     expect(markup).toContain('이동 중');
   });
