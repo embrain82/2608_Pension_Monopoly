@@ -11,6 +11,7 @@ import { calculateScore, starChecklist } from '../engine/scoring-engine';
 import type { ActionKind, GameState, ProfileId, ProductId, SaveData, TurnSummary } from '../types';
 import { DICE_LAND_HOLD_MS, DICE_ROLL_DURATION_MS, canRevealNextTurn, dicePairForTurn, dicePairLabel, diceSteps, renderDiceMarkup, shouldSkipDiceAnimation } from './dice';
 import { TOKEN_STEP_MS, boardViewFor, movePath, renderBoardMarkup } from './board';
+import { renderTokenLayer, tokenTranslate } from './token3d';
 import { buyNeedsContribution, renderHowToModal, renderSettingsHowToButton, shouldShowHowTo, shouldShowLearningTip } from './howto';
 import { renderTileBriefing } from './tile-briefing';
 import { renderNewsFlash } from './news-flash';
@@ -72,6 +73,8 @@ export class PensionRoadApp {
   private readonly sound = new SoundPlayer(() => this.save.settings.sound);
   private landed = false;
   private starTimers: number[] = [];
+  /** 직전 렌더에서 2.5D 말이 놓였던 칸. 이동 애니메이션의 출발점. */
+  private tokenShown: number | null = null;
 
   constructor(private readonly root: HTMLElement) {
     this.root.addEventListener('click', (event) => this.onClick(event));
@@ -510,7 +513,9 @@ export class PensionRoadApp {
     }
     const dialog = this.root.querySelector<HTMLElement>('[role="dialog"]');
     if (dialog) requestAnimationFrame(() => dialog.querySelector<HTMLElement>('button:not([disabled]), select, input:not([disabled]), a[href]')?.focus());
-    runNumberAnimations(this.root, shouldSkipDiceAnimation(this.save.settings.reducedMotion, window.matchMedia('(prefers-reduced-motion: reduce)').matches));
+    const instant = shouldSkipDiceAnimation(this.save.settings.reducedMotion, window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    runNumberAnimations(this.root, instant);
+    this.animateToken(instant);
   }
 
   private renderTitle(): string {
@@ -561,11 +566,31 @@ export class PensionRoadApp {
   }
 
   private renderBoard(state: GameState, waiting: boolean): string {
-    return renderBoardMarkup(state, waiting, {
-      ...boardViewFor(state, { tokenHopping: this.tokenHopping, tokenFocus: this.tokenFocus, landed: this.landed }),
-      characters: this.save.settings.characters,
-      mood: avatarMood(state, calculateScore(state).goalMet)
-    });
+    const view = boardViewFor(state, { tokenHopping: this.tokenHopping, tokenFocus: this.tokenFocus, landed: this.landed });
+    const characters = this.save.settings.characters;
+    const mood = avatarMood(state, calculateScore(state).goalMet);
+    return `<div class="board-stage">
+      ${renderBoardMarkup(state, waiting, { ...view, characters, mood, tokenInSvg: false })}
+      ${renderTokenLayer(state, { index: view.focusIndex ?? state.position, hopping: Boolean(view.hopping), landed: Boolean(view.landed), characters, mood })}
+    </div>`;
+  }
+
+  /**
+   * render()가 innerHTML을 갈아 끼우므로 CSS transition은 쓸 수 없다. 대신 새로 만들어진 말 노드에
+   * 직전 칸 → 현재 칸 이동을 Web Animations API로 붙인다. 동작 줄이기면 즉시 놓인다.
+   */
+  private animateToken(instant: boolean): void {
+    const pos = this.root.querySelector<HTMLElement>('.token-pos');
+    if (!pos || !this.game) {
+      this.tokenShown = null;
+      return;
+    }
+    const index = Number(pos.dataset.index);
+    const from = this.tokenShown;
+    this.tokenShown = index;
+    if (from === null || from === index || instant || !(this.tokenHopping || this.landed)) return;
+    if (typeof pos.animate !== 'function') return;
+    pos.animate([{ transform: tokenTranslate(from) }, { transform: tokenTranslate(index) }], { duration: TOKEN_STEP_MS, easing: 'ease-out' });
   }
 
   private renderGameCta(state: GameState): string {

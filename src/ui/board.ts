@@ -12,6 +12,8 @@ export interface BoardView {
   mood?: Mood;
   /** 이번 렌더가 도착 직후면 칸 bounce·파티클을 튼다. */
   landed?: boolean;
+  /** false면 SVG 안에 말을 그리지 않는다(2.5D 오버레이가 대신 그림). aria-label의 위치 문구는 유지. */
+  tokenInSvg?: boolean;
 }
 
 export interface TokenMotion {
@@ -103,7 +105,7 @@ export function renderBoardMarkup(
         <text class="tile-number" x="84" y="24" text-anchor="end">${String(item.index + 1).padStart(2, '0')}</text>
         <text class="tile-label" x="50" y="70" text-anchor="middle">${item.label.length > 7 ? item.label.slice(0, 7) : item.label}</text>
         ${landed ? tileFx(item.kind) : ''}
-        ${active ? playerToken(state, view) : ''}
+        ${active && view.tokenInSvg !== false ? playerToken(state, view) : ''}
       </g>`;
   }).join('');
   const center = view.hopping
