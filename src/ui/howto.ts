@@ -1,4 +1,5 @@
 import type { GameState } from '../types';
+import { renderSpeech } from './speech';
 
 export function shouldShowHowTo(howtoSeen: boolean): boolean {
   return !howtoSeen;
@@ -12,9 +13,10 @@ export function buyNeedsContribution(irpCash: number): boolean {
   return irpCash < 100000;
 }
 
-export function renderHowToModal(): string {
+export function renderHowToModal(characters = true): string {
   return `<p class="eyebrow">처음 한 번만 보여 줍니다</p>
     <h2>한 턴은 이렇게 진행됩니다</h2>
+    ${renderSpeech('coach', '<p>저는 코치예요. 정산마다 한 줄 정리와 다음 판단을 말풍선으로 알려 드릴게요. 보드 위의 동물이 바로 당신의 말이고, 충격 턴엔 긴장한 표정이 됩니다.</p>', { characters })}
     <ol class="howto-steps">
       <li><b>1</b><div><strong>주사위 굴리기</strong><p>나온 숫자만큼 말이 이동합니다.</p></div></li>
       <li><b>2</b><div><strong>시장 확인</strong><p>이번 턴 수익률을 봅니다. 아직 잔고에는 안 들어갑니다.</p></div></li>

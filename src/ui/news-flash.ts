@@ -2,8 +2,13 @@ import { balanceConfig, marketShocks, products } from '../data/content';
 import { formatRateDelta } from '../engine/market-engine';
 import type { BoardTile, MarketStep } from '../types';
 import { renderMarketAlert, signedPercent } from './market-view';
+import { renderSpeech } from './speech';
 
 const DIAL_SWEEP_DEG = 120;
+
+export interface NewsFlashOptions {
+  characters: boolean;
+}
 
 export function dialAngle(ratePct: number, minPct: number, maxPct: number): number {
   if (maxPct <= minPct) return 0;
@@ -15,9 +20,14 @@ function arrowMagnitude(value: number): number {
   return Math.min(1, Math.abs(value) / 0.1);
 }
 
-export function renderNewsFlash(step: MarketStep, prev: MarketStep, tile: BoardTile): string {
+export function renderNewsFlash(step: MarketStep, prev: MarketStep, tile: BoardTile, options: NewsFlashOptions = { characters: true }): string {
   const market = balanceConfig.market;
   const shock = step.shockId ? marketShocks.find((item) => item.id === step.shockId) : undefined;
+  const live = tile.kind === 'market' ? '<span class="news-live">현장 연결</span>' : '';
+  const reason = renderSpeech('anchor', `<p class="news-reason">${step.reason}</p>`, {
+    characters: options.characters,
+    tone: step.shock ? (shock?.positive ? 'positive' : 'shock') : 'default'
+  });
   const classes = ['news-flash', step.shock ? 'shock' : '', shock?.positive ? 'positive' : ''].filter(Boolean).join(' ');
   const from = dialAngle(prev.turn === 0 ? market.rateStartPct : prev.ratePct, market.rateMinPct, market.rateMaxPct);
   const to = dialAngle(step.ratePct, market.rateMinPct, market.rateMaxPct);
@@ -27,7 +37,7 @@ export function renderNewsFlash(step: MarketStep, prev: MarketStep, tile: BoardT
     return `<li class="news-arrow ${direction}" style="--i:${index};--mag:${arrowMagnitude(value).toFixed(2)}"><span>${product.shortName}</span><i aria-hidden="true"></i><b>${signedPercent(value)}</b></li>`;
   }).join('');
   return `<div class="${classes}">
-    <div class="news-tape"><span class="news-badge">${step.shock ? '속보 · 충격' : '속보'}</span><span>TURN ${String(step.turn).padStart(2, '0')}</span><span class="news-phase">${step.phase}</span></div>
+    <div class="news-tape"><span class="news-badge">${step.shock ? '속보 · 충격' : '속보'}</span><span>TURN ${String(step.turn).padStart(2, '0')}</span><span class="news-phase">${step.phase}</span>${live}</div>
     <h2 class="news-headline">${step.headline}</h2>
     <div class="news-dial" style="--from:${from}deg;--to:${to}deg" role="img" aria-label="교육용 가상 금리 ${step.ratePct.toFixed(2)}%, 변화 ${formatRateDelta(step.rateDeltaPct)}">
       <svg viewBox="0 0 200 120" aria-hidden="true">
@@ -37,7 +47,7 @@ export function renderNewsFlash(step: MarketStep, prev: MarketStep, tile: BoardT
       <p><small>교육용 가상 금리</small><b>${step.ratePct.toFixed(2)}%</b><em>${formatRateDelta(step.rateDeltaPct)}</em></p>
     </div>
     <ul class="news-arrows">${arrows}</ul>
-    <p class="news-reason">${step.reason}</p>
+    ${reason}
     ${renderMarketAlert(step)}
     <p class="news-arrival">도착 · ${String(tile.index + 1).padStart(2, '0')} ${tile.label}</p>
     <div class="button-stack compact">

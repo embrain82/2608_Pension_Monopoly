@@ -1,7 +1,39 @@
 import { boardTiles } from '../data/content';
 import type { GameState, TileKind } from '../types';
+import { AVATAR_ANIMALS, avatarBody, type Mood } from './avatars';
 
 export const TOKEN_STEP_MS = 170;
+
+export interface BoardView {
+  focusIndex?: number;
+  hopping?: boolean;
+  /** 설정 "캐릭터 표시". 켜면 말이 성향 동물 아바타가 된다. */
+  characters?: boolean;
+  mood?: Mood;
+  /** 이번 렌더가 도착 직후면 칸 bounce·파티클을 튼다. */
+  landed?: boolean;
+}
+
+/** 칸 종류별 파티클 색. 시장 뉴스=신문지, 생활=경고등, 상품·거래=코인, 리밸런싱=저울. */
+const FX_COLORS: Partial<Record<TileKind, string>> = {
+  market: '#5b8fb9',
+  life: '#e05a3a',
+  product: '#e6983e',
+  trade: '#e6983e',
+  rebalance: '#3f8f5f'
+};
+
+function tileFx(kind: TileKind): string {
+  const color = FX_COLORS[kind] ?? '#a9d36a';
+  return `<g class="tile-fx" fill="${color}">${[0, 1, 2, 3, 4].map((i) => `<circle style="--i:${i}" cx="50" cy="50" r="4"></circle>`).join('')}</g>`;
+}
+
+function playerToken(state: GameState, view: BoardView): string {
+  if (view.characters) {
+    return `<svg class="player-avatar" x="26" y="16" width="48" height="48" viewBox="0 0 100 100" aria-label="${AVATAR_ANIMALS[state.profileId]} 말">${avatarBody(state.profileId, view.mood ?? 'calm')}</svg>`;
+  }
+  return '<circle class="player" cx="50" cy="45" r="13"></circle><text class="player-mark" x="50" y="50" text-anchor="middle">나</text>';
+}
 
 const TILE_ICONS: Record<TileKind, string> = {
   start: '↻',
@@ -34,19 +66,21 @@ export function movePath(from: number, steps: number): number[] {
 export function renderBoardMarkup(
   state: GameState,
   waiting: boolean,
-  view: { focusIndex?: number; hopping?: boolean } = {}
+  view: BoardView = {}
 ): string {
   const token = tokenTileIndex(view.focusIndex ?? state.position);
   const tile = boardTiles[token];
   const tiles = boardTiles.map((item) => {
     const { x, y } = boardPosition(item.index);
     const active = item.index === token;
-    return `<g class="tile tile-${item.kind}${active ? ' active' : ''}${view.hopping && active ? ' hopping' : ''}" transform="translate(${x} ${y})">
+    const landed = active && view.landed && !view.hopping;
+    return `<g class="tile tile-${item.kind}${active ? ' active' : ''}${view.hopping && active ? ' hopping' : ''}${landed ? ' landed' : ''}" transform="translate(${x} ${y})">
         <rect x="3" y="3" width="94" height="94" rx="15"></rect>
         <text class="tile-icon" x="14" y="30">${TILE_ICONS[item.kind]}</text>
         <text class="tile-number" x="84" y="24" text-anchor="end">${String(item.index + 1).padStart(2, '0')}</text>
         <text class="tile-label" x="50" y="70" text-anchor="middle">${item.label.length > 7 ? item.label.slice(0, 7) : item.label}</text>
-        ${active ? '<circle class="player" cx="50" cy="45" r="13"></circle><text class="player-mark" x="50" y="50" text-anchor="middle">나</text>' : ''}
+        ${landed ? tileFx(item.kind) : ''}
+        ${active ? playerToken(state, view) : ''}
       </g>`;
   }).join('');
   const center = view.hopping

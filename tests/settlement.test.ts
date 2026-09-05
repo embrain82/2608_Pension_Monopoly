@@ -223,4 +223,19 @@ describe('턴 정산 요약', () => {
     expect(html).toContain('settle-alert');
     expect(html).toContain('다음 턴 금리 결정');
   });
+
+  it('한 줄 정리와 다음 판단은 코치 말풍선에 담기고, 캐릭터 끔이면 문구만 남는다', () => {
+    let state = startTurn(createGame('settle-coach'), 2).state;
+    if (state.currentEventId) state = { ...state, currentEventId: null, awaitingAction: true };
+    const summary = performAction(state, { kind: 'hold' }).summary!;
+    const on = renderSettlementModal(summary);
+    const off = renderSettlementModal(summary, { characters: false });
+    expect(on.match(/코치 펭귄/g)?.length).toBe(2);
+    expect(off).not.toContain('코치 펭귄');
+    for (const html of [on, off]) {
+      expect(html).toContain('한 줄 정리');
+      expect(html).toContain('다음 판단');
+      expect(html).toContain(summary.reaction);
+    }
+  });
 });
