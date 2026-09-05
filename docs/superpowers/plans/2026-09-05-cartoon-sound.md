@@ -36,12 +36,12 @@
 ## 작업
 
 - [x] 1. 플랜 문서
-- [ ] 2. 설정 v3 마이그레이션 + `irpHistory` (types, ui-state, game-engine, 테스트)
-- [ ] 3. `avatars.ts`·`speech.ts` + 테스트 → 보드 말, HUD, 속보 앵커, 정산·하우투·결과 코치
-- [ ] 4. `sound.ts` + 테스트 → HUD 토글, 설정 토글, 이벤트 지점
-- [ ] 5. `result-chart.ts` + 테스트 → 결과 화면(별 순차, 스파크라인, 아슬아슬 턴)
-- [ ] 6. 보드 `landed` 이펙트, 칸 설명 축약 표시 + 테스트
-- [ ] 7. CSS(동작 줄이기 준수), 매뉴얼(사용자·운영자), `npm run typecheck && npm test && npm run build`, 번들 증가 확인(≤ 60KB)
+- [x] 2. 설정 v3 마이그레이션 + `irpHistory` (types, ui-state, game-engine, 테스트)
+- [x] 3. `avatars.ts`·`speech.ts` + 테스트 → 보드 말, HUD, 속보 앵커, 정산·하우투·결과 코치
+- [x] 4. `sound.ts` + 테스트 → HUD 토글, 설정 토글, 이벤트 지점
+- [x] 5. `result-chart.ts` + 테스트 → 결과 화면(별 순차, 스파크라인, 아슬아슬 턴)
+- [x] 6. 보드 `landed` 이펙트, 칸 설명 축약 표시 + 테스트
+- [x] 7. CSS(동작 줄이기 준수), 매뉴얼(사용자·운영자), `npm run typecheck && npm test && npm run build`, 번들 증가 확인(≤ 60KB)
 
 ## 범위 밖(묶음 4로)
 
