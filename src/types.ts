@@ -243,6 +243,8 @@ export interface GameState {
   taxCreditBenefit: number;
   maxIrpValue: number;
   maxDrawdown: number;
+  /** 시작 IRP와 매 턴 정산 후 IRP. 12턴을 마치면 길이 13. */
+  irpHistory: number[];
   cashShortages: number;
   ruleBreaches: number;
   marketLimitExceeded: boolean;
@@ -320,8 +322,8 @@ export interface ScoreResult {
 }
 
 export interface SaveData {
-  version: 2;
-  settings: { reducedMotion: boolean; sound: boolean };
+  version: 3;
+  settings: { reducedMotion: boolean; sound: boolean; characters: boolean };
   unlockedCards: string[];
   bestScore: number;
   lastSeed: string;
