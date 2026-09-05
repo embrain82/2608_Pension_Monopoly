@@ -11,7 +11,7 @@ import { calculateScore, starChecklist } from '../engine/scoring-engine';
 import type { ActionKind, GameState, ProfileId, ProductId, SaveData, TurnSummary } from '../types';
 import { DICE_LAND_HOLD_MS, DICE_ROLL_DURATION_MS, canRevealNextTurn, dicePairForTurn, dicePairLabel, diceSteps, renderDiceMarkup, shouldSkipDiceAnimation } from './dice';
 import { TOKEN_STEP_MS, boardViewFor, movePath, renderBoardMarkup } from './board';
-import { renderTokenLayer, tokenTranslate } from './token3d';
+import { HOP_KEYFRAMES, HOP_SHADOW_KEYFRAMES, LAND_KEYFRAMES, LAND_MS, renderTokenLayer, tokenTranslate } from './token3d';
 import { buyNeedsContribution, renderHowToModal, renderSettingsHowToButton, shouldShowHowTo, shouldShowLearningTip } from './howto';
 import { renderTileBriefing } from './tile-briefing';
 import { renderNewsFlash } from './news-flash';
@@ -379,12 +379,12 @@ export class PensionRoadApp {
       this.diceRolling = false;
       this.tokenHopping = false;
       this.tokenFocus = this.game.position;
+      this.landed = false;
       this.modal = 'news';
       this.announce(`${label} 이동 · ${next.message}`);
       this.persist(true);
       this.sound.play(this.game.lastMarket.shock ? 'shock' : 'news');
       this.render();
-      this.landed = false;
     };
 
     const hop = (): void => {
@@ -406,7 +406,7 @@ export class PensionRoadApp {
         this.render();
         index += 1;
         if (index >= path.length) {
-          this.diceTimer = window.setTimeout(reveal, TOKEN_STEP_MS);
+          this.diceTimer = window.setTimeout(reveal, TOKEN_STEP_MS + LAND_MS);
           return;
         }
         this.diceTimer = window.setTimeout(tick, TOKEN_STEP_MS);
@@ -418,7 +418,6 @@ export class PensionRoadApp {
       this.save.settings.reducedMotion,
       window.matchMedia('(prefers-reduced-motion: reduce)').matches
     )) {
-      this.landed = true;
       reveal();
       return;
     }
@@ -571,26 +570,36 @@ export class PensionRoadApp {
     const mood = avatarMood(state, calculateScore(state).goalMet);
     return `<div class="board-stage">
       ${renderBoardMarkup(state, waiting, { ...view, characters, mood, tokenInSvg: false })}
-      ${renderTokenLayer(state, { index: view.focusIndex ?? state.position, hopping: Boolean(view.hopping), landed: Boolean(view.landed), characters, mood })}
+      ${renderTokenLayer(state, { index: view.focusIndex ?? state.position, characters, mood })}
     </div>`;
   }
 
   /**
-   * render()가 innerHTML을 갈아 끼우므로 CSS transition은 쓸 수 없다. 대신 새로 만들어진 말 노드에
-   * 직전 칸 → 현재 칸 이동을 Web Animations API로 붙인다. 동작 줄이기면 즉시 놓인다.
+   * render()가 innerHTML을 갈아 끼우므로 CSS transition·클래스 키프레임은 쓸 수 없다. 대신 새로 만들어진
+   * 말 노드에 직전 칸 → 현재 칸 이동을 Web Animations API로 붙인다. 칸이 바뀐 모든 렌더(마지막 칸 포함)가
+   * 같은 가로 이동 + 같은 포물선을 쓰고, 마지막 칸에서만 포물선이 끝난 뒤 착지 찌그러짐이 이어진다.
+   * 동작 줄이기면 즉시 놓인다.
    */
   private animateToken(instant: boolean): void {
     const pos = this.root.querySelector<HTMLElement>('.token-pos');
-    if (!pos || !this.game) {
+    const puck = pos?.querySelector<HTMLElement>('.token3d');
+    if (!pos || !puck || !this.game) {
       this.tokenShown = null;
       return;
     }
     const index = Number(pos.dataset.index);
     const from = this.tokenShown;
     this.tokenShown = index;
-    if (from === null || from === index || instant || !(this.tokenHopping || this.landed)) return;
+    if (from === null || from === index || instant || !this.tokenHopping) return;
     if (typeof pos.animate !== 'function') return;
-    pos.animate([{ transform: tokenTranslate(from) }, { transform: tokenTranslate(index) }], { duration: TOKEN_STEP_MS, easing: 'ease-out' });
+    pos.animate([{ transform: tokenTranslate(from) }, { transform: tokenTranslate(index) }], { duration: TOKEN_STEP_MS, easing: 'ease-in-out' });
+    pos.querySelector<HTMLElement>('.token-shadow')?.animate(HOP_SHADOW_KEYFRAMES, { duration: TOKEN_STEP_MS });
+    const arc = puck.animate(HOP_KEYFRAMES, { duration: TOKEN_STEP_MS });
+    if (this.landed) {
+      arc.onfinish = () => {
+        if (puck.isConnected) puck.animate(LAND_KEYFRAMES, { duration: LAND_MS });
+      };
+    }
   }
 
   private renderGameCta(state: GameState): string {
