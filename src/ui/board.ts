@@ -2,7 +2,8 @@ import { boardTiles } from '../data/content';
 import type { GameState, TileKind } from '../types';
 import { AVATAR_ANIMALS, avatarBody, type Mood } from './avatars';
 
-export const TOKEN_STEP_MS = 170;
+/** 한 칸 점프 한 번의 길이(ms). 공중 70% + 칸 위에 내려앉은 박자 30%(token3d.ts HOP_AIR). */
+export const TOKEN_STEP_MS = 260;
 
 export interface BoardView {
   focusIndex?: number;
@@ -12,6 +13,8 @@ export interface BoardView {
   mood?: Mood;
   /** 이번 렌더가 도착 직후면 칸 bounce·파티클을 튼다. */
   landed?: boolean;
+  /** false면 SVG 안에 말을 그리지 않는다(2.5D 오버레이가 대신 그림). aria-label의 위치 문구는 유지. */
+  tokenInSvg?: boolean;
 }
 
 export interface TokenMotion {
@@ -26,7 +29,7 @@ export interface TokenMotion {
 /**
  * 말 위치·이펙트 결정. 이동 중(마지막 칸 도착 렌더 포함)에는 `state.position`(아직 startTurn 전이라
  * 출발 칸)을 쓰지 않고 항상 `tokenFocus`를 쓴다. 중앙 문구도 계속 「N번 이동 중」이다.
- * 도착 렌더는 landed 이펙트가 hop 강조를 대신한다(마크업에서 처리).
+ * 칸 자체는 이동 중 강조하지 않는다(위치는 말이 보여 준다). 도착 렌더에만 landed 이펙트가 붙는다.
  */
 export function boardViewFor(state: GameState, motion: TokenMotion): Pick<BoardView, 'focusIndex' | 'hopping' | 'landed'> {
   return {
@@ -96,14 +99,13 @@ export function renderBoardMarkup(
     const { x, y } = boardPosition(item.index);
     const active = item.index === token;
     const landed = active && Boolean(view.landed);
-    const hopping = active && Boolean(view.hopping) && !landed;
-    return `<g class="tile tile-${item.kind}${active ? ' active' : ''}${hopping ? ' hopping' : ''}${landed ? ' landed' : ''}" transform="translate(${x} ${y})">
+    return `<g class="tile tile-${item.kind}${active ? ' active' : ''}${landed ? ' landed' : ''}" transform="translate(${x} ${y})">
         <rect x="3" y="3" width="94" height="94" rx="15"></rect>
         <text class="tile-icon" x="14" y="30">${TILE_ICONS[item.kind]}</text>
         <text class="tile-number" x="84" y="24" text-anchor="end">${String(item.index + 1).padStart(2, '0')}</text>
         <text class="tile-label" x="50" y="70" text-anchor="middle">${item.label.length > 7 ? item.label.slice(0, 7) : item.label}</text>
         ${landed ? tileFx(item.kind) : ''}
-        ${active ? playerToken(state, view) : ''}
+        ${active && view.tokenInSvg !== false ? playerToken(state, view) : ''}
       </g>`;
   }).join('');
   const center = view.hopping
