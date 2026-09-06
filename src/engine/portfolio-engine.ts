@@ -36,7 +36,9 @@ export function buyProduct(state: GameState, productId: ProductId, requestedAmou
   const check = canBuyRiskAsset(state, productId, amount);
   if (!check.ok) return { ok: false, message: check.reason, state, expectedRiskRatio: check.ratio };
 
-  if (product.kind === 'fund') {
+  // 상품 거리 칸에 도착한 턴에는 그 펀드만 오늘 기준가로 즉시 잔고에 들어간다(평소엔 다음 턴 체결).
+  const spotlight = state.spotlightProductId === productId;
+  if (product.kind === 'fund' && !spotlight) {
     const order: PendingOrder = {
       id: `${state.turn}-buy-${productId}-${state.pendingOrders.length}`,
       side: 'buy', productId, amount, submittedTurn: state.turn, settlesTurn: state.turn + 1, stage: 'received'
@@ -53,7 +55,9 @@ export function buyProduct(state: GameState, productId: ProductId, requestedAmou
   const nextHolding = { ...current, amount: current.amount + amount, principal: current.principal + amount, depositTurnsHeld: product.kind === 'deposit' ? 0 : current.depositTurnsHeld };
   return {
     ok: true,
-    message: product.kind === 'etf' ? `${product.shortName}가 표시가격으로 즉시 체결되었습니다.` : `${product.shortName}에 가입했습니다. 만기 전 해지 시 불이익이 있습니다.`,
+    message: product.kind === 'etf' ? `${product.shortName}가 표시가격으로 즉시 체결되었습니다.`
+      : product.kind === 'fund' ? `${product.shortName} 거리 스포트라이트 · 오늘 기준가로 즉시 잔고에 반영되었습니다.`
+        : `${product.shortName}에 가입했습니다. 만기 전 해지 시 불이익이 있습니다.`,
     expectedRiskRatio: check.ratio,
     state: { ...state, irpCash: state.irpCash - amount, holdings: upsertHolding(state, nextHolding), riskBuyCount: state.riskBuyCount + (product.risk_asset_ratio > 0 ? 1 : 0) }
   };
@@ -123,10 +127,14 @@ export function sellProduct(state: GameState, productId: ProductId, requestedAmo
     return { ok: true, message: `${product.shortName} 환매 주문 접수 → 다음 턴 대금 반영`, state: { ...state, holdings: upsertHolding(state, { ...current, amount: current.amount - amount }), pendingOrders: [...state.pendingOrders, order] } };
   }
 
-  const penalty = product.kind === 'deposit' && current.depositTurnsHeld < balanceConfig.depositMaturityTurns ? amount * policyRules.earlyDepositPenaltyRate : 0;
+  const early = product.kind === 'deposit' && current.depositTurnsHeld < balanceConfig.depositMaturityTurns;
+  const waived = early && state.spotlightProductId === 'deposit';
+  const penalty = early && !waived ? amount * policyRules.earlyDepositPenaltyRate : 0;
   return {
     ok: true,
-    message: penalty > 0 ? `예금을 만기 전에 해지해 ${Math.round(penalty).toLocaleString('ko-KR')}원의 이자 불이익이 반영되었습니다.` : `${product.shortName} 매도가 즉시 체결되었습니다.`,
+    message: penalty > 0 ? `예금을 만기 전에 해지해 ${Math.round(penalty).toLocaleString('ko-KR')}원의 이자 불이익이 반영되었습니다.`
+      : waived ? '예금 거리 스포트라이트 · 만기 전 해지 불이익 없이 예금을 해지했습니다.'
+        : `${product.shortName} 매도가 즉시 체결되었습니다.`,
     state: { ...state, irpCash: state.irpCash + amount - penalty, holdings: upsertHolding(state, { ...current, amount: current.amount - amount }), understandingPoints: state.understandingPoints + 1 }
   };
 }

@@ -24,13 +24,18 @@ export function reactionLine(before: GameState, after: GameState, actionLine: st
   if (returns.equityEtf >= 0.05) return REACTION_EQUITY_RALLY;
   if (returns.longBond >= 0.04) return REACTION_LONG_BOND_RALLY;
   if (actionLine.includes('추가납입')) return REACTION_CONTRIBUTE;
-  const irpBefore = portfolioValue(before);
-  if (irpBefore > 0 && (portfolioValue(after) - irpBefore) / irpBefore <= -0.02) return REACTION_DRAWDOWN;
+  // 턴 시작(시장 반영 전) 대비 턴 끝. 시장이 먼저 움직이므로 행동 직전 값이 아니라 장부의 시작값을 쓴다.
+  const irpOpen = before.ledger?.open ?? portfolioValue(before);
+  if (irpOpen > 0 && (portfolioValue(after) - irpOpen) / irpOpen <= -0.02) return REACTION_DRAWDOWN;
   return REACTION_DEFAULT;
 }
 
 function holdingAmount(state: GameState, productId: ProductId): number {
   return state.holdings.find((holding) => holding.productId === productId)?.amount ?? 0;
+}
+
+export function holdingsMap(state: GameState): Record<ProductId, number> {
+  return Object.fromEntries(products.map((product) => [product.id, holdingAmount(state, product.id)])) as Record<ProductId, number>;
 }
 
 function nextHints(after: GameState, riskAfter: number): string[] {
@@ -43,12 +48,19 @@ function nextHints(after: GameState, riskAfter: number): string[] {
   return hints.slice(0, 2);
 }
 
+/**
+ * 턴 정산 요약. `before`는 마지막 행동 직전 상태(행동 2회 칸이면 두 번째 행동 직전)이고, 첫 행동 직전
+ * 스냅샷은 `before.ledger.beforeAction`에 있다. 시장은 턴 시작에 이미 반영됐으므로 "시장이 한 일"은
+ * 장부의 open→afterMarket, "내가 한 일"은 첫 행동 직전→after다.
+ */
 export function summarizeTurn(before: GameState, after: GameState, actionLine: string): TurnSummary {
+  const ledger = before.ledger ?? { open: portfolioValue(before), afterMarket: portfolioValue(before), beforeAction: null };
+  const snapshot = ledger.beforeAction ?? { irp: portfolioValue(before), risk: riskAssetRatio(before), holdings: holdingsMap(before) };
   const productDeltas = products
     .map((product) => ({
       productId: product.id,
       name: product.shortName,
-      delta: holdingAmount(after, product.id) - holdingAmount(before, product.id)
+      delta: holdingAmount(after, product.id) - snapshot.holdings[product.id]
     }))
     .filter((item) => Math.abs(item.delta) >= 1000)
     .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))
@@ -69,13 +81,22 @@ export function summarizeTurn(before: GameState, after: GameState, actionLine: s
       biggestMover = product.id;
     }
   }
+  const actionLines = after.turnActionLines?.length ? after.turnActionLines : [actionLine];
   return {
     turn: before.turn,
     actionLine,
-    irpBefore: portfolioValue(before),
+    actionLines,
+    irpOpen: ledger.open,
+    irpAfterMarket: ledger.afterMarket,
+    irpBefore: snapshot.irp,
     irpAfter,
-    riskBefore: riskAssetRatio(before),
+    marketDelta: ledger.afterMarket - ledger.open,
+    lifeDelta: snapshot.irp - ledger.afterMarket,
+    actionDelta: irpAfter - snapshot.irp,
+    riskBefore: snapshot.risk,
     riskAfter,
+    tileEffects: before.tileEffects ?? [],
+    ghostIrp: after.ghost?.irpHistory[after.turn] ?? null,
     marketHeadline: after.lastMarket.headline,
     shock: Boolean(after.lastMarket.shock),
     alert: after.lastMarket.alert,

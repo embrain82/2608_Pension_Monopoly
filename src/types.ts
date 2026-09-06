@@ -179,10 +179,52 @@ export interface InvestorProfile {
   description: string;
 }
 
+export type TileEffectKind =
+  | 'tax-refund' | 'spotlight' | 'signal-preview' | 'extra-life' | 'double-action'
+  | 'policy-brief' | 'rebalance-bonus' | 'outlook' | 'profile-check' | 'diversify-check';
+
 export interface BoardTile {
   index: number;
   kind: TileKind;
   label: string;
+  /** 도착 시 적용되는 효과. 출발 칸(연말정산)은 통과해도 적용된다. */
+  effect: TileEffectKind;
+  /** spotlight 칸이 가리키는 상품 */
+  productId?: ProductId;
+}
+
+/** 이번 턴 도착·통과 칸이 실제로 일으킨 효과. 속보 카드 스트립과 정산 블록에 그대로 쓴다. */
+export interface TileEffect {
+  kind: TileEffectKind;
+  tileIndex: number;
+  title: string;
+  detail: string;
+  /** 환급액 등 금액 효과 */
+  amount?: number;
+  productId?: ProductId;
+  /** signal-preview: 다음 턴 스텝의 신호. 없으면 null */
+  alert?: MarketAlert | null;
+  /** outlook: 월 연금 하위·중위·상위 */
+  range?: { low: number; mid: number; high: number };
+  understanding?: number;
+  cardId?: string;
+  eventId?: string;
+}
+
+/** 이번 턴 장부. 정산 장면이 "시장이 한 일"과 "내가 한 일"을 나눠 보이기 위한 세 지점. */
+export interface TurnLedger {
+  /** 턴 시작(시장 반영 전) IRP */
+  open: number;
+  /** 시장 반영·주문 체결 직후 IRP */
+  afterMarket: number;
+  /** 첫 행동 직전(생활사건 뒤) 스냅샷. 아직 행동 전이면 null */
+  beforeAction: { irp: number; risk: number; holdings: Record<ProductId, number> } | null;
+}
+
+export interface GhostTrack {
+  /** 같은 시드·같은 주사위·무행동 경로의 IRP. 시작 포함 길이 13 */
+  irpHistory: number[];
+  finalCash: number;
 }
 
 export interface TileBriefing {
@@ -260,6 +302,24 @@ export interface GameState {
   awaitingAction: boolean;
   currentEventId: string | null;
   lifeEventSchedule: Array<{ turn: number; eventId: string }>;
+  ledger: TurnLedger;
+  /** 이번 턴 도착·통과 칸 효과(0~2개). 다음 턴 시작에 비운다. */
+  tileEffects: TileEffect[];
+  /** 이번 턴 남은 행동 수. 기본 1, 운용지시 칸 2. 마감 뒤 0. */
+  actionsLeft: number;
+  /** 이번 턴 성공한 행동 메시지. 정산 요약의 actionLine이 된다. */
+  turnActionLines: string[];
+  /** 납입 세액공제 중 아직 환급되지 않은 금액. 연말정산 칸 통과 시 생활자금으로 돌아온다. */
+  pendingTaxCredit: number;
+  taxCreditRefunded: number;
+  /** 상품 거리 도착: 이번 턴 그 상품은 즉시 체결·해지 불이익 면제·이해 +1 */
+  spotlightProductId: ProductId | null;
+  /** 리밸런싱 칸 도착 턴이면 그 턴 번호. 그 턴 리밸런싱은 이해 +2 */
+  rebalanceBonusTurn: number | null;
+  /** 생활 사건 칸으로 추가된 사건 수(판당 최대 1) */
+  extraLifeEvents: number;
+  tileEffectsEnabled: boolean;
+  ghost: GhostTrack | null;
 }
 
 export interface TurnProductDelta {
@@ -270,11 +330,27 @@ export interface TurnProductDelta {
 
 export interface TurnSummary {
   turn: number;
+  /** 이번 턴 성공한 행동을 " · "로 이은 한 줄 */
   actionLine: string;
+  actionLines: string[];
+  /** 턴 시작(시장 반영 전) IRP */
+  irpOpen: number;
+  /** 시장 반영·주문 체결 직후 IRP */
+  irpAfterMarket: number;
+  /** 첫 행동 직전 IRP(생활사건 반영 뒤) */
   irpBefore: number;
   irpAfter: number;
+  /** 시장이 한 일: irpAfterMarket − irpOpen */
+  marketDelta: number;
+  /** 생활사건이 한 일: irpBefore − irpAfterMarket */
+  lifeDelta: number;
+  /** 내가 한 일: irpAfter − irpBefore */
+  actionDelta: number;
   riskBefore: number;
   riskAfter: number;
+  tileEffects: TileEffect[];
+  /** 같은 턴 끝 고스트 IRP. 고스트가 없으면 null */
+  ghostIrp: number | null;
   marketHeadline: string;
   shock: boolean;
   alert?: MarketAlert;
@@ -322,8 +398,8 @@ export interface ScoreResult {
 }
 
 export interface SaveData {
-  version: 3;
-  settings: { reducedMotion: boolean; sound: boolean; characters: boolean };
+  version: 4;
+  settings: { reducedMotion: boolean; sound: boolean; characters: boolean; ghost: boolean };
   unlockedCards: string[];
   bestScore: number;
   lastSeed: string;

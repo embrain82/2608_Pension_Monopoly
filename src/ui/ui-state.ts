@@ -5,8 +5,8 @@ import type { SaveData } from '../types';
 export const STORAGE_KEY = 'pension-road-save-v1';
 
 export const defaultSave: SaveData = {
-  version: 3,
-  settings: { reducedMotion: false, sound: false, characters: true },
+  version: 4,
+  settings: { reducedMotion: false, sound: false, characters: true, ghost: true },
   unlockedCards: [],
   bestScore: 0,
   lastSeed: '',
@@ -27,7 +27,7 @@ function migrateSave(value: unknown): SaveData | null {
   if (!value || typeof value !== 'object') return null;
   const data = value as {
     version?: number;
-    settings?: { reducedMotion?: unknown; sound?: unknown; characters?: unknown };
+    settings?: { reducedMotion?: unknown; sound?: unknown; characters?: unknown; ghost?: unknown };
     unlockedCards?: unknown;
     bestScore?: unknown;
     lastSeed?: unknown;
@@ -42,14 +42,16 @@ function migrateSave(value: unknown): SaveData | null {
   if (!finiteNumber(data.bestScore) || typeof data.lastSeed !== 'string') return null;
   if (!Array.isArray(data.unlockedCards) || !data.unlockedCards.every((item) => typeof item === 'string')) return null;
   if (!data.settings || typeof data.settings.reducedMotion !== 'boolean' || typeof data.settings.sound !== 'boolean') return null;
-  if (data.version !== 1 && data.version !== 2 && data.version !== 3) return null;
+  if (data.version !== 1 && data.version !== 2 && data.version !== 3 && data.version !== 4) return null;
   return {
-    version: 3,
+    version: 4,
     settings: {
       reducedMotion: data.settings.reducedMotion,
       sound: data.settings.sound,
       // v1·v2 저장에는 없던 값. 캐릭터는 기본 켬.
-      characters: typeof data.settings.characters === 'boolean' ? data.settings.characters : true
+      characters: typeof data.settings.characters === 'boolean' ? data.settings.characters : true,
+      // v1~v3 저장에는 없던 값. 고스트("그대로 둔 나")는 기본 켬.
+      ghost: typeof data.settings.ghost === 'boolean' ? data.settings.ghost : true
     },
     unlockedCards: data.unlockedCards,
     bestScore: data.bestScore,

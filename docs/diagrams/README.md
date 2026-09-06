@@ -1,6 +1,6 @@
 # 연금로드 다이어그램 (archify)
 
-구현 기준 2026-09-06 (`main`, 태그 `prod-2026-09-06-token-3d`). [archify](https://github.com/tt-a1i/archify) 스킬로 만든 다이어그램 5장입니다. 원본은 이 폴더의 JSON, 결과물은 `public/diagrams/*.html`(배포되면 `/diagrams/`에서 열림), 미리보기 PNG는 `preview/`.
+구현 기준 2026-09-06 (묶음 A — 시장 먼저 턴 순서·칸 효과·고스트, 태그 `prod-2026-09-06-bundle-a`). [archify](https://github.com/tt-a1i/archify) 스킬로 만든 다이어그램 5장입니다. 원본은 이 폴더의 JSON, 결과물은 `public/diagrams/*.html`(배포되면 `/diagrams/`에서 열림), 미리보기 PNG는 `preview/`.
 
 | 다이어그램 | 종류 | 원본 | 결과물 | 미리보기 |
 |---|---|---|---|---|
@@ -8,15 +8,15 @@
 | 한 턴의 순서 | workflow | `turn-workflow.json` | `/diagrams/turn-workflow.html` | ![turn-workflow](preview/turn-workflow.png) |
 | 데이터 흐름 — 시드에서 결과까지 | dataflow | `seed-dataflow.json` | `/diagrams/seed-dataflow.html` | ![seed-dataflow](preview/seed-dataflow.png) |
 | 상태 흐름 | lifecycle | `game-lifecycle.json` | `/diagrams/game-lifecycle.html` | ![game-lifecycle](preview/game-lifecycle.png) |
-| 매수 한 번의 호출 순서 | sequence | `action-sequence.json` | `/diagrams/action-sequence.html` | ![action-sequence](preview/action-sequence.png) |
+| 한 턴의 호출 순서 — 시장 먼저 | sequence | `action-sequence.json` | `/diagrams/action-sequence.html` | ![action-sequence](preview/action-sequence.png) |
 
 ## 읽는 법
 
 - 결과물 HTML은 단독 파일입니다. 확대·이동, 노드 검색(`/`), 상·하류 추적, 안내 보기(Guided views), Light/Dark, PNG·SVG 내보내기가 들어 있습니다.
 - 뷰어 자체의 버튼 문구(Light, Present, Export, Legend 등)와 `<html lang>`은 영어입니다. archify가 한국어 뷰어 UI를 제공하지 않아 기본값(영어)으로 떨어집니다. 다이어그램 안의 내용은 모두 한국어입니다.
-- `architecture.json`은 저장소 증거(`meta.repository` + 각 컴포넌트의 `sources`)를 달고 있어, 뷰어에서 노드를 열면 해당 파일 경로가 보입니다. 리비전은 `main`의 커밋 SHA입니다.
+- `architecture.json`은 저장소 증거(`meta.repository` + 각 컴포넌트의 `sources`)를 달고 있어, 뷰어에서 노드를 열면 해당 파일 경로가 보입니다. 리비전은 다이어그램이 설명하는 커밋 SHA(묶음 A 매뉴얼 커밋 `102ebbd`)입니다.
 
-## 검증 결과 (2026-09-06)
+## 검증 결과 (2026-09-06, 묶음 A 갱신 뒤)
 
 다섯 장 모두 `validate --quality showcase`(아티팩트 검사 9개, 구성 오류 0·경고 0), `deliver`(스펙·아티팩트 SHA-256 고정), `visual-check`(실제 Chrome, 1440×900 · 1600×1000 · 1920×1080 · 2048×1320, 라이트·다크, 스크롤 넘침 0, 노드 글자 ≥ 6px)를 통과했습니다. 지각적 검토는 `preview/*.png`(1440×900 라이트)로 사람이 봅니다.
 
@@ -40,11 +40,12 @@ node bin/archify.mjs deliver sequence     <repo>/docs/diagrams/action-sequence.j
 node bin/archify.mjs visual-check <repo>/public/diagrams/architecture.html --json
 ```
 
-`architecture.json`의 `meta.repository.revision`은 다이어그램이 설명하는 `main` 커밋으로 갱신합니다(`git rev-parse main`).
+`architecture.json`의 `meta.repository.revision`은 다이어그램이 설명하는 커밋으로 갱신합니다(`sources`의 파일이 그 리비전에 있어야 합니다). `/workspace`처럼 origin에 토큰이 박힌 체크아웃도 `GIT_CONFIG_GLOBAL=/dev/null`이면 `--repo-root`로 쓸 수 있습니다.
 
 ## 바꿀 때 지킬 것
 
 - 노드는 12개 이하, 주 경로 하나. 라벨은 코드 식별자(`performAction`, `applyMarketStep`)를 그대로 쓰고 설명은 한국어.
 - 글자 크기 검사(1440px 화면에서 6px 이상) 때문에 sublabel은 짧게(한글 10자 안팎), viewBox 너비는 1100 이하.
 - 다섯 장의 카드 문구는 한 줄(≈26자) 이하로 유지해야 1440×900에서 세로 넘침이 없습니다.
-- 개선 3.2(시장 반영 시점)를 구현하면 `action-sequence.json`과 `turn-workflow.json`의 finalizeTurn 순서를 먼저 고칩니다.
+- 묶음 A(2026-09-06)로 시장 반영이 `startTurn`으로 옮겨 갔습니다. `action-sequence.json`은 참가자 8명(`tile-effects` 추가)·메시지 15개·viewBox 1060×640, 참가자 sublabel은 6~7자(1440px에서 6px 규칙). 턴 순서·칸 효과·저장 스키마가 바뀌는 PR은 두 매뉴얼과 함께 이 다섯 장도 같은 PR에서 고칩니다(필수 절차).
+- 노드 `sources`는 컴포넌트당 3개까지입니다.

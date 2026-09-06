@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { autoplay } from '../src/engine/game-engine';
-import { CHART_HEIGHT, CHART_WIDTH, renderIrpSparkline, sparklinePoints, worstTurn, worstTurnLine } from '../src/ui/result-chart';
+import { CHART_HEIGHT, CHART_WIDTH, chartDomain, renderIrpSparkline, sparklinePoints, worstTurn, worstTurnLine } from '../src/ui/result-chart';
 
 describe('결과 스파크라인', () => {
   it('점 개수는 이력 길이와 같고 화면 안에 놓인다', () => {
@@ -42,5 +42,40 @@ describe('결과 스파크라인', () => {
     const shocks = state.marketPath.filter((step) => step.shock).map((step) => step.turn);
     const html = renderIrpSparkline(state.irpHistory, shocks);
     expect(html.match(/chart-shock/g)?.length).toBe(shocks.length);
+  });
+
+  it('고스트 이력을 주면 같은 축에 점선과 두 라벨을 그리고, 위쪽 선의 라벨이 위로 간다', () => {
+    const mine = [100, 105, 110, 120];
+    const ghost = [100, 101, 102, 103];
+    const html = renderIrpSparkline(mine, [], ghost);
+    expect(html).toContain('irp-chart up with-ghost');
+    expect(html).toContain('chart-ghost');
+    expect(html).toContain('chart-ghost-end');
+    expect(html).toContain('내 판단');
+    expect(html).toContain('그대로 둔 나');
+    expect(html).toContain('그대로 둔 나 마지막 103원');
+    const domain = chartDomain(mine, ghost);
+    expect(domain).toEqual({ min: 100, max: 120 });
+    const myEnd = sparklinePoints(mine, CHART_WIDTH, CHART_HEIGHT, domain)[3];
+    const ghostEnd = sparklinePoints(ghost, CHART_WIDTH, CHART_HEIGHT, domain)[3];
+    expect(myEnd.y).toBeLessThan(ghostEnd.y);
+    const myLabelY = Number(html.match(/class="chart-label me" x="[\d.]+" y="([\d.]+)"/)![1]);
+    const ghostLabelY = Number(html.match(/class="chart-label ghost" x="[\d.]+" y="([\d.]+)"/)![1]);
+    expect(myLabelY).toBeLessThan(ghostLabelY);
+    expect(renderIrpSparkline(mine, [], null)).not.toContain('chart-ghost');
+    expect(renderIrpSparkline(mine, [], [100])).not.toContain('chart-ghost');
+  });
+
+  it('고스트가 내 선보다 높으면 두 선이 한 축에 놓여 내 선이 아래에 그려진다', () => {
+    const mine = [100, 98, 97, 96];
+    const ghost = [100, 104, 108, 112];
+    const html = renderIrpSparkline(mine, [], ghost);
+    const domain = chartDomain(mine, ghost);
+    expect(domain.max).toBe(112);
+    const myEnd = sparklinePoints(mine, CHART_WIDTH, CHART_HEIGHT, domain)[3];
+    const ghostEnd = sparklinePoints(ghost, CHART_WIDTH, CHART_HEIGHT, domain)[3];
+    expect(myEnd.y).toBeGreaterThan(ghostEnd.y);
+    expect(html).toContain(`cx="${myEnd.x}" cy="${myEnd.y}" r="4"`);
+    expect(html).toContain(`cx="${ghostEnd.x}" cy="${ghostEnd.y}" r="3"`);
   });
 });

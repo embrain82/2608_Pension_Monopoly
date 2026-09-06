@@ -12,6 +12,7 @@ import {
   summarizeTurn
 } from '../src/engine/settlement-engine';
 import { policyRules } from '../src/data/content';
+import type { TurnSummary } from '../src/types';
 import { renderSettlementModal } from '../src/ui/settlement';
 
 const sceneFields = {
@@ -20,6 +21,23 @@ const sceneFields = {
   biggestMover: 'balanced' as const,
   reaction: REACTION_DEFAULT
 };
+
+/** 장부 필드를 채운 요약 픽스처. 시장이 한 일은 open→afterMarket, 내가 한 일은 before→after로 잡는다. */
+function summaryFixture(input: Omit<TurnSummary, 'actionLines' | 'irpOpen' | 'irpAfterMarket' | 'marketDelta' | 'lifeDelta' | 'actionDelta' | 'tileEffects' | 'ghostIrp'> & Partial<TurnSummary>): TurnSummary {
+  const irpOpen = input.irpOpen ?? input.irpBefore;
+  const irpAfterMarket = input.irpAfterMarket ?? input.irpBefore;
+  return {
+    actionLines: [input.actionLine],
+    irpOpen,
+    irpAfterMarket,
+    marketDelta: irpAfterMarket - irpOpen,
+    lifeDelta: input.irpBefore - irpAfterMarket,
+    actionDelta: input.irpAfter - input.irpBefore,
+    tileEffects: [],
+    ghostIrp: null,
+    ...input
+  };
+}
 
 describe('턴 정산 요약', () => {
   it('행동 전후 IRP·위험비중과 힌트를 만든다', () => {
@@ -123,7 +141,7 @@ describe('턴 정산 요약', () => {
   });
 
   it('정산 모달에 전후 숫자와 다음 판단을 그린다', () => {
-    const html = renderSettlementModal({
+    const html = renderSettlementModal(summaryFixture({
       turn: 3,
       actionLine: '이번 턴은 행동하지 않고 현재 구성을 유지했습니다.',
       irpBefore: 108_000_000,
@@ -136,7 +154,7 @@ describe('턴 정산 요약', () => {
       productDeltas: [{ productId: 'equityEtf', name: '주식 ETF', delta: 1_200_000 }],
       nextHints: [HINT_DEFAULT],
       ...sceneFields
-    });
+    }));
     expect(html).toContain('3턴 정산');
     expect(html).toContain('정산 요약');
     expect(html).toContain('다음 판단');
@@ -145,6 +163,92 @@ describe('턴 정산 요약', () => {
     expect(html).toContain(HINT_DEFAULT);
     expect(html).toContain('data-action="dismiss-settle"');
     expect(html).not.toContain('settle-alert');
+  });
+
+  it('정산 막대는 턴 시작 → 시장 반영 → 내 행동 후 세 개이고 시장·행동 금액을 나눠 적는다', () => {
+    const html = renderSettlementModal(summaryFixture({
+      turn: 4,
+      actionLine: '1,000,000원 추가납입.',
+      irpOpen: 100_000_000,
+      irpAfterMarket: 102_000_000,
+      irpBefore: 102_000_000,
+      irpAfter: 103_000_000,
+      riskBefore: 0.2,
+      riskAfter: 0.2,
+      marketHeadline: '보합',
+      shock: false,
+      marketLimitExceeded: false,
+      productDeltas: [],
+      nextHints: [HINT_DEFAULT],
+      ...sceneFields
+    }));
+    expect(html).toContain('settle-bars three');
+    expect(html).toContain('턴 시작');
+    expect(html).toContain('시장 반영');
+    expect(html).toContain('내 행동 후');
+    expect(html).toContain('100,000,000원');
+    expect(html).toContain('102,000,000원');
+    expect(html).toContain('103,000,000원');
+    expect(html).toContain('시장 +2,000,000원');
+    expect(html).toContain('내 행동 +1,000,000원');
+    expect(html).toContain('+3,000,000원');
+    expect(html).not.toContain('생활사건');
+    expect(html).toContain('시장이 한 일');
+    expect(html).toContain('이미 보유분에 반영');
+  });
+
+  it('생활사건이 IRP를 건드렸으면 그 줄을 덧붙이고, 행동 2회는 번호 목록으로 보인다', () => {
+    const html = renderSettlementModal(summaryFixture({
+      turn: 5,
+      actionLine: '1,000,000원 추가납입. · 예금 1,000,000원 매수',
+      actionLines: ['1,000,000원 추가납입.', '예금 1,000,000원 매수'],
+      irpOpen: 100_000_000,
+      irpAfterMarket: 101_000_000,
+      irpBefore: 99_000_000,
+      irpAfter: 100_000_000,
+      riskBefore: 0.2,
+      riskAfter: 0.2,
+      marketHeadline: '보합',
+      shock: false,
+      marketLimitExceeded: false,
+      productDeltas: [],
+      nextHints: [HINT_DEFAULT],
+      ...sceneFields
+    }));
+    expect(html).toContain('생활사건 -2,000,000원');
+    expect(html).toContain('settle-actions');
+    expect(html).toContain('행동 2회');
+    expect(html.match(/<li>/g)!.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('칸 효과와 고스트 비교 줄을 그리고, 고스트 설정을 끄면 비교 줄만 사라진다', () => {
+    const summary = summaryFixture({
+      turn: 6,
+      actionLine: '유지',
+      irpBefore: 100_000_000,
+      irpAfter: 100_000_000,
+      riskBefore: 0.2,
+      riskAfter: 0.2,
+      marketHeadline: '보합',
+      shock: false,
+      marketLimitExceeded: false,
+      productDeltas: [],
+      nextHints: [HINT_DEFAULT],
+      tileEffects: [{ kind: 'tax-refund', tileIndex: 0, title: '연말정산 통과', detail: '세액공제 132,000원 환급!', amount: 132_000 }],
+      ghostIrp: 98_500_000,
+      ...sceneFields
+    });
+    const on = renderSettlementModal(summary);
+    expect(on).toContain('칸 효과');
+    expect(on).toContain('연말정산 통과');
+    expect(on).toContain('+132,000원');
+    expect(on).toContain('settle-ghost ahead');
+    expect(on).toContain('그대로 뒀다면');
+    expect(on).toContain('98,500,000원');
+    expect(on).toContain('(+1,500,000원)');
+    const off = renderSettlementModal(summary, { characters: true, ghost: false });
+    expect(off).not.toContain('settle-ghost');
+    expect(off).toContain('연말정산 통과');
   });
 
   it('요약에 상품 수익률·보유 비중·가장 큰 변화·반응 한 줄이 들어간다', () => {
@@ -177,10 +281,12 @@ describe('턴 정산 요약', () => {
   });
 
   it('정산 모달은 IRP 막대·상품 막대·가장 큰 변화·반응을 그린다', () => {
-    const html = renderSettlementModal({
+    const html = renderSettlementModal(summaryFixture({
       turn: 6,
       actionLine: '유지',
-      irpBefore: 100_000_000,
+      irpOpen: 100_000_000,
+      irpAfterMarket: 97_000_000,
+      irpBefore: 97_000_000,
       irpAfter: 97_000_000,
       riskBefore: 0.2,
       riskAfter: 0.19,
@@ -193,7 +299,7 @@ describe('턴 정산 요약', () => {
       holdingShares: { deposit: 0.6, shortBond: 0, longBond: 0, balanced: 0.4, equityEtf: 0, tdf: 0 },
       biggestMover: 'balanced',
       reaction: '장기채가 크게 밀렸습니다. 예금·단기채가 방어했는지 보세요.'
-    });
+    }));
     expect(html).toContain('settle-bars');
     expect(html).toContain('settle-returns');
     expect(html.match(/class="settle-return /g)?.length).toBe(6);
@@ -205,7 +311,7 @@ describe('턴 정산 요약', () => {
   });
 
   it('정산 모달은 다음 턴 신호를 따로 강조한다', () => {
-    const html = renderSettlementModal({
+    const html = renderSettlementModal(summaryFixture({
       turn: 5,
       actionLine: '유지',
       irpBefore: 100,
@@ -219,7 +325,7 @@ describe('턴 정산 요약', () => {
       productDeltas: [],
       nextHints: ['장기채 비중을 점검하세요.'],
       ...sceneFields
-    });
+    }));
     expect(html).toContain('settle-alert');
     expect(html).toContain('다음 턴 금리 결정');
   });

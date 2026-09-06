@@ -19,7 +19,7 @@
           "settle",
           "next"
         ],
-        "note": "12턴 동안 반복되는 길. 시장이 먼저 보이고, 행동은 한 번, 그 뒤 정산."
+        "note": "12턴 동안 반복되는 길. 시장이 먼저 보유분에 반영되고, 행동(운용지시 칸은 2회), 그 뒤 마감·정산."
       },
       {
         "id": "life-and-gates",
@@ -31,7 +31,7 @@
           "act",
           "gate"
         ],
-        "note": "생활사건은 시드 일정으로만 열리고, 성향·70% 게이트는 행동을 거절하거나 부분 체결한다."
+        "note": "생활사건은 시드 일정 3회에 생활 사건 칸 추가 1회. 성향·70% 게이트는 행동을 거절하거나 부분 체결한다."
       },
       {
         "id": "ending",
@@ -42,7 +42,7 @@
           "next",
           "result"
         ],
-        "note": "11턴까지는 다음 주사위로, 12턴 정산은 결과 리포트로 간다."
+        "note": "11턴까지는 다음 주사위로, 12턴 마감은 결과 리포트(고스트 비교)로 간다."
       }
     ]
   },
@@ -68,7 +68,7 @@
   "phases": [
     {
       "id": "open",
-      "label": "턴 열기",
+      "label": "턴 열기 · 시장 먼저",
       "fromCol": 0,
       "toCol": 1
     },
@@ -81,14 +81,14 @@
     },
     {
       "id": "decide",
-      "label": "운용 1회",
+      "label": "운용 1~2회",
       "fromCol": 3,
       "toCol": 3,
       "variant": "emphasis"
     },
     {
       "id": "close",
-      "label": "정산 · 다음",
+      "label": "마감 · 정산",
       "fromCol": 4,
       "toCol": 5
     }
@@ -128,8 +128,8 @@
       "col": 1,
       "type": "frontend",
       "label": "속보 카드",
-      "sublabel": "헤드라인 · 다이얼 · 화살표",
-      "tag": "충격 턴 흔들림",
+      "sublabel": "다이얼 · 화살표 · IRP 반영",
+      "tag": "도착 효과 스트립",
       "width": 150
     },
     {
@@ -138,7 +138,7 @@
       "col": 2,
       "type": "frontend",
       "label": "칸 설명 (선택)",
-      "sublabel": "24칸 × 5편 · 효과 없음",
+      "sublabel": "24칸 × 5편 · 읽기만",
       "width": 150
     },
     {
@@ -147,7 +147,7 @@
       "col": 3,
       "type": "frontend",
       "label": "운용 시트",
-      "sublabel": "행동 6종 중 하나",
+      "sublabel": "행동 6종 · 운용지시 2회",
       "width": 150
     },
     {
@@ -156,7 +156,7 @@
       "col": 4,
       "type": "frontend",
       "label": "정산 장면",
-      "sublabel": "전·후 막대 · 내가 한 일",
+      "sublabel": "막대 3개 · 고스트 줄",
       "width": 150
     },
     {
@@ -165,7 +165,7 @@
       "col": 5,
       "type": "frontend",
       "label": "결과 리포트",
-      "sublabel": "월 연금 · 별 · 100점",
+      "sublabel": "월 연금 · 별 · 값어치",
       "width": 150
     },
     {
@@ -174,7 +174,7 @@
       "col": 0,
       "type": "backend",
       "label": "startTurn",
-      "sublabel": "시장 스텝 · 위치 · 카드",
+      "sublabel": "시장 반영 · 체결 · 칸 효과",
       "width": 150
     },
     {
@@ -183,7 +183,7 @@
       "col": 3,
       "type": "backend",
       "label": "performAction",
-      "sublabel": "행동 1회 → 새 상태",
+      "sublabel": "행동 1~2회 → 새 상태",
       "width": 150
     },
     {
@@ -192,7 +192,7 @@
       "col": 4,
       "type": "backend",
       "label": "finalizeTurn",
-      "sublabel": "시장 반영 · 주문 체결",
+      "sublabel": "마감 · 12턴 잔여 체결",
       "width": 150
     },
     {
@@ -201,7 +201,7 @@
       "col": 2,
       "type": "security",
       "label": "생활사건",
-      "sublabel": "시드 일정 3회 · 2~11턴",
+      "sublabel": "시드 3회 + 칸 1회",
       "tag": "생활자금 / 중도인출",
       "width": 150
     },
@@ -228,7 +228,7 @@
       "id": "state-to-news",
       "from": "start",
       "to": "news",
-      "label": "GameState",
+      "label": "이미 반영된 상태",
       "variant": "emphasis",
       "bias": 0
     },
@@ -283,7 +283,7 @@
       "id": "ok",
       "from": "act",
       "to": "finalize",
-      "label": "ok",
+      "label": "마지막 행동",
       "variant": "emphasis"
     },
     {
@@ -304,7 +304,7 @@
       "id": "to-result",
       "from": "settle",
       "to": "result",
-      "label": "12턴 정산",
+      "label": "12턴 마감",
       "variant": "default",
       "role": "branch"
     }
@@ -314,8 +314,8 @@
       "dot": "cyan",
       "title": "루프의 불변",
       "items": [
-        "시장을 본 뒤 행동 1회, 그 뒤 정산",
-        "주사위·칸은 연출, 사건은 시드 일정 3회"
+        "시장이 먼저 보유분에 반영, 그 뒤 행동",
+        "지금 산 상품은 다음 턴 수익률부터"
       ]
     },
     {
@@ -328,10 +328,10 @@
     },
     {
       "dot": "emerald",
-      "title": "정산",
+      "title": "칸 효과 · 마감",
       "items": [
-        "ETF·예금 즉시, 펀드는 다음 턴 체결",
-        "12턴 정산 뒤엔 바로 결과 리포트"
+        "연말정산 통과 시 세액공제 환급",
+        "정산: 시장 ±N · 내 행동 ±M · 고스트"
       ]
     }
   ]

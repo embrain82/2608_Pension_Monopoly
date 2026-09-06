@@ -7,7 +7,7 @@
     "quality_profile": "showcase",
     "repository": {
       "url": "https://github.com/embrain82/2608_Pension_Monopoly",
-      "revision": "090480a320781555a2badd90742acf2b5237a24f"
+      "revision": "102ebbdbcdd86a43efc57273c6fc9842bfc7c146"
     },
     "views": [
       {
@@ -79,7 +79,7 @@
       "id": "views",
       "type": "frontend",
       "label": "렌더 모듈",
-      "sublabel": "보드 · 속보 · 정산 · HUD",
+      "sublabel": "보드 · 속보 · 정산 · 고스트",
       "pos": [
         290,
         140
@@ -93,10 +93,10 @@
           "path": "src/ui/board.ts"
         },
         {
-          "path": "src/ui/news-flash.ts"
+          "path": "src/ui/settlement.ts"
         },
         {
-          "path": "src/ui/settlement.ts"
+          "path": "src/ui/ghost.ts"
         }
       ]
     },
@@ -149,7 +149,7 @@
       "id": "storage",
       "type": "database",
       "label": "LocalStorage",
-      "sublabel": "save-v1 · 설정·기록",
+      "sublabel": "save-v1 · v4 설정·기록",
       "pos": [
         550,
         140
@@ -168,7 +168,7 @@
       "id": "game",
       "type": "backend",
       "label": "game-engine",
-      "sublabel": "12턴 루프 · 정산",
+      "sublabel": "시장 먼저 · 칸 효과 · 고스트",
       "pos": [
         550,
         320
@@ -180,6 +180,9 @@
       "sources": [
         {
           "path": "src/engine/game-engine.ts"
+        },
+        {
+          "path": "src/engine/tile-effects.ts"
         }
       ]
     },
@@ -187,7 +190,7 @@
       "id": "tests",
       "type": "external",
       "label": "검증",
-      "sublabel": "Vitest 168 · 시뮬 8전략",
+      "sublabel": "Vitest 222 · 시뮬 9전략",
       "pos": [
         550,
         600
@@ -199,6 +202,9 @@
       "sources": [
         {
           "path": "tests/balance-gate.test.ts"
+        },
+        {
+          "path": "tests/tile-effects.test.ts"
         },
         {
           "path": "scripts/simulate.ts"
@@ -419,7 +425,7 @@
       "title": "UI 계층",
       "items": [
         "app.ts가 화면·모달·설정 상태를 들고 렌더",
-        "DOM 연출은 fx-dom · token3d · sound-dom만"
+        "정산 막대 3개·고스트 줄은 settlement·ghost"
       ]
     },
     {
@@ -427,7 +433,7 @@
       "title": "엔진 계층",
       "items": [
         "GameState → 새 GameState, 전부 순수 함수",
-        "시드 FNV-1a → xorshift32로 판 재현"
+        "시장 먼저 → 행동 → 마감, 시드로 판 재현"
       ]
     },
     {

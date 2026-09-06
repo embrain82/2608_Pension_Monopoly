@@ -1,12 +1,13 @@
 import { balanceConfig, learningCards, lifeEvents, marketScenario, marketShocks, policyRules, products } from '../data/content';
-import type { ActionKind, ActionResult, GameState, ProfileId, ProductId } from '../types';
+import type { ActionKind, ActionResult, GameState, GhostTrack, ProfileId, ProductId } from '../types';
 import { ALERT_CARD_ID, applyMarketStep, emptyMarketStep, generateMarketPath, marketPathOf } from './market-engine';
 import { pickTileBriefing } from './tile-briefing';
 import { buyProduct, liquidateForLivingCost, portfolioValue, rebalancePortfolio, sellProduct, settleOrders, switchProduct } from './portfolio-engine';
-import { contributionCredit } from './policy-engine';
-import { summarizeTurn } from './settlement-engine';
+import { contributionCredit, riskAssetRatio } from './policy-engine';
+import { holdingsMap, summarizeTurn } from './settlement-engine';
 import { diceStepsForTurn, hashSeed, nextRandom } from './random-engine';
 import { applyGoalToGame, clampGoalMonthly } from './goal';
+import { REBALANCE_TILE_BONUS, applyTileArrival } from './tile-effects';
 
 export { applyGoalToGame, clampGoalMonthly };
 
@@ -19,6 +20,13 @@ export interface GameAction {
 }
 
 export type AmountPreset = 'default' | 'half' | 'max';
+
+export interface GameOptions {
+  /** 칸 효과 켬/끔. 게이트 측정용. 기본 켬 */
+  tileEffects?: boolean;
+  /** 고스트("그대로 둔 나") 경로를 함께 계산. 시뮬·고스트 자신은 끔. 기본 켬 */
+  ghost?: boolean;
+}
 
 function initialHoldings() {
   return products
@@ -60,10 +68,18 @@ function cardForTurn(turn: number, path: GameState['marketPath']): string {
   return 'rebalance';
 }
 
-export function createGame(seed: string, profileId: ProfileId = 'balanced', goalMonthly = balanceConfig.defaultGoal): GameState {
+/** 같은 시드·같은 주사위·행동은 늘 "그대로"인 경로. 결과 화면과 정산의 비교 기준. */
+export function ghostTrackFor(seed: string, profileId: ProfileId, goalMonthly: number, tileEffects: boolean): GhostTrack {
+  const ghost = autoplay(seed, 'passive', profileId, { ghost: false, tileEffects, goalMonthly });
+  return { irpHistory: ghost.irpHistory, finalCash: ghost.cash };
+}
+
+export function createGame(seed: string, profileId: ProfileId = 'balanced', goalMonthly = balanceConfig.defaultGoal, options: GameOptions = {}): GameState {
   const scheduled = scheduleLifeEvents(hashSeed(seed));
   const marketPath = generateMarketPath(seed);
   const market = emptyMarketStep();
+  const tileEffectsEnabled = options.tileEffects !== false;
+  const goal = clampGoalMonthly(goalMonthly);
   return {
     seed,
     rngState: scheduled.rngState,
@@ -71,7 +87,7 @@ export function createGame(seed: string, profileId: ProfileId = 'balanced', goal
     turn: 0,
     position: 0,
     phase: market.phase,
-    goalMonthly: clampGoalMonthly(goalMonthly),
+    goalMonthly: goal,
     profileId,
     cash: balanceConfig.startingCash,
     irpCash: 0,
@@ -97,7 +113,18 @@ export function createGame(seed: string, profileId: ProfileId = 'balanced', goal
     marketPath,
     awaitingAction: false,
     currentEventId: null,
-    lifeEventSchedule: scheduled.schedule
+    lifeEventSchedule: scheduled.schedule,
+    ledger: { open: balanceConfig.startingIrp, afterMarket: balanceConfig.startingIrp, beforeAction: null },
+    tileEffects: [],
+    actionsLeft: 0,
+    turnActionLines: [],
+    pendingTaxCredit: 0,
+    taxCreditRefunded: 0,
+    spotlightProductId: null,
+    rebalanceBonusTurn: null,
+    extraLifeEvents: 0,
+    tileEffectsEnabled,
+    ghost: options.ghost === false ? null : ghostTrackFor(seed, profileId, goal, tileEffectsEnabled)
   };
 }
 
@@ -105,6 +132,11 @@ function unlock(state: GameState, cardId: string): GameState {
   return state.unlockedCards.includes(cardId) ? state : { ...state, unlockedCards: [...state.unlockedCards, cardId] };
 }
 
+/**
+ * 턴 시작. 시장이 **먼저** 움직여 보유분에 반영되고(펀드 대기 주문도 이때 체결), 그 뒤 급여·칸 효과·
+ * 생활사건 순서로 열린다. 속보 카드가 보여 주는 수익률은 이미 일어난 일이고, 이번 턴 행동은 다음 턴
+ * 시장에 노출된다. 지난 턴의 칸 효과·행동 기록은 여기서 비운다.
+ */
 export function startTurn(state: GameState, steps = 0): ActionResult {
   if (state.status === 'finished' || state.turn >= balanceConfig.maxTurns) {
     return { ok: false, message: '이미 종료된 경기입니다.', state };
@@ -117,16 +149,28 @@ export function startTurn(state: GameState, steps = 0): ActionResult {
   const market = path[turn - 1] ?? emptyMarketStep();
   const scheduled = state.lifeEventSchedule.find((item) => item.turn === turn);
   const boardSize = balanceConfig.boardSize;
-  const position = ((state.position + Math.max(0, steps)) % boardSize + boardSize) % boardSize;
-  let next: GameState = {
+  const moved = Math.max(0, steps);
+  const position = ((state.position + moved) % boardSize + boardSize) % boardSize;
+  const crossedStart = moved > 0 && state.position + moved >= boardSize;
+  const open = portfolioValue(state);
+  let next: GameState = applyMarketStep({
     ...state,
     turn,
     position,
     phase: market.phase,
-    lastMarket: market,
     marketPath: path,
     cash: state.cash + balanceConfig.salarySurplusPerTurn,
     logs: [...state.logs, { turn, type: 'market', message: `${market.headline} · ${market.signal}` }],
+    tileEffects: [],
+    actionsLeft: 1,
+    turnActionLines: [],
+    spotlightProductId: null,
+    rebalanceBonusTurn: null
+  }, market);
+  next = settleOrders(next);
+  next = {
+    ...next,
+    ledger: { open, afterMarket: portfolioValue(next), beforeAction: null },
     awaitingAction: !scheduled,
     currentEventId: scheduled?.eventId ?? null
   };
@@ -137,11 +181,17 @@ export function startTurn(state: GameState, steps = 0): ActionResult {
     const shock = marketShocks.find((item) => item.id === market.shockId);
     if (shock) next = unlock(next, shock.cardId);
   }
+  if (next.tileEffectsEnabled) {
+    next = applyTileArrival(next, { position, crossedStart, scheduledEvent: Boolean(scheduled) });
+  }
   if (scheduled) {
     next = { ...next, eventHistory: [...next.eventHistory, scheduled.eventId] };
     return { ok: true, message: '생활사건이 발생했습니다.', state: next };
   }
-  return { ok: true, message: `${turn}턴 시장을 확인하세요.`, state: next };
+  if (next.currentEventId) {
+    return { ok: true, message: '생활 사건 칸에서 사건이 하나 더 왔습니다.', state: next };
+  }
+  return { ok: true, message: `${turn}턴 시장이 반영되었습니다. 이제 운용을 정하세요.`, state: next };
 }
 
 export function resolveActionAmount(state: GameState, kind: ActionKind, preset: AmountPreset, productId?: ProductId): number {
@@ -228,61 +278,121 @@ function contribute(state: GameState, amount: number): ActionResult {
   const credit = contributionCredit(state.contributionTotal, accepted);
   const next = unlock({
     ...state,
-    cash: state.cash - accepted + credit.benefit,
+    cash: state.cash - accepted,
     irpCash: state.irpCash + accepted,
     contributionTotal: state.contributionTotal + accepted,
     taxCreditEligible: state.taxCreditEligible + credit.eligible,
     taxCreditBenefit: state.taxCreditBenefit + credit.benefit,
+    // 공제 효과는 바로 주지 않고 연말정산 칸을 지날 때 환급 장면으로 돌아온다.
+    pendingTaxCredit: state.pendingTaxCredit + credit.benefit,
     understandingPoints: state.understandingPoints + 1
   }, 'contribution-limit');
-  return { ok: true, message: `${accepted.toLocaleString('ko-KR')}원 추가납입, 세액공제 효과 ${Math.round(credit.benefit).toLocaleString('ko-KR')}원(교육용)을 생활자금에 반영했습니다.`, state: next };
+  const creditNote = credit.benefit > 0
+    ? `세액공제 ${Math.round(credit.benefit).toLocaleString('ko-KR')}원(교육용)은 연말정산 칸을 지날 때 생활자금으로 돌아옵니다.`
+    : '공제 한도를 넘어 이번 납입은 세액공제가 없습니다.';
+  return { ok: true, message: `${accepted.toLocaleString('ko-KR')}원 추가납입. ${creditNote}`, state: next };
 }
 
+/** 스포트라이트 상품을 이번 턴에 샀는가(매수·교체 매수). 이해 +1의 근거. */
+function boughtSpotlight(before: GameState, after: GameState, action: GameAction): boolean {
+  const productId = before.spotlightProductId;
+  if (!productId) return false;
+  const target = action.kind === 'buy' ? action.productId : action.kind === 'switch' ? action.toProductId : undefined;
+  if (target !== productId) return false;
+  const pendingBefore = before.pendingOrders.filter((order) => order.side === 'buy' && order.productId === productId).length;
+  const pendingAfter = after.pendingOrders.filter((order) => order.side === 'buy' && order.productId === productId).length;
+  return holdingOf(after, productId) > holdingOf(before, productId) + 1 || pendingAfter > pendingBefore;
+}
+
+/**
+ * 운용 행동 1회. 시장은 턴 시작에 이미 반영됐으므로 여기서는 행동만 처리한다. 행동이 남아 있으면
+ * (운용지시 칸) 턴을 열어 둔 채 돌아오고, 마지막 행동 뒤에 `finalizeTurn`과 정산 요약을 붙인다.
+ * "그대로"는 남은 행동을 모두 쓴다.
+ */
 export function performAction(state: GameState, action: GameAction): ActionResult {
   if (!state.awaitingAction || state.currentEventId) {
     return { ok: false, message: '먼저 이번 턴 시장을 확인하고 생활사건을 해결하세요.', state };
   }
+  const opened: GameState = state.ledger.beforeAction
+    ? state
+    : { ...state, ledger: { ...state.ledger, beforeAction: { irp: portfolioValue(state), risk: riskAssetRatio(state), holdings: holdingsMap(state) } } };
   let result: ActionResult;
   switch (action.kind) {
-    case 'contribute': result = contribute(state, action.amount ?? balanceConfig.contributionAmount); break;
-    case 'buy': result = action.productId ? buyProduct(state, action.productId, action.amount) : { ok: false, message: '매수 상품을 선택하세요.', state }; break;
-    case 'sell': result = action.productId ? sellProduct(state, action.productId, action.amount) : { ok: false, message: '매도 상품을 선택하세요.', state }; break;
-    case 'switch': result = action.fromProductId && action.toProductId ? switchProduct(state, action.fromProductId, action.toProductId, action.amount) : { ok: false, message: '교체할 두 상품을 선택하세요.', state }; break;
-    case 'rebalance': result = rebalancePortfolio(state); break;
-    case 'hold': result = { ok: true, message: '이번 턴은 행동하지 않고 현재 구성을 유지했습니다.', state: { ...state, safeActionCount: state.safeActionCount + 1 } }; break;
+    case 'contribute': result = contribute(opened, action.amount ?? balanceConfig.contributionAmount); break;
+    case 'buy': result = action.productId ? buyProduct(opened, action.productId, action.amount) : { ok: false, message: '매수 상품을 선택하세요.', state }; break;
+    case 'sell': result = action.productId ? sellProduct(opened, action.productId, action.amount) : { ok: false, message: '매도 상품을 선택하세요.', state }; break;
+    case 'switch': result = action.fromProductId && action.toProductId ? switchProduct(opened, action.fromProductId, action.toProductId, action.amount) : { ok: false, message: '교체할 두 상품을 선택하세요.', state }; break;
+    case 'rebalance': result = rebalancePortfolio(opened); break;
+    case 'hold': result = { ok: true, message: '이번 턴은 행동하지 않고 현재 구성을 유지했습니다.', state: { ...opened, safeActionCount: opened.safeActionCount + 1 } }; break;
   }
-  if (!result.ok) return result;
-  const next = finalizeTurn({ ...result.state, logs: [...result.state.logs, { turn: state.turn, type: 'action', message: result.message }] });
+  if (!result.ok) return { ...result, state: { ...result.state, ledger: state.ledger } };
+  let acted: GameState = result.state;
+  let message = result.message;
+  if (boughtSpotlight(opened, acted, action)) {
+    acted = { ...acted, understandingPoints: acted.understandingPoints + 1 };
+    message = `${message} 스포트라이트 상품 · 이해 +1.`;
+  }
+  if (action.kind === 'rebalance' && opened.rebalanceBonusTurn === opened.turn) {
+    acted = { ...acted, understandingPoints: acted.understandingPoints + REBALANCE_TILE_BONUS, rebalanceBonusTurn: null };
+    message = `${message} 리밸런싱 칸 보너스 · 이해 +${REBALANCE_TILE_BONUS}.`;
+  }
+  acted = {
+    ...acted,
+    turnActionLines: [...acted.turnActionLines, message],
+    logs: [...acted.logs, { turn: state.turn, type: 'action', message }]
+  };
+  const left = action.kind === 'hold' ? 0 : Math.max(0, acted.actionsLeft - 1);
+  if (left > 0) {
+    return { ...result, message: `${message} 이번 턴 행동 ${left}회 더 할 수 있어요.`, state: { ...acted, actionsLeft: left } };
+  }
+  const next = finalizeTurn({ ...acted, actionsLeft: 0 });
   return {
     ...result,
+    message,
     state: next,
-    summary: summarizeTurn(state, next, result.message)
+    summary: summarizeTurn(opened, next, acted.turnActionLines.join(' · '))
   };
 }
 
+/**
+ * 턴 마감. 시장 반영은 `startTurn`으로 옮겨 갔으므로 여기서는 12턴 잔여 주문 강제 체결·잔여 환급·
+ * 이력·상태만 정리한다.
+ */
 export function finalizeTurn(state: GameState): GameState {
-  let next = applyMarketStep(state, marketPathOf(state)[state.turn - 1] ?? emptyMarketStep());
+  let next = state;
   if (state.turn === balanceConfig.maxTurns) {
-    next = { ...next, pendingOrders: next.pendingOrders.map((order) => ({ ...order, settlesTurn: state.turn })) };
+    next = settleOrders({ ...next, pendingOrders: next.pendingOrders.map((order) => ({ ...order, settlesTurn: state.turn })) });
+    if (next.pendingTaxCredit > 0) {
+      const refund = next.pendingTaxCredit;
+      next = {
+        ...next,
+        cash: next.cash + refund,
+        pendingTaxCredit: 0,
+        taxCreditRefunded: next.taxCreditRefunded + refund,
+        logs: [...next.logs, { turn: state.turn, type: 'refund', message: `판 마감 · 미정산 세액공제 ${Math.round(refund).toLocaleString('ko-KR')}원 일괄 환급`, impact: Math.round(refund) }]
+      };
+    }
   }
-  next = settleOrders(next);
   return {
     ...next,
     status: state.turn >= balanceConfig.maxTurns ? 'finished' : 'playing',
     awaitingAction: false,
+    actionsLeft: 0,
+    spotlightProductId: null,
+    rebalanceBonusTurn: null,
     irpHistory: [...next.irpHistory, portfolioValue(next)],
-    logs: [...next.logs, { turn: state.turn, type: 'settle', message: `${state.turn}턴 기준가·이자·비용 반영 완료` }]
+    logs: [...next.logs, { turn: state.turn, type: 'settle', message: `${state.turn}턴 마감` }]
   };
 }
 
-export type AutoStrategy = 'balanced' | 'passive' | 'contributor' | 'growth' | 'steward' | 'etfOnly' | 'stopLoss' | 'momentum';
+export type AutoStrategy = 'balanced' | 'passive' | 'contributor' | 'growth' | 'steward' | 'etfOnly' | 'stopLoss' | 'momentum' | 'newsChaser';
 
-export const AUTO_STRATEGIES: AutoStrategy[] = ['balanced', 'passive', 'contributor', 'growth', 'steward', 'etfOnly', 'stopLoss', 'momentum'];
+export const AUTO_STRATEGIES: AutoStrategy[] = ['balanced', 'passive', 'contributor', 'growth', 'steward', 'etfOnly', 'stopLoss', 'momentum', 'newsChaser'];
 
 /** 전략이 ETF를 살 수 있도록 성향을 맞춘다. 게이트(성향 밖 매수 거절)는 그대로 둔다. */
 export function defaultProfileFor(strategy: AutoStrategy): ProfileId {
   if (strategy === 'growth') return 'growth';
-  if (strategy === 'etfOnly' || strategy === 'stopLoss' || strategy === 'momentum') return 'aggressive';
+  if (strategy === 'etfOnly' || strategy === 'stopLoss' || strategy === 'momentum' || strategy === 'newsChaser') return 'aggressive';
   return 'balanced';
 }
 
@@ -290,15 +400,33 @@ function holdingOf(state: GameState, productId: ProductId): number {
   return state.holdings.find((holding) => holding.productId === productId)?.amount ?? 0;
 }
 
-export function autoplay(seed: string, strategy: AutoStrategy = 'balanced', profileId: ProfileId = defaultProfileFor(strategy)): GameState {
-  let state = createGame(seed, profileId);
+export interface AutoplayOptions extends GameOptions {
+  goalMonthly?: number;
+}
+
+/**
+ * 자동 플레이. 시뮬·게이트·고스트가 쓴다. 기본은 고스트 없이(`ghost: false`) 돈다. 행동 2회 칸이 있어
+ * 같은 턴에서 `awaitingAction`이 풀릴 때까지 전략 판단을 반복한다.
+ */
+export function autoplay(seed: string, strategy: AutoStrategy = 'balanced', profileId: ProfileId = defaultProfileFor(strategy), options: AutoplayOptions = {}): GameState {
+  let state = createGame(seed, profileId, options.goalMonthly ?? balanceConfig.defaultGoal, { ghost: false, ...options });
   let stoppedOut = false;
-  while (state.status === 'playing') {
-    state = startTurn(state, diceStepsForTurn(state.seed, state.turn)).state;
-    if (state.currentEventId) state = resolveLifeEvent(state, 'cash').state;
+  const decide = (): GameAction => {
     const etfReturn = state.lastMarket.returns.equityEtf;
     let action: GameAction;
     if (strategy === 'passive') action = { kind: 'hold' };
+    else if (strategy === 'newsChaser') {
+      // 속보의 이번 턴 ETF 수익률을 보고 오른 뒤 사고 내린 뒤 판다. 3.2 이전에는 최적해였다.
+      if (etfReturn > 0.01) {
+        action = holdingOf(state, 'deposit') >= 100000
+          ? { kind: 'switch', fromProductId: 'deposit', toProductId: 'equityEtf', amount: holdingOf(state, 'deposit') }
+          : state.irpCash >= 100000
+            ? { kind: 'buy', productId: 'equityEtf', amount: state.irpCash }
+            : state.cash > balanceConfig.contributionAmount ? { kind: 'contribute' } : { kind: 'hold' };
+      } else if (etfReturn < -0.01 && holdingOf(state, 'equityEtf') >= 100000) {
+        action = { kind: 'switch', fromProductId: 'equityEtf', toProductId: 'deposit', amount: holdingOf(state, 'equityEtf') };
+      } else action = state.cash > balanceConfig.contributionAmount ? { kind: 'contribute' } : { kind: 'hold' };
+    }
     else if (strategy === 'contributor') action = state.cash > balanceConfig.contributionAmount ? { kind: 'contribute' } : { kind: 'hold' };
     else if (strategy === 'growth') action = state.turn % 2 === 1
       ? { kind: 'contribute' }
@@ -332,8 +460,15 @@ export function autoplay(seed: string, strategy: AutoStrategy = 'balanced', prof
       : state.cash > balanceConfig.safeCashThreshold + balanceConfig.contributionAmount
         ? { kind: 'contribute' }
         : { kind: 'hold' };
-    const acted = performAction(state, action);
-    state = acted.ok ? acted.state : performAction(state, { kind: 'hold' }).state;
+    return action;
+  };
+  while (state.status === 'playing') {
+    state = startTurn(state, diceStepsForTurn(state.seed, state.turn)).state;
+    if (state.currentEventId) state = resolveLifeEvent(state, 'cash').state;
+    while (state.status === 'playing' && state.awaitingAction) {
+      const acted = performAction(state, decide());
+      state = acted.ok ? acted.state : performAction(state, { kind: 'hold' }).state;
+    }
   }
   return state;
 }

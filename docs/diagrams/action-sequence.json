@@ -2,14 +2,26 @@
   "schema_version": 1,
   "diagram_type": "sequence",
   "meta": {
-    "title": "연금로드 매수 한 번의 호출 순서",
+    "title": "연금로드 한 턴의 호출 순서 — 시장 먼저",
     "output": "../../public/diagrams/action-sequence.html",
     "viewBox": [
-      1000,
-      600
+      1060,
+      640
     ],
     "quality_profile": "showcase",
     "views": [
+      {
+        "id": "market-first",
+        "label": "시장 먼저",
+        "focus": [
+          "app",
+          "game",
+          "market",
+          "portfolio",
+          "tiles"
+        ],
+        "note": "주사위 뒤 startTurn이 이번 턴 수익률을 보유분에 먼저 적용하고 지난 턴 펀드 주문을 체결한 다음, 통과·도착 칸 효과를 붙인다. 속보 카드는 이미 일어난 일을 보여 준다."
+      },
       {
         "id": "gate-path",
         "label": "게이트",
@@ -19,29 +31,18 @@
           "portfolio",
           "policy"
         ],
-        "note": "성향 등급과 70% 한도는 매수 함수 안에서 먼저 검사되고, 거절이면 상태가 바뀌지 않는다."
-      },
-      {
-        "id": "settle-path",
-        "label": "시장 반영 · 정산",
-        "focus": [
-          "game",
-          "market",
-          "portfolio",
-          "settle"
-        ],
-        "note": "행동이 통과하면 같은 호출 안에서 이번 턴 수익률이 보유분 전체에 적용되고 대기 주문이 체결된다."
+        "note": "성향 등급과 70% 한도는 매수 함수 안에서 먼저 검사되고, 거절이면 상태가 바뀌지 않는다. 지금 산 상품은 다음 턴 수익률부터 받는다."
       },
       {
         "id": "render-path",
-        "label": "화면 반영",
+        "label": "마감 · 화면",
         "focus": [
           "settle",
           "game",
           "app",
           "player"
         ],
-        "note": "TurnSummary가 정산 장면(전·후 막대·내가 한 일·다음 판단)을 그린다."
+        "note": "마지막 행동 뒤 finalizeTurn이 마감하고, TurnSummary가 정산 장면(막대 3개·시장/내 행동·칸 효과·고스트)을 그린다."
       }
     ],
     "column_fit": "spread"
@@ -51,25 +52,37 @@
       "id": "player",
       "type": "external",
       "label": "플레이어",
-      "sublabel": "운용 시트"
+      "sublabel": "주사위 · 시트"
     },
     {
       "id": "app",
       "type": "frontend",
       "label": "app.ts",
-      "sublabel": "PensionRoadApp"
+      "sublabel": "화면 · 모달"
     },
     {
       "id": "game",
       "type": "backend",
       "label": "game-engine",
-      "sublabel": "performAction"
+      "sublabel": "턴 시작 · 행동"
+    },
+    {
+      "id": "market",
+      "type": "backend",
+      "label": "market",
+      "sublabel": "시장 반영"
+    },
+    {
+      "id": "tiles",
+      "type": "backend",
+      "label": "tile-effects",
+      "sublabel": "칸 효과 · 환급"
     },
     {
       "id": "portfolio",
       "type": "backend",
       "label": "portfolio",
-      "sublabel": "buyProduct"
+      "sublabel": "매수 · 체결"
     },
     {
       "id": "policy",
@@ -78,89 +91,43 @@
       "sublabel": "성향 · 70%"
     },
     {
-      "id": "market",
-      "type": "backend",
-      "label": "market",
-      "sublabel": "applyMarketStep"
-    },
-    {
       "id": "settle",
       "type": "backend",
       "label": "settlement",
-      "sublabel": "summarizeTurn"
+      "sublabel": "턴 요약"
     }
   ],
   "segments": [
     {
-      "from": 160,
-      "to": 312,
-      "label": "행동 → 게이트"
+      "from": 146,
+      "to": 314,
+      "label": "startTurn — 시장 먼저"
     },
     {
       "from": 320,
-      "to": 436,
-      "label": "finalizeTurn"
+      "to": 482,
+      "label": "행동 → 게이트"
     },
     {
-      "from": 444,
-      "to": 530,
-      "label": "정산 장면"
+      "from": 488,
+      "to": 570,
+      "label": "finalizeTurn · 정산"
     }
   ],
   "messages": [
     {
-      "id": "click-buy",
-      "from": "player",
-      "to": "app",
-      "y": 176,
-      "label": "매수 실행 (ETF, 가능액)",
-      "variant": "default"
-    },
-    {
-      "id": "perform",
+      "id": "start-turn",
       "from": "app",
       "to": "game",
-      "y": 206,
-      "label": "performAction({kind:'buy'})",
+      "y": 160,
+      "label": "startTurn(state, steps) — 주사위 뒤",
       "variant": "emphasis"
-    },
-    {
-      "id": "buy",
-      "from": "game",
-      "to": "portfolio",
-      "y": 236,
-      "label": "buyProduct(state, id, amount)",
-      "variant": "emphasis"
-    },
-    {
-      "id": "profile-check",
-      "from": "portfolio",
-      "to": "policy",
-      "y": 266,
-      "label": "canBuyForProfile · decideBuyAgainstRiskLimit",
-      "variant": "security"
-    },
-    {
-      "id": "gate-result",
-      "from": "policy",
-      "to": "portfolio",
-      "y": 296,
-      "label": "ok / 한도 금액 제안 / 거절",
-      "variant": "return"
-    },
-    {
-      "id": "bought",
-      "from": "portfolio",
-      "to": "game",
-      "y": 328,
-      "label": "holdings 갱신 (ETF·예금 즉시, 펀드는 주문)",
-      "variant": "return"
     },
     {
       "id": "market-step",
       "from": "game",
       "to": "market",
-      "y": 358,
+      "y": 188,
       "label": "applyMarketStep(path[turn-1])",
       "variant": "emphasis"
     },
@@ -168,7 +135,7 @@
       "id": "market-return",
       "from": "market",
       "to": "game",
-      "y": 388,
+      "y": 216,
       "label": "보유분 × (1 + 이번 턴 수익률)",
       "variant": "return"
     },
@@ -176,23 +143,87 @@
       "id": "settle-orders",
       "from": "game",
       "to": "portfolio",
-      "y": 418,
-      "label": "settleOrders — 펀드 주문 체결 · irpHistory",
+      "y": 244,
+      "label": "settleOrders — 지난 턴 펀드 주문 체결",
       "variant": "dashed"
+    },
+    {
+      "id": "tile-arrival",
+      "from": "game",
+      "to": "tiles",
+      "y": 272,
+      "label": "applyTileArrival — 연말정산 환급 · 도착 칸 효과",
+      "variant": "emphasis"
+    },
+    {
+      "id": "news",
+      "from": "game",
+      "to": "app",
+      "y": 300,
+      "label": "state → 속보 카드 (IRP 반영 · 도착 효과)",
+      "variant": "return"
+    },
+    {
+      "id": "click-buy",
+      "from": "player",
+      "to": "app",
+      "y": 328,
+      "label": "매수 실행 (ETF, 가능액)",
+      "variant": "default"
+    },
+    {
+      "id": "perform",
+      "from": "app",
+      "to": "game",
+      "y": 356,
+      "label": "performAction({kind:'buy'})",
+      "variant": "emphasis"
+    },
+    {
+      "id": "buy",
+      "from": "game",
+      "to": "portfolio",
+      "y": 384,
+      "label": "buyProduct(state, id, amount)",
+      "variant": "emphasis"
+    },
+    {
+      "id": "profile-check",
+      "from": "portfolio",
+      "to": "policy",
+      "y": 412,
+      "label": "canBuyForProfile · decideBuyAgainstRiskLimit",
+      "variant": "security"
+    },
+    {
+      "id": "gate-result",
+      "from": "policy",
+      "to": "portfolio",
+      "y": 440,
+      "label": "ok / 한도 금액 제안 / 거절",
+      "variant": "return"
+    },
+    {
+      "id": "bought",
+      "from": "portfolio",
+      "to": "game",
+      "y": 468,
+      "label": "holdings 갱신 (즉시 · 다음 턴 주문 · 스포트라이트면 즉시)",
+      "variant": "return"
     },
     {
       "id": "summarize",
       "from": "game",
       "to": "settle",
-      "y": 452,
-      "label": "summarizeTurn(before, after, message)",
+      "y": 496,
+      "label": "finalizeTurn → summarizeTurn(opened, next, lines)",
       "variant": "default"
     },
     {
       "id": "result",
       "from": "game",
       "to": "app",
-      "y": 482,
+      "y": 524,
       "label": "{ ok, state, summary }",
       "variant": "return"
     },
@@ -200,72 +231,84 @@
       "id": "render",
       "from": "app",
       "to": "player",
-      "y": 512,
-      "label": "정산 장면 · 다음 턴 준비",
+      "y": 552,
+      "label": "정산 장면 (막대 3개 · 고스트) · 다음 턴 준비",
       "variant": "return"
     }
   ],
   "activations": [
     {
       "participant": "app",
-      "from": 170,
-      "to": 518,
+      "from": 154,
+      "to": 558,
       "type": "frontend"
     },
     {
       "participant": "game",
-      "from": 200,
-      "to": 488,
+      "from": 154,
+      "to": 306,
+      "type": "backend"
+    },
+    {
+      "participant": "market",
+      "from": 182,
+      "to": 222,
+      "type": "backend"
+    },
+    {
+      "participant": "tiles",
+      "from": 266,
+      "to": 278,
+      "type": "backend"
+    },
+    {
+      "participant": "game",
+      "from": 350,
+      "to": 530,
       "type": "backend"
     },
     {
       "participant": "portfolio",
-      "from": 230,
-      "to": 334,
+      "from": 378,
+      "to": 474,
       "type": "backend"
     },
     {
       "participant": "policy",
-      "from": 260,
-      "to": 302,
+      "from": 406,
+      "to": 446,
       "type": "security"
     },
     {
-      "participant": "market",
-      "from": 352,
-      "to": 394,
-      "type": "backend"
-    },
-    {
       "participant": "settle",
-      "from": 446,
-      "to": 458,
+      "from": 490,
+      "to": 502,
       "type": "backend"
     }
   ],
   "cards": [
     {
-      "dot": "emerald",
-      "title": "한 호출에 다 들어 있다",
+      "dot": "amber",
+      "title": "시장 반영 시점",
       "items": [
-        "performAction 하나가 게이트→체결→시장→요약",
-        "실패하면 원래 state가 그대로 돌아온다"
+        "startTurn이 먼저 보유분에 수익률 적용",
+        "지금 산 상품은 다음 턴 수익률부터"
       ]
     },
     {
       "dot": "rose",
       "title": "게이트 결과 세 가지",
       "items": [
-        "성향 밖 → 거절(턴 유지) · 70% 초과 → 한도 제안",
-        "통과 → 즉시 보유(ETF·예금) 또는 다음 턴 주문"
+        "성향 밖 → 거절 · 70% 초과 → 한도 제안",
+        "통과 → 즉시 보유 또는 다음 턴 주문"
       ]
     },
     {
-      "dot": "amber",
-      "title": "시장 반영 시점",
+      "dot": "emerald",
+      "title": "마감",
       "items": [
-        "이번 턴 수익률은 행동 뒤 보유분 전체에 적용",
-        "개선 3.2(시장 반영 시점)가 바꾸는 지점"
+        "행동 남으면(운용지시 칸) 시트 유지",
+        "마지막 행동 뒤 finalizeTurn → 요약"
       ]
     }
   ]

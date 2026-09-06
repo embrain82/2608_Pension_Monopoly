@@ -93,4 +93,33 @@ describe('밸런스 게이트 — 운보다 의사결정', () => {
   it('주사위 합은 총점과 무관하다', () => {
     expect(Math.abs(correlation(diceSums, totalScores))).toBeLessThan(0.1);
   });
+
+  it('속보를 보고 ETF를 갈아타는 전략은 같은 시드의 균형 전략을 운 수준 이상으로 이기지 못한다', () => {
+    let wins = 0;
+    for (let index = 0; index < RUNS_PER_STRATEGY; index += 1) {
+      const seed = `pair-${index}`;
+      const chaser = calculateScore(autoplay(seed, 'newsChaser')).monthlyPension;
+      const balanced = calculateScore(autoplay(seed, 'balanced')).monthlyPension;
+      if (chaser > balanced) wins += 1;
+    }
+    expect(wins / RUNS_PER_STRATEGY).toBeLessThanOrEqual(0.5);
+    expect(row('newsChaser').twoPlus).toBeLessThanOrEqual(row('balanced').twoPlus);
+  });
+
+  it('칸 효과는 판단을 넘지 않는다 — 켬/끔 월 연금 기대치 차이가 작고 무행동 0별 비율은 유지된다', () => {
+    let passiveZero = 0;
+    const gaps: number[] = [];
+    for (let index = 0; index < 60; index += 1) {
+      const seed = `tiles-${index}`;
+      for (const strategy of ['balanced', 'steward', 'contributor'] as const) {
+        const on = calculateScore(autoplay(seed, strategy, undefined, { tileEffects: true })).monthlyPension;
+        const off = calculateScore(autoplay(seed, strategy, undefined, { tileEffects: false })).monthlyPension;
+        gaps.push(on - off);
+      }
+      if (calculateScore(autoplay(seed, 'passive')).stars === 0) passiveZero += 1;
+    }
+    const meanGap = gaps.reduce((sum, value) => sum + value, 0) / gaps.length;
+    expect(Math.abs(meanGap)).toBeLessThanOrEqual(15_000);
+    expect(passiveZero / 60).toBeGreaterThanOrEqual(0.3);
+  });
 });

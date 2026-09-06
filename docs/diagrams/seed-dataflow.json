@@ -26,7 +26,7 @@
           "actions",
           "state"
         ],
-        "note": "매 턴 수익률·사건·플레이어 행동이 같은 GameState에 순수 함수로 반영된다."
+        "note": "매 턴 시장 수익률이 먼저 보유분에 반영되고, 칸 효과·사건·행동이 같은 GameState에 순수 함수로 이어진다."
       },
       {
         "id": "outcome",
@@ -98,7 +98,7 @@
       "id": "life",
       "type": "security",
       "label": "생활사건 일정",
-      "sublabel": "3회 · 2~11턴",
+      "sublabel": "3회 + 칸 1회",
       "stage": 1,
       "row": 2
     },
@@ -106,7 +106,7 @@
       "id": "actions",
       "type": "frontend",
       "label": "플레이어 행동",
-      "sublabel": "납입 · 매매 · 그대로",
+      "sublabel": "행동 1~2회 · 그대로",
       "stage": 2,
       "row": 1
     },
@@ -114,7 +114,7 @@
       "id": "state",
       "type": "database",
       "label": "GameState",
-      "sublabel": "보유 · 현금 · 기록",
+      "sublabel": "보유 · 장부 · 고스트",
       "stage": 3,
       "row": 1
     },
@@ -221,7 +221,7 @@
       "from": "returns",
       "to": "state",
       "label": "applyMarketStep",
-      "classification": "턴마다 1회",
+      "classification": "턴 시작 · 행동 전",
       "variant": "emphasis",
       "fromSide": "right",
       "toSide": "top",
@@ -249,7 +249,7 @@
       "from": "actions",
       "to": "state",
       "label": "performAction",
-      "classification": "턴당 1회",
+      "classification": "턴당 1~2회",
       "route": "straight",
       "labelAt": [
         637,
@@ -322,7 +322,7 @@
       "title": "시장은 시작 시 확정",
       "items": [
         "generateMarketPath(seed)가 12턴을 한 번에 생성",
-        "행동은 시장을 못 바꾸고, 시장이 보유분에 적용"
+        "같은 시드로 고스트(그대로 둔 나) 경로도 생성"
       ]
     },
     {
@@ -330,7 +330,7 @@
       "title": "사건과 충격",
       "items": [
         "충격 6종 · 슬롯 3개 · 직전 턴 강/약/거짓 신호",
-        "생활사건은 생활자금 → 대기자금 → 보유 매도"
+        "사건 3회 + 생활 사건 칸 1회, 도착 칸 효과 10종"
       ]
     },
     {
@@ -338,7 +338,7 @@
       "title": "저장 범위",
       "items": [
         "판 도중 GameState는 저장 안 함",
-        "LocalStorage v3: 설정·기록·성향·목표·카드"
+        "LocalStorage v4: 설정·기록·성향·목표·카드"
       ]
     }
   ]

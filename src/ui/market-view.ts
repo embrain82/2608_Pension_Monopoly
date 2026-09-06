@@ -75,6 +75,7 @@ export function renderMarketCard(state: GameState, pending: boolean): string {
             ${renderMarketAlert(state.lastMarket)}
             ${marketBars(state.lastMarket)}
             ${renderProductReturns(state)}
+            <p class="market-note applied-note">이 수익률은 턴 시작에 이미 보유분에 반영됐습니다 · 지금 행동은 다음 턴에 걸립니다</p>
           </article>`;
 }
 

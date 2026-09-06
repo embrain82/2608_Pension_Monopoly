@@ -19,31 +19,32 @@ export const investorProfiles = profilesJson as InvestorProfile[];
 export const balanceConfig = balanceJson as BalanceConfig;
 export const tileBriefings = tileBriefingsJson as TileBriefingSet[];
 
+/** 칸 종류·이름·효과. 효과 규칙은 src/engine/tile-effects.ts, 설명 글은 tile-briefings.json. */
 const tileKinds: Array<Omit<BoardTile, 'index'>> = [
-  { kind: 'start', label: '연말정산' },
-  { kind: 'product', label: '예금 거리' },
-  { kind: 'market', label: '시장 뉴스' },
-  { kind: 'product', label: '단기채 거리' },
-  { kind: 'life', label: '생활 사건' },
-  { kind: 'trade', label: '운용지시' },
-  { kind: 'product', label: '장기채 거리' },
-  { kind: 'policy', label: '제도 안내' },
-  { kind: 'product', label: '혼합형 거리' },
-  { kind: 'market', label: '시장 뉴스' },
-  { kind: 'rebalance', label: '리밸런싱' },
-  { kind: 'product', label: 'ETF 거리' },
-  { kind: 'outlook', label: '은퇴 전망대' },
-  { kind: 'product', label: 'TDF 거리' },
-  { kind: 'market', label: '시장 뉴스' },
-  { kind: 'life', label: '생활 사건' },
-  { kind: 'trade', label: '운용지시' },
-  { kind: 'product', label: '분산 광장' },
-  { kind: 'policy', label: '제도 안내' },
-  { kind: 'product', label: '금리 전망길' },
-  { kind: 'profile', label: '성향 점검' },
-  { kind: 'market', label: '시장 뉴스' },
-  { kind: 'life', label: '생활 사건' },
-  { kind: 'rebalance', label: '리밸런싱' }
+  { kind: 'start', label: '연말정산', effect: 'tax-refund' },
+  { kind: 'product', label: '예금 거리', effect: 'spotlight', productId: 'deposit' },
+  { kind: 'market', label: '시장 뉴스', effect: 'signal-preview' },
+  { kind: 'product', label: '단기채 거리', effect: 'spotlight', productId: 'shortBond' },
+  { kind: 'life', label: '생활 사건', effect: 'extra-life' },
+  { kind: 'trade', label: '운용지시', effect: 'double-action' },
+  { kind: 'product', label: '장기채 거리', effect: 'spotlight', productId: 'longBond' },
+  { kind: 'policy', label: '제도 안내', effect: 'policy-brief' },
+  { kind: 'product', label: '혼합형 거리', effect: 'spotlight', productId: 'balanced' },
+  { kind: 'market', label: '시장 뉴스', effect: 'signal-preview' },
+  { kind: 'rebalance', label: '리밸런싱', effect: 'rebalance-bonus' },
+  { kind: 'product', label: 'ETF 거리', effect: 'spotlight', productId: 'equityEtf' },
+  { kind: 'outlook', label: '은퇴 전망대', effect: 'outlook' },
+  { kind: 'product', label: 'TDF 거리', effect: 'spotlight', productId: 'tdf' },
+  { kind: 'market', label: '시장 뉴스', effect: 'signal-preview' },
+  { kind: 'life', label: '생활 사건', effect: 'extra-life' },
+  { kind: 'trade', label: '운용지시', effect: 'double-action' },
+  { kind: 'product', label: '분산 광장', effect: 'diversify-check' },
+  { kind: 'policy', label: '제도 안내', effect: 'policy-brief' },
+  { kind: 'product', label: '금리 전망길', effect: 'signal-preview' },
+  { kind: 'profile', label: '성향 점검', effect: 'profile-check' },
+  { kind: 'market', label: '시장 뉴스', effect: 'signal-preview' },
+  { kind: 'life', label: '생활 사건', effect: 'extra-life' },
+  { kind: 'rebalance', label: '리밸런싱', effect: 'rebalance-bonus' }
 ];
 
 export const boardTiles: BoardTile[] = tileKinds.map((tile, index) => ({ ...tile, index }));
@@ -85,5 +86,11 @@ export function validateContent(): void {
   const regimes = Object.keys(balanceConfig.market.regimes).sort().join();
   if (regimes !== 'easing,hold,pivot,tightening') {
     throw new Error('시장 국면 설정은 easing·hold·tightening·pivot 네 개여야 합니다.');
+  }
+  if (boardTiles[0].effect !== 'tax-refund' || boardTiles.some((tile) => tile.effect === 'spotlight' && !productIds.has(tile.productId ?? ''))) {
+    throw new Error('출발 칸은 연말정산 환급이어야 하고, 상품 거리 칸은 실제 상품을 가리켜야 합니다.');
+  }
+  if (boardTiles.filter((tile) => tile.effect === 'spotlight').length !== products.length) {
+    throw new Error('상품 거리 칸은 상품 6종마다 하나여야 합니다.');
   }
 }
