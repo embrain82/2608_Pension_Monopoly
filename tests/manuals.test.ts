@@ -105,9 +105,11 @@ describe('배포용 매뉴얼', () => {
     expect(operator).toContain('settlement-engine.ts');
     expect(operator).toContain('2.5D 말');
     expect(operator).toContain('연출 코어');
-    expect(operator).toContain('회귀 316개');
+    expect(operator).toContain('회귀 359개');
+    expect(operator).not.toContain('회귀 316개');
     expect(operator).not.toContain('회귀 231개');
-    expect(operator).toContain('Q1~Q54');
+    expect(operator).toContain('Q1~Q61');
+    expect(operator).not.toContain('Q1~Q54');
     expect(operator).not.toContain('Q1~Q46');
     expect(operator).not.toContain('Q1~Q45');
     expect(operator).not.toContain('Q1~Q16');
@@ -117,7 +119,7 @@ describe('배포용 매뉴얼', () => {
     expect(user).toContain('12턴 IRP 곡선');
     expect(user).toContain('효과음 10종');
     expect(user).not.toContain('효과음 9종');
-    expect(user).toContain('설정(동작 줄이기·캐릭터 표시·효과음·"그대로 둔 나" 비교)');
+    expect(user).toContain('설정(동작 줄이기·캐릭터 표시·효과음·"그대로 둔 나" 비교·애니메이션 2× 빠르게·정산 자동 진행·정산 「자세히」 펼침)');
   });
 
   it('묶음 A 현행화: 시장 먼저 순서·칸 효과·환급·행동 2회·고스트가 두 매뉴얼에 있다', () => {
@@ -247,6 +249,55 @@ describe('배포용 매뉴얼', () => {
     expect(operator).toContain('narrative.test.ts');
     expect(operator).not.toContain('퀴즈(묶음 B)로 교체 예정');
     for (const id of ['Q47', 'Q48', 'Q49', 'Q50', 'Q51', 'Q52', 'Q53', 'Q54']) expect(operator).toContain(`<td>${id}</td>`);
+  });
+
+  it('묶음 C 현행화: 턴 리듬(그대로 직결·정산 접기/자동 진행·속도 2×·후반 가속)·업적·컬렉션·주간 시드가 두 매뉴얼에 있다', () => {
+    const user = readFileSync('public/user-manual.html', 'utf8');
+    const operator = readFileSync('public/operator-manual.html', 'utf8');
+    // 사용자: 리듬
+    expect(user).toContain('턴 리듬');
+    expect(user).toContain('확인 창 없음');
+    expect(user).toContain('애니메이션 2× 빠르게');
+    expect(user).toContain('정산 자동 진행');
+    expect(user).toContain('후반 가속');
+    expect(user).toContain('사건 N회 남음');
+    expect(user).toContain('자세히');
+    // 사용자: 업적·컬렉션·주간 시드
+    expect(user).toContain('업적 · 컬렉션 · 주간 시드');
+    expect(user).toContain('업적 12개');
+    expect(user).toContain('캐릭터 컬렉션');
+    expect(user).toContain('이번 주 시드로 도전');
+    expect(user).toContain('weekly-');
+    expect(user).toContain('결과 복사');
+    expect(user).toContain('업적은 점수·별에 아무 영향이 없습니다');
+    expect(user).toContain('한 판이 너무 길어요');
+    expect(user).not.toContain('결과 공유 이미지');
+    for (const id of ['C49', 'C50', 'C51', 'C52', 'C53', 'C54', 'C55']) expect(user).toContain(`${id}.`);
+    // 운영자: 기능·모듈·상수·저장·QA·게이트·태그
+    expect(operator).toContain('prod-2026-09-06-bundle-c');
+    expect(operator).not.toContain('태그 <code>prod-2026-09-06-bundle-b</code>)');
+    expect(operator).toContain('턴 리듬 다이어트');
+    expect(operator).toContain('achievements.ts');
+    expect(operator).toContain('achievements-view.ts');
+    expect(operator).toContain('PlayRecord');
+    expect(operator).toContain('speedScale');
+    expect(operator).toContain('scenePace');
+    expect(operator).toContain('LATE_GAME_TURN');
+    expect(operator).toContain('canAutoSettle');
+    expect(operator).toContain('AUTO_SETTLE_MS');
+    expect(operator).toContain('remainingLifeEvents');
+    expect(operator).toContain('holdMenuNote');
+    expect(operator).toContain('GHOST_CRUSH_GAP');
+    expect(operator).toContain('CALM_SEAS_DRAWDOWN');
+    expect(operator).toContain('weeklySeed');
+    expect(operator).toContain('resultShareText');
+    expect(operator).toContain('버전 6');
+    for (const field of ['settings.speed', 'settings.autoSettle', 'settings.settleExpanded', 'achievements', 'collection']) expect(operator).toContain(`<td>${field}</td>`);
+    expect(operator).toContain('묶음 C 업적 게이트 측정');
+    expect(operator).toContain('rhythm.test.ts');
+    expect(operator).toContain('achievements.test.ts');
+    expect(operator).toContain('bundle-c-views.test.ts');
+    for (const id of ['Q55', 'Q56', 'Q57', 'Q58', 'Q59', 'Q60', 'Q61']) expect(operator).toContain(`<td>${id}</td>`);
   });
 
   it('다이어그램 5장이 배포 폴더에 있고 운영자 매뉴얼이 링크한다', () => {

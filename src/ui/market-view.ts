@@ -85,6 +85,11 @@ export function renderSettingsEntry(profileName?: string): string {
   return `<button class="settings-entry" data-action="open-settings" type="button">${label}</button>`;
 }
 
+/** 지금 턴보다 뒤에 예정된 생활사건 수. 어느 턴인지는 말하지 않고 개수만 예고한다(칸 도착 추가 사건은 예정에 없다) */
+export function remainingLifeEvents(state: GameState): number {
+  return state.lifeEventSchedule.filter((item) => item.turn > state.turn).length;
+}
+
 export function renderTurnTrack(state: GameState, waiting: boolean): string {
   const lifeTurns = new Set(state.lifeEventSchedule.map((item) => item.turn));
   const alertedTurns = new Set(
@@ -111,10 +116,12 @@ export function renderTurnTrack(state: GameState, waiting: boolean): string {
     return `<i class="${classes}" title="${label}">${step.turn}</i>`;
   }).join('');
   const urgent = isUrgent(state);
+  const remaining = remainingLifeEvents(state);
+  const note = remaining > 0 ? `사건 ${remaining}회 남음` : '예정 사건 없음';
   const aria = `${waiting
     ? `12턴 중 ${state.turn}턴 정산 후 시장 대기`
-    : `12턴 중 ${state.turn}턴, 현재 국면 ${state.phase}`}${urgent ? ' · 남은 턴이 적고 목표 미달' : ''}`;
-  return `<div class="turn-track ${urgent ? 'urgent' : ''}" role="img" aria-label="${aria}">${cells}</div>`;
+    : `12턴 중 ${state.turn}턴, 현재 국면 ${state.phase}`}${urgent ? ' · 남은 턴이 적고 목표 미달' : ''} · ${note}`;
+  return `<div class="turn-track-wrap"><div class="turn-track ${urgent ? 'urgent' : ''}" role="img" aria-label="${aria}">${cells}</div><span class="track-note ${remaining > 0 ? 'has-life' : ''}" aria-hidden="true"><i>♥</i>${note}</span></div>`;
 }
 
 export function renderMarketTimeline(state: GameState | null, waiting: boolean): string {

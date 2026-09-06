@@ -42,11 +42,12 @@ export interface HopPlan {
 /**
  * 한 칸 점프 한 번. 출발 → 최고점 → 칸에 닿음(찌그러짐) → 복원. 첫 칸부터 마지막 칸까지 모든 칸이
  * 같은 높이·같은 공중 시간을 쓰고, 마지막 칸만 찌그러짐이 더 크고 길다. 가로 이동(`slideKeyframes`)도
- * 같은 `land` 시점에 끝나 퍽이 공중에 있는 동안만 움직인다.
+ * 같은 `land` 시점에 끝나 퍽이 공중에 있는 동안만 움직인다. `scale`은 설정 속도(2×면 0.5)로 길이만 줄이고
+ * 비율은 그대로 둔다.
  */
-export function hopPlan(final: boolean): HopPlan {
-  const air = HOP_MS * HOP_AIR;
-  const duration = final ? air + LAND_MS : HOP_MS;
+export function hopPlan(final: boolean, scale = 1): HopPlan {
+  const air = HOP_MS * HOP_AIR * scale;
+  const duration = final ? air + LAND_MS * scale : HOP_MS * scale;
   const land = air / duration;
   const peak = land / 2;
   const settle = land + (1 - land) * 0.55;

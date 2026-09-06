@@ -475,11 +475,11 @@ describe('점수와 저장 복구', () => {
     const v2 = { getItem: () => JSON.stringify({ version: 2, settings: { reducedMotion: false, sound: true }, unlockedCards: [], bestScore: 1, lastSeed: 'x' }) };
     const v3 = { getItem: () => JSON.stringify({ version: 3, settings: { reducedMotion: false, sound: false, characters: false }, unlockedCards: [], bestScore: 1, lastSeed: 'x' }) };
     const v4 = { getItem: () => JSON.stringify({ version: 4, settings: { reducedMotion: false, sound: false, characters: true, ghost: false }, unlockedCards: [], bestScore: 1, lastSeed: 'x' }) };
-    expect(loadSave(v2).settings).toEqual({ reducedMotion: false, sound: true, characters: true, ghost: true });
+    expect(loadSave(v2).settings).toEqual({ reducedMotion: false, sound: true, characters: true, ghost: true, speed: 1, autoSettle: false, settleExpanded: false });
     expect(loadSave(v3).settings.characters).toBe(false);
     expect(loadSave(v3).settings.ghost).toBe(true);
     expect(loadSave(v4).settings.ghost).toBe(false);
-    expect(loadSave(v4).version).toBe(5);
+    expect(loadSave(v4).version).toBe(6);
     expect(defaultSave.settings.sound).toBe(false);
     expect(defaultSave.settings.ghost).toBe(true);
   });
@@ -491,7 +491,7 @@ describe('점수와 저장 복구', () => {
         : null
     };
     const loaded = loadSave(legacy);
-    expect(loaded.version).toBe(5);
+    expect(loaded.version).toBe(6);
     expect(loaded.settings.reducedMotion).toBe(true);
     expect(loaded.settings.characters).toBe(true);
     expect(loaded.settings.ghost).toBe(true);

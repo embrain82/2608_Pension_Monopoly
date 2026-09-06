@@ -7,7 +7,7 @@
     "quality_profile": "showcase",
     "repository": {
       "url": "https://github.com/embrain82/2608_Pension_Monopoly",
-      "revision": "e83b067642b120101379fcd79e24f59490c3933e"
+      "revision": "c8c946e4a8beedb097d31de09a608a40cb18906e"
     },
     "views": [
       {
@@ -31,7 +31,7 @@
           "views",
           "fx"
         ],
-        "note": "상태를 마크업으로 바꾸는 순수 뷰(사건·퀴즈·수령·디폴트옵션 모달 포함). DOM이 필요한 애니메이션·소리만 fx가 맡는다."
+        "note": "상태를 마크업으로 바꾸는 순수 뷰(사건·퀴즈·수령·디폴트옵션 모달, 정산 접기, 업적·컬렉션 도감). DOM이 필요한 애니메이션·소리·속도 2×만 fx가 맡는다."
       },
       {
         "id": "data-and-save",
@@ -41,7 +41,7 @@
           "storage",
           "vercel"
         ],
-        "note": "규칙 숫자는 JSON, 플레이어 설정·기록은 LocalStorage, 배포는 정적 파일."
+        "note": "규칙 숫자는 JSON, 플레이어 설정·기록·업적·컬렉션은 LocalStorage(v6), 배포는 정적 파일."
       }
     ]
   },
@@ -79,7 +79,7 @@
       "id": "views",
       "type": "frontend",
       "label": "렌더 모듈",
-      "sublabel": "보드 · 정산 · 사건 · 퀴즈",
+      "sublabel": "보드 · 정산 · 퀴즈 · 업적",
       "pos": [
         290,
         140
@@ -96,7 +96,7 @@
           "path": "src/ui/settlement.ts"
         },
         {
-          "path": "src/ui/life-view.ts"
+          "path": "src/ui/achievements-view.ts"
         }
       ]
     },
@@ -149,7 +149,7 @@
       "id": "storage",
       "type": "database",
       "label": "LocalStorage",
-      "sublabel": "save-v1 · v5 설정·기록",
+      "sublabel": "save-v1 · v6 설정·업적",
       "pos": [
         550,
         140
@@ -193,7 +193,7 @@
       "id": "tests",
       "type": "external",
       "label": "검증",
-      "sublabel": "Vitest 316 · 시뮬 11전략",
+      "sublabel": "Vitest 359 · 시뮬 11전략",
       "pos": [
         550,
         600
@@ -207,7 +207,7 @@
           "path": "tests/balance-gate.test.ts"
         },
         {
-          "path": "tests/quiz.test.ts"
+          "path": "tests/achievements.test.ts"
         },
         {
           "path": "scripts/simulate.ts"
@@ -243,7 +243,7 @@
       "id": "scoring",
       "type": "backend",
       "label": "scoring · settlement",
-      "sublabel": "월 연금 · 별 · 이정표",
+      "sublabel": "별 · 이정표 · 업적",
       "pos": [
         820,
         320
@@ -260,7 +260,7 @@
           "path": "src/engine/settlement-engine.ts"
         },
         {
-          "path": "src/engine/milestones.ts"
+          "path": "src/engine/achievements.ts"
         }
       ]
     },
@@ -437,7 +437,7 @@
       "title": "UI 계층",
       "items": [
         "app.ts가 화면·모달·설정 상태를 들고 렌더",
-        "사건·퀴즈·수령·디폴트옵션 모달은 순수 뷰"
+        "순수 뷰: 사건·퀴즈·수령·업적·정산 접기"
       ]
     },
     {
@@ -453,7 +453,7 @@
       "title": "데이터·배포",
       "items": [
         "규칙 숫자는 src/data/*.json + validateContent()",
-        "저장 v5: 설정·기록·성향·목표·디폴트옵션"
+        "저장 v6: 설정·기록·디폴트옵션·업적·컬렉션"
       ]
     }
   ]

@@ -119,11 +119,11 @@ describe('디폴트옵션 전략·저장', () => {
   });
 
   it('저장 v5: defaultOption을 기억하고 v1~v4는 null로 승격한다', () => {
-    expect(defaultSave.version).toBe(5);
+    expect(defaultSave.version).toBe(6);
     expect(defaultSave.defaultOption).toBeNull();
     const v4 = { getItem: () => JSON.stringify({ version: 4, settings: { reducedMotion: false, sound: false, characters: true, ghost: false }, unlockedCards: [], bestScore: 1, lastSeed: 'x' }) };
     const loaded = loadSave(v4);
-    expect(loaded.version).toBe(5);
+    expect(loaded.version).toBe(6);
     expect(loaded.defaultOption).toBeNull();
     expect(loaded.settings.ghost).toBe(false);
     const v5 = { getItem: () => JSON.stringify({ version: 5, settings: { reducedMotion: false, sound: false, characters: true, ghost: true }, unlockedCards: [], bestScore: 1, lastSeed: 'x', defaultOption: 'lowRisk' }) };

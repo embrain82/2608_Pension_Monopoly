@@ -5,15 +5,37 @@ import { renderLifeSettleBlock } from './life-view';
 import { percent, signedPercent } from './market-view';
 import { renderSpeech } from './speech';
 import { renderTileEffects } from './tile-effects-view';
+import type { ScenePace } from './fx';
 
 export interface SettlementOptions {
   characters: boolean;
   /** 설정 "그대로 둔 나" 비교. 끄면 고스트 줄을 숨긴다 */
   ghost?: boolean;
-  /** 동작 줄이기. 켜면 100% 컨페티를 그리지 않는다 */
+  /** 동작 줄이기. 켜면 100% 컨페티·자동 진행 막대를 그리지 않는다 */
   reducedMotion?: boolean;
   /** 12턴째 정산. 다음 턴이 없으니 버튼이 마무리(퀴즈·수령 방식)로 이어진다 */
   final?: boolean;
+  /** 「자세히」(상품별·내가 한 일·칸 효과·다음 판단) 펼침 상태. 저장이 기억한다 */
+  expanded?: boolean;
+  /** 자동 진행이 예약됐으면 그 길이(ms). 버튼 문구와 진행 막대에 쓴다 */
+  autoSettleMs?: number | null;
+  /** 후반 가속. fast면 막대·상품별 연출이 절반 길이 */
+  pace?: ScenePace;
+}
+
+/** 정산 자동 진행 대기 시간 */
+export const AUTO_SETTLE_MS = 2500;
+/** 다음 턴 버튼 문구. 자동 진행이 취소되면 app이 이 문구로 되돌린다 */
+export const SETTLE_CTA_NEXT = '다음 턴 준비';
+export const SETTLE_CTA_AUTO = '다음 턴 준비 · 자동 진행';
+export const SETTLE_CTA_FINAL = '마무리로 · 퀴즈와 수령 방식';
+
+/**
+ * 자동 진행이 허용되는 턴인가. 마지막 턴(마무리로 이어짐)·충격·이정표·생활사건 턴은 읽어야 할 것이 있어
+ * 손으로 넘긴다.
+ */
+export function canAutoSettle(summary: TurnSummary, final: boolean): boolean {
+  return !final && !summary.shock && (summary.milestones ?? []).length === 0 && !summary.lifeEvent;
 }
 
 /** 이정표 배너. 목표 100%는 컨페티(동작 줄이기면 없음), 낙폭 경고는 다른 색 */
@@ -86,22 +108,32 @@ export function renderSettlementModal(summary: TurnSummary, options: SettlementO
   const milestones = (summary.milestones ?? []).map((milestone) => renderMilestoneBanner(milestone, options.reducedMotion)).join('');
   const cheer = (summary.milestones ?? []).find((milestone) => milestone.tone === 'cheer');
   const reactionTone = cheer ? 'positive' : summary.shock ? 'shock' : 'default';
-  const cta = options.final ? '마무리로 · 퀴즈와 수령 방식' : '다음 턴 준비';
+  const auto = options.autoSettleMs ?? null;
+  const cta = options.final ? SETTLE_CTA_FINAL : auto ? SETTLE_CTA_AUTO : SETTLE_CTA_NEXT;
+  const autoBar = auto && !options.reducedMotion ? `<i class="auto-bar" style="--ms:${auto}ms" aria-hidden="true"></i>` : '';
   const hints = options.final
     ? ['12턴이 끝났습니다. 배운 카드에서 마무리 퀴즈(최대 3문항)를 풀고, 연금과 일시금 중 수령 방식을 정하면 결과 리포트가 열립니다.']
     : summary.nextHints;
-  return `<p class="eyebrow">${summary.turn}턴 정산${shock}${options.final ? '<span class="settle-final">마지막 턴</span>' : ''}</p>
+  const hintsBlock = renderSpeech('coach', `<ul class="settle-hints">${hints.map((hint) => `<li>${hint}</li>`).join('')}</ul>`, { characters: options.characters, title: options.final ? '남은 일' : '다음 판단' });
+  const details = `<details class="settle-more"${options.expanded ? ' open' : ''}>
+      <summary><span>자세히</span><small>상품별 수익률 · 내가 한 일${summary.tileEffects.length ? ' · 칸 효과' : ''}${options.final ? '' : ' · 다음 판단'}</small></summary>
+      <div class="preview-box settle-market"><strong>시장이 한 일 · 상품별 이번 턴</strong><p class="settle-note">턴 시작에 이미 보유분에 반영된 수익률입니다.</p>${returnBars(summary)}</div>
+      ${actionBlock(summary)}
+      ${renderTileEffects(summary.tileEffects, { heading: '칸 효과' })}
+      ${options.final ? '' : hintsBlock}
+    </details>`;
+  return `<div class="settle-scene${options.pace === 'fast' ? ' fast' : ''}">
+    <p class="eyebrow">${summary.turn}턴 정산${shock}${options.final ? '<span class="settle-final">마지막 턴</span>' : ''}</p>
     <h2>무엇이 바뀌었나요?</h2>
     <p class="settle-headline">${summary.marketHeadline}</p>
     ${milestones}
     ${irpBars(summary)}
     ${ghost}
-    <div class="settle-reaction">${renderSpeech('coach', `<p>${summary.reaction}</p>`, { characters: options.characters, title: '한 줄 정리', tone: reactionTone })}</div>
-    <div class="preview-box settle-market"><strong>시장이 한 일 · 상품별 이번 턴</strong><p class="settle-note">턴 시작에 이미 보유분에 반영된 수익률입니다.</p>${returnBars(summary)}</div>
     ${renderLifeSettleBlock(summary.lifeEvent)}
-    ${actionBlock(summary)}
-    ${renderTileEffects(summary.tileEffects, { heading: '칸 효과' })}
     ${alert}
-    ${renderSpeech('coach', `<ul class="settle-hints">${hints.map((hint) => `<li>${hint}</li>`).join('')}</ul>`, { characters: options.characters, title: options.final ? '남은 일' : '다음 판단' })}
-    <button class="primary jumbo" data-action="dismiss-settle">${cta}</button>`;
+    <div class="settle-reaction">${renderSpeech('coach', `<p>${summary.reaction}</p>`, { characters: options.characters, title: '한 줄 정리', tone: reactionTone })}</div>
+    ${options.final ? hintsBlock : ''}
+    <div class="settle-cta${auto ? ' auto' : ''}"><button class="primary jumbo" data-action="dismiss-settle">${cta}</button>${autoBar}</div>
+    ${details}
+  </div>`;
 }
