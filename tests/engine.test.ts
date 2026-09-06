@@ -471,24 +471,30 @@ describe('점수와 저장 복구', () => {
     expect(done.irpHistory.at(-1)).toBeCloseTo(calculateScore(done).irpValue, 0);
   });
 
-  it('v2 저장 데이터는 캐릭터 표시 켬으로 v3가 되고, v3의 끔 설정은 유지한다', () => {
+  it('v2·v3 저장 데이터는 캐릭터·고스트 켬으로 v4가 되고, 끔 설정은 유지한다', () => {
     const v2 = { getItem: () => JSON.stringify({ version: 2, settings: { reducedMotion: false, sound: true }, unlockedCards: [], bestScore: 1, lastSeed: 'x' }) };
     const v3 = { getItem: () => JSON.stringify({ version: 3, settings: { reducedMotion: false, sound: false, characters: false }, unlockedCards: [], bestScore: 1, lastSeed: 'x' }) };
-    expect(loadSave(v2).settings).toEqual({ reducedMotion: false, sound: true, characters: true });
+    const v4 = { getItem: () => JSON.stringify({ version: 4, settings: { reducedMotion: false, sound: false, characters: true, ghost: false }, unlockedCards: [], bestScore: 1, lastSeed: 'x' }) };
+    expect(loadSave(v2).settings).toEqual({ reducedMotion: false, sound: true, characters: true, ghost: true });
     expect(loadSave(v3).settings.characters).toBe(false);
+    expect(loadSave(v3).settings.ghost).toBe(true);
+    expect(loadSave(v4).settings.ghost).toBe(false);
+    expect(loadSave(v4).version).toBe(4);
     expect(defaultSave.settings.sound).toBe(false);
+    expect(defaultSave.settings.ghost).toBe(true);
   });
 
-  it('v1 저장 데이터를 v3 기본값으로 복구한다', () => {
+  it('v1 저장 데이터를 v4 기본값으로 복구한다', () => {
     const legacy = {
       getItem: (key: string) => key === STORAGE_KEY
         ? JSON.stringify({ version: 1, settings: { reducedMotion: true, sound: false }, unlockedCards: ['rate-bond'], bestScore: 88, lastSeed: 'abc' })
         : null
     };
     const loaded = loadSave(legacy);
-    expect(loaded.version).toBe(3);
+    expect(loaded.version).toBe(4);
     expect(loaded.settings.reducedMotion).toBe(true);
     expect(loaded.settings.characters).toBe(true);
+    expect(loaded.settings.ghost).toBe(true);
     expect(loaded.disclaimerAccepted).toBe(false);
     expect(loaded.bestScore).toBe(88);
     expect(loaded.unlockedCards).toEqual(['rate-bond']);
