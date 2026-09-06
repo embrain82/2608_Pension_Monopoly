@@ -97,6 +97,7 @@ export function summarizeTurn(before: GameState, after: GameState, actionLine: s
     riskAfter,
     tileEffects: before.tileEffects ?? [],
     ghostIrp: after.ghost?.irpHistory[after.turn] ?? null,
+    lifeEvent: before.lifeResolution ?? null,
     marketHeadline: after.lastMarket.headline,
     shock: Boolean(after.lastMarket.shock),
     alert: after.lastMarket.alert,

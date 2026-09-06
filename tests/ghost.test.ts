@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { policyRules } from '../src/data/content';
-import { autoplay, createGame, ghostTrackFor, performAction, resolveLifeEvent, startTurn } from '../src/engine/game-engine';
+import { lifeEvents, policyRules } from '../src/data/content';
+import { autoplay, createGame, defaultLifeChoice, ghostTrackFor, performAction, resolveLifeEvent, startTurn } from '../src/engine/game-engine';
 import { diceStepsForTurn } from '../src/engine/random-engine';
 import { monthlyPension } from '../src/engine/scoring-engine';
 import type { TileEffect } from '../src/types';
@@ -19,12 +19,16 @@ describe('고스트 "그대로 둔 나"', () => {
     expect(ghostTrackFor(seed, 'balanced', 500_000, true)).toEqual(game.ghost);
   });
 
-  it('플레이어가 매 턴 "그대로"만 고르고 사건을 생활자금으로 풀면 내 이력과 고스트 이력이 완전히 같다', () => {
+  it('플레이어가 매 턴 "그대로"만 고르고 사건을 생활자금 쪽(cash)으로만 풀면 내 이력과 고스트 이력이 완전히 같다', () => {
     for (const seed of ['ghost-mirror-1', 'ghost-mirror-2', 'ghost-mirror-3']) {
       let state = createGame(seed, 'balanced', 500_000);
       while (state.status === 'playing') {
         state = startTurn(state, diceStepsForTurn(state.seed, state.turn)).state;
-        if (state.currentEventId) state = resolveLifeEvent(state, 'cash').state;
+        if (state.currentEventId) {
+          const event = lifeEvents.find((item) => item.id === state.currentEventId)!;
+          expect(defaultLifeChoice(state, event)).toBe('cash');
+          state = resolveLifeEvent(state, 'cash').state;
+        }
         while (state.status === 'playing' && state.awaitingAction) state = performAction(state, { kind: 'hold' }).state;
       }
       expect(state.irpHistory).toHaveLength(13);

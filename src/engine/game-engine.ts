@@ -1,8 +1,8 @@
 import { balanceConfig, learningCards, lifeEvents, marketScenario, marketShocks, policyRules, products } from '../data/content';
-import type { ActionKind, ActionResult, DefaultOptionId, GameState, GhostTrack, PayoutChoice, ProfileId, ProductId } from '../types';
+import type { ActionKind, ActionResult, DefaultOptionId, GameState, GhostTrack, LifeChoice, LifeEvent, PayoutChoice, ProfileId, ProductId } from '../types';
 import { ALERT_CARD_ID, applyMarketStep, emptyMarketStep, generateMarketPath, marketPathOf } from './market-engine';
 import { pickTileBriefing } from './tile-briefing';
-import { buyProduct, liquidateForLivingCost, portfolioValue, rebalancePortfolio, sellProduct, settleOrders, switchProduct } from './portfolio-engine';
+import { buyProduct, portfolioValue, rebalancePortfolio, sellProduct, settleOrders, switchProduct } from './portfolio-engine';
 import { contributionCredit, riskAssetRatio } from './policy-engine';
 import { holdingsMap, summarizeTurn } from './settlement-engine';
 import { diceStepsForTurn, hashSeed, nextRandom } from './random-engine';
@@ -10,6 +10,7 @@ import { applyGoalToGame, clampGoalMonthly } from './goal';
 import { REBALANCE_TILE_BONUS, applyTileArrival } from './tile-effects';
 import { payoutPlan } from './scoring-engine';
 import { applyDefaultOption, normalizeDefaultOption, suggestDefaultOption } from './default-option';
+import { resolveLifeChoice } from './life-engine';
 
 export { applyGoalToGame, clampGoalMonthly };
 
@@ -130,7 +131,8 @@ export function createGame(seed: string, profileId: ProfileId = 'balanced', goal
     tileEffectsEnabled,
     ghost: options.ghost === false ? null : ghostTrackFor(seed, profileId, goal, tileEffectsEnabled),
     payoutChoice: null,
-    defaultOption: options.defaultOption ? normalizeDefaultOption(profileId, options.defaultOption) : null
+    defaultOption: options.defaultOption ? normalizeDefaultOption(profileId, options.defaultOption) : null,
+    lifeResolution: null
   };
 }
 
@@ -192,7 +194,8 @@ export function startTurn(state: GameState, steps = 0): ActionResult {
     actionsLeft: 1,
     turnActionLines: [],
     spotlightProductId: null,
-    rebalanceBonusTurn: null
+    rebalanceBonusTurn: null,
+    lifeResolution: null
   }, market);
   next = settleOrders(next);
   next = {
@@ -235,68 +238,11 @@ export function resolveActionAmount(state: GameState, kind: ActionKind, preset: 
   return Math.min(base, available);
 }
 
-function reduceIrpProportionally(state: GameState, amount: number): GameState {
-  const total = portfolioValue(state);
-  if (total <= 0) return state;
-  const requested = Math.min(total, amount);
-  const fromCash = Math.min(state.irpCash, requested);
-  const remaining = requested - fromCash;
-  const holdingsTotal = state.holdings.reduce((sum, holding) => sum + holding.amount, 0);
-  const factor = holdingsTotal <= 0 ? 1 : Math.max(0, (holdingsTotal - remaining) / holdingsTotal);
-  return { ...state, irpCash: state.irpCash - fromCash, holdings: state.holdings.map((holding) => ({ ...holding, amount: holding.amount * factor })) };
-}
-
-export function resolveLifeEvent(state: GameState, choice: 'cash' | 'withdraw'): ActionResult {
-  const event = lifeEvents.find((item) => item.id === state.currentEventId);
-  if (!event) return { ok: false, message: '해결할 생활사건이 없습니다.', state };
-  if (event.cost < 0) {
-    const next = unlock({ ...state, cash: state.cash - event.cost, currentEventId: null, awaitingAction: true, logs: [...state.logs, { turn: state.turn, type: 'life', message: `${event.title}: 생활자금이 늘었습니다.`, impact: -event.cost }] }, event.learningCardId);
-    return { ok: true, message: '보너스를 생활자금에 반영했습니다.', state: next };
-  }
-  if (choice === 'withdraw' && !event.eligibleWithdrawal) {
-    return { ok: false, message: '이 사건은 교육용 중도인출 허용 사유가 아닙니다. 생활자금으로 해결하세요.', state };
-  }
-  let next = state;
-  let message = '';
-  if (choice === 'withdraw') {
-    const withdrawal = event.cost * (1 + policyRules.allowedWithdrawalFeeRate);
-    next = reduceIrpProportionally(state, withdrawal);
-    message = '허용 사유를 가정해 IRP에서 비용과 단순화 수수료를 인출했습니다.';
-  } else {
-    const fromCash = Math.min(state.cash, event.cost);
-    let remaining = event.cost - fromCash;
-    next = { ...state, cash: state.cash - fromCash };
-    const usedIrpOrHoldings = remaining > 0;
-    if (remaining > 0) {
-      const covered = liquidateForLivingCost(next, remaining);
-      next = covered.state;
-      remaining = covered.remaining;
-      if (covered.sales.length) {
-        const sold = covered.sales.map((sale) => {
-          const name = products.find((item) => item.id === sale.productId)?.shortName ?? sale.productId;
-          return `${name} ${Math.round(sale.amount).toLocaleString('ko-KR')}원`;
-        }).join(', ');
-        message = remaining > 0
-          ? '보유 상품을 매도해도 생활자금이 부족해 비용과 안정성 점수에 영향이 생겼습니다.'
-          : `생활자금이 부족해 ${sold}을 매도해 비용을 지급했습니다.`;
-      } else if (covered.usedIrpCash > 0 && remaining <= 0) {
-        message = '생활자금이 부족해 IRP 대기자금으로 비용을 지급했습니다.';
-      }
-    }
-    if (!message) {
-      message = remaining > 0
-        ? '생활자금이 부족해 비용과 안정성 점수에 영향이 생겼습니다.'
-        : '생활자금으로 해결해 IRP를 지켰습니다.';
-    }
-    const shortage = remaining > 0;
-    next = {
-      ...next,
-      cashShortages: next.cashShortages + (shortage ? 1 : 0),
-      safeActionCount: next.safeActionCount + (!shortage && !usedIrpOrHoldings ? 1 : 0)
-    };
-  }
-  next = unlock({ ...next, currentEventId: null, awaitingAction: true, logs: [...next.logs, { turn: state.turn, type: 'life', message: `${event.title}: ${message}`, impact: -event.cost }] }, event.learningCardId);
-  return { ok: true, message, state: next };
+/**
+ * 생활사건 해결. 선택지 규칙·비용표·기록은 `life-engine`에 있다. 'cash'·'withdraw'는 예전 호출과 호환된다.
+ */
+export function resolveLifeEvent(state: GameState, choice: LifeChoice): ActionResult {
+  return resolveLifeChoice(state, choice);
 }
 
 function contribute(state: GameState, amount: number): ActionResult {
@@ -421,9 +367,9 @@ export function finalizeTurn(state: GameState): GameState {
   };
 }
 
-export type AutoStrategy = 'balanced' | 'passive' | 'contributor' | 'growth' | 'steward' | 'etfOnly' | 'stopLoss' | 'momentum' | 'newsChaser' | 'defaultOption';
+export type AutoStrategy = 'balanced' | 'passive' | 'contributor' | 'growth' | 'steward' | 'etfOnly' | 'stopLoss' | 'momentum' | 'newsChaser' | 'defaultOption' | 'withdrawer';
 
-export const AUTO_STRATEGIES: AutoStrategy[] = ['balanced', 'passive', 'contributor', 'growth', 'steward', 'etfOnly', 'stopLoss', 'momentum', 'newsChaser', 'defaultOption'];
+export const AUTO_STRATEGIES: AutoStrategy[] = ['balanced', 'passive', 'contributor', 'growth', 'steward', 'etfOnly', 'stopLoss', 'momentum', 'newsChaser', 'defaultOption', 'withdrawer'];
 
 /** 전략이 ETF를 살 수 있도록 성향을 맞춘다. 게이트(성향 밖 매수 거절)는 그대로 둔다. */
 export function defaultProfileFor(strategy: AutoStrategy): ProfileId {
@@ -438,6 +384,20 @@ function holdingOf(state: GameState, productId: ProductId): number {
 
 export interface AutoplayOptions extends GameOptions {
   goalMonthly?: number;
+  /** 생활사건 선택 규칙. 기본: 모든 사건을 생활자금 쪽으로(`cash`) */
+  lifeChoice?: (state: GameState, event: LifeEvent) => LifeChoice;
+}
+
+/**
+ * 시뮬 기본 생활사건 선택 = 고스트 "그대로 둔 나". 지출·보너스는 생활자금, 퇴직급여도 지금 받는다(일시 수령).
+ * 현실에서 퇴직급여 IRP 계좌의 대다수가 곧바로 해지되는 것을 따른 기준선이라, IRP 이전은 플레이어의 판단으로 남는다.
+ */
+export const defaultLifeChoice: (state: GameState, event: LifeEvent) => LifeChoice = () => 'cash';
+
+/** 허용 사유면 항상 중도인출. 게이트: balanced를 넘지 않아야 한다 */
+export function withdrawerLifeChoice(state: GameState, event: LifeEvent): LifeChoice {
+  if (event.kind === 'cost' && event.eligibleWithdrawal) return 'withdraw';
+  return defaultLifeChoice(state, event);
 }
 
 /**
@@ -495,7 +455,7 @@ export function autoplay(seed: string, strategy: AutoStrategy = 'balanced', prof
         : state.turn >= 9
           ? { kind: 'rebalance' }
           : { kind: 'hold' };
-    } else action = state.turn % 4 === 0 || state.turn >= 11
+    } else action = state.turn % 4 === 0 || state.turn >= 11 // balanced · withdrawer
       ? { kind: 'rebalance' }
       : state.cash > balanceConfig.safeCashThreshold + balanceConfig.contributionAmount
         ? { kind: 'contribute' }
@@ -504,7 +464,14 @@ export function autoplay(seed: string, strategy: AutoStrategy = 'balanced', prof
   };
   while (state.status === 'playing') {
     state = startTurn(state, diceStepsForTurn(state.seed, state.turn)).state;
-    if (state.currentEventId) state = resolveLifeEvent(state, 'cash').state;
+    if (state.currentEventId) {
+      const event = lifeEvents.find((item) => item.id === state.currentEventId)!;
+      const choose = options.lifeChoice ?? (strategy === 'withdrawer' ? withdrawerLifeChoice : defaultLifeChoice);
+      const resolved = resolveLifeEvent(state, choose(state, event));
+      state = resolved.ok ? resolved.state : resolveLifeEvent(state, defaultLifeChoice(state, event)).state;
+      // 기본 선택까지 거절되면 startTurn이 같은 상태를 돌려줘 무한 루프가 되므로 바로 알린다.
+      if (state.currentEventId) throw new Error(`autoplay: 생활사건 ${event.id}을 해결할 수 없습니다 (${strategy})`);
+    }
     while (state.status === 'playing' && state.awaitingAction) {
       const acted = performAction(state, decide());
       state = acted.ok ? acted.state : performAction(state, { kind: 'hold' }).state;

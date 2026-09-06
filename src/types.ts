@@ -112,13 +112,57 @@ export interface MarketConfig {
   regimes: Record<Regime, RegimeConfig>;
 }
 
+export type LifeEventKind = 'cost' | 'bonus' | 'transfer';
+
 export interface LifeEvent {
   id: string;
+  /** cost: 지출(cost>0) · bonus: 생활자금 보너스(cost<0) · transfer: 퇴직급여 이전(cost<0, IRP 또는 세후 생활자금) */
+  kind: LifeEventKind;
   title: string;
   body: string;
   cost: number;
   eligibleWithdrawal: boolean;
   learningCardId: string;
+}
+
+/**
+ * 생활사건 선택지. 비용: cash·deposit·withdraw / 보너스: contribute-all·contribute-half·cash / 이전: transfer-irp·cash.
+ * `cash`는 어떤 사건에서도 "IRP를 건드리지 않고 생활자금 쪽으로"라는 뜻이라 항상 고를 수 있다(예전 호출 호환).
+ */
+export type LifeChoice = 'cash' | 'deposit' | 'withdraw' | 'contribute-all' | 'contribute-half' | 'transfer-irp';
+
+export interface LifeChoiceOption {
+  id: LifeChoice;
+  label: string;
+  enabled: boolean;
+  /** 비활성 이유 */
+  reason?: string;
+  /** 즉시 비용·효과 한 줄 */
+  immediate: string;
+  /** 장기 비용·효과 한 줄 */
+  longTerm: string;
+}
+
+/** 이번 턴 생활사건을 어떻게 해결했는지. 정산 「사건」 블록과 "다른 선택이었다면" 줄의 재료 */
+export interface LifeResolution {
+  eventId: string;
+  title: string;
+  kind: LifeEventKind;
+  choice: LifeChoice;
+  choiceLabel: string;
+  /** 사건 금액(지출 +, 보너스·이전 −) */
+  cost: number;
+  cashDelta: number;
+  irpDelta: number;
+  /** 예금 해지 불이익 */
+  penalty: number;
+  /** 중도인출 수수료 또는 일시 수령 세금 */
+  fee: number;
+  sales: Array<{ productId: ProductId; amount: number; penalty: number }>;
+  shortage: boolean;
+  /** "다른 선택이었다면" 비교 한 줄 */
+  alternative: string;
+  message: string;
 }
 
 export interface LearningCard {
@@ -354,6 +398,8 @@ export interface GameState {
   payoutChoice: PayoutChoice | null;
   /** 지정한 디폴트옵션. null이면 「그대로」가 대기자금을 건드리지 않는다(고스트·시뮬 기준선) */
   defaultOption: DefaultOptionId | null;
+  /** 이번 턴 생활사건 해결 기록. 다음 턴 시작에 비운다 */
+  lifeResolution: LifeResolution | null;
 }
 
 export interface TurnProductDelta {
@@ -385,6 +431,8 @@ export interface TurnSummary {
   tileEffects: TileEffect[];
   /** 같은 턴 끝 고스트 IRP. 고스트가 없으면 null */
   ghostIrp: number | null;
+  /** 이번 턴 생활사건 해결 기록. 없으면 null */
+  lifeEvent: LifeResolution | null;
   marketHeadline: string;
   shock: boolean;
   alert?: MarketAlert;
