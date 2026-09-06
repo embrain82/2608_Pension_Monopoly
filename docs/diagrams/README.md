@@ -1,6 +1,6 @@
 # 연금로드 다이어그램 (archify)
 
-구현 기준 2026-09-06 (묶음 B — 디폴트옵션·생활사건 3지선다·퀴즈·수령 방식·결과 서사·이정표, 태그 `prod-2026-09-06-bundle-b`; 묶음 A의 시장 먼저 턴 순서·칸 효과·고스트 포함). [archify](https://github.com/tt-a1i/archify) 스킬로 만든 다이어그램 5장입니다. 원본은 이 폴더의 JSON, 결과물은 `public/diagrams/*.html`(배포되면 `/diagrams/`에서 열림), 미리보기 PNG는 `preview/`.
+구현 기준 2026-09-06 (묶음 C — 턴 리듬 다이어트(「그대로」 직결·정산 접기/자동 진행·속도 2×·후반 가속)·업적 12개·컬렉션·주간 시드·저장 v6, 태그 `prod-2026-09-06-bundle-c`; 묶음 B의 디폴트옵션·사건 3지선다·퀴즈·수령 방식·이정표, 묶음 A의 시장 먼저 턴 순서·칸 효과·고스트 포함). [archify](https://github.com/tt-a1i/archify) 스킬로 만든 다이어그램 5장입니다. 원본은 이 폴더의 JSON, 결과물은 `public/diagrams/*.html`(배포되면 `/diagrams/`에서 열림), 미리보기 PNG는 `preview/`.
 
 | 다이어그램 | 종류 | 원본 | 결과물 | 미리보기 |
 |---|---|---|---|---|
@@ -14,9 +14,9 @@
 
 - 결과물 HTML은 단독 파일입니다. 확대·이동, 노드 검색(`/`), 상·하류 추적, 안내 보기(Guided views), Light/Dark, PNG·SVG 내보내기가 들어 있습니다.
 - 뷰어 자체의 버튼 문구(Light, Present, Export, Legend 등)와 `<html lang>`은 영어입니다. archify가 한국어 뷰어 UI를 제공하지 않아 기본값(영어)으로 떨어집니다. 다이어그램 안의 내용은 모두 한국어입니다.
-- `architecture.json`은 저장소 증거(`meta.repository` + 각 컴포넌트의 `sources`)를 달고 있어, 뷰어에서 노드를 열면 해당 파일 경로가 보입니다. 리비전은 다이어그램이 설명하는 커밋 SHA(묶음 B 매뉴얼 커밋 `e83b067`)입니다.
+- `architecture.json`은 저장소 증거(`meta.repository` + 각 컴포넌트의 `sources`)를 달고 있어, 뷰어에서 노드를 열면 해당 파일 경로가 보입니다. 리비전은 다이어그램이 설명하는 커밋 SHA(묶음 C 매뉴얼 커밋 `c8c946e`)입니다.
 
-## 검증 결과 (2026-09-06, 묶음 B 갱신 뒤)
+## 검증 결과 (2026-09-06, 묶음 C 갱신 뒤)
 
 다섯 장 모두 `validate --quality showcase`(아티팩트 검사 9개, 구성 오류 0·경고 0), `deliver`(스펙·아티팩트 SHA-256 고정), `visual-check`(실제 Chrome, 1440×900 · 1600×1000 · 1920×1080 · 2048×1320, 라이트·다크, 스크롤 넘침 0, 노드 글자 ≥ 6px)를 통과했습니다. 지각적 검토는 `preview/*.png`(1440×900 라이트)로 사람이 봅니다.
 
@@ -49,4 +49,5 @@ node bin/archify.mjs visual-check <repo>/public/diagrams/architecture.html --jso
 - 다섯 장의 카드 문구는 한 줄(≈26자) 이하로 유지해야 1440×900에서 세로 넘침이 없습니다.
 - 묶음 A(2026-09-06)로 시장 반영이 `startTurn`으로 옮겨 갔습니다. `action-sequence.json`은 참가자 8명(`tile-effects` 추가)·메시지 15개·viewBox 1060×640, 참가자 sublabel은 6~7자(1440px에서 6px 규칙). 메시지 간격은 28 이상, 마지막 메시지 y ≤ 557(viewBox 640 기준)이라 16개째를 넣으려면 하나를 접어야 합니다(묶음 B에서 `settleOrders`를 속보 카드 라벨로 접고 `hold → applyDefaultOption`을 넣었습니다). viewBox를 670으로 키우면 1440×900에서 세로 넘침이 납니다. 턴 순서·칸 효과·저장 스키마가 바뀌는 PR은 두 매뉴얼과 함께 이 다섯 장도 같은 PR에서 고칩니다(필수 절차).
 - 묶음 B(2026-09-06)에서 다섯 장에 디폴트옵션(「그대로」= 자동 매수)·생활사건 3지선다·퀴즈(칸 1문항·마무리 ≤3)·수령 방식(연금/일시금, 계수 0.8836)·이정표·저장 v5를 넣었습니다. `game-lifecycle.json`은 `closing`(마무리) 상태가 추가되어 `terminal` 레인 두 상태에 `yOffset: -34`와 `labelAt`을 손으로 잡았습니다. `seed-dataflow.json`은 노드 수를 지키기 위해 퀴즈를 `life` 노드(사건 · 퀴즈 일정)에 접었습니다.
+- 묶음 C(2026-09-06)는 엔진 순서가 그대로라 `action-sequence.json`은 화면 노트만 바뀌었습니다. 나머지 넷은 sublabel·노트·카드 문구로 「그대로」 직결·정산 접기/자동 진행·업적·컬렉션·저장 v6를 넣었고, `architecture.json`은 `views`/`scoring`/`tests` 노드의 `sources`에 `achievements-view.ts`·`achievements.ts`·`achievements.test.ts`를 달았습니다. workflow 노드에 `tag`를 새로 달면(운용 시트·정산 장면) 노드 폭이 늘어 `life → sheet`와 `act → gate` 경로가 교차해 showcase 검증에 걸리므로, 문구는 sublabel에만 넣습니다.
 - 노드 `sources`는 컴포넌트당 3개까지입니다.

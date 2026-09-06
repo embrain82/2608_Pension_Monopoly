@@ -36,7 +36,7 @@
           "score",
           "save"
         ],
-        "note": "최종 IRP × 수령 계수 ÷ 240 = 월 연금(연금 1 · 일시금 0.8836). 별·100점은 체크리스트, 기록·디폴트옵션만 LocalStorage(v5)에 남는다."
+        "note": "최종 IRP × 수령 계수 ÷ 240 = 월 연금(연금 1 · 일시금 0.8836). 별·100점은 체크리스트, 기록·디폴트옵션·업적·컬렉션만 LocalStorage(v6)에 남는다."
       }
     ],
     "viewBox": [
@@ -122,7 +122,7 @@
       "id": "score",
       "type": "backend",
       "label": "calculateScore",
-      "sublabel": "수령 계수 · 별 · 서사",
+      "sublabel": "수령 계수 · 별 · 업적",
       "stage": 4,
       "row": 0
     },
@@ -130,7 +130,7 @@
       "id": "save",
       "type": "database",
       "label": "LocalStorage",
-      "sublabel": "기록 · 성향 · 디폴트옵션",
+      "sublabel": "기록 · 업적 · 컬렉션",
       "stage": 4,
       "row": 2
     }
@@ -304,7 +304,7 @@
       "id": "score-save",
       "from": "score",
       "to": "save",
-      "label": "최고 기록",
+      "label": "최고 기록 · 업적",
       "classification": "bestScore",
       "variant": "dashed",
       "fromSide": "bottom",
@@ -338,7 +338,7 @@
       "title": "수령 · 저장",
       "items": [
         "연금 5.5% / 일시금 16.5% → 계수 0.8836",
-        "LocalStorage v5: 설정·기록·성향·목표·카드·디폴트옵션"
+        "LocalStorage v6: 설정·기록·디폴트옵션·업적·컬렉션"
       ]
     }
   ]

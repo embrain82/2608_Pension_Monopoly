@@ -42,7 +42,7 @@
           "app",
           "player"
         ],
-        "note": "마지막 행동 뒤 finalizeTurn이 마감·이정표를 찍고, TurnSummary가 정산 장면(막대 3개·사건·이정표·고스트)을 그린다. 12턴이면 마무리 퀴즈 → 수령 방식 → 결과."
+        "note": "마지막 행동 뒤 finalizeTurn이 마감·이정표·record를 찍고, TurnSummary가 정산 장면(막대 3개·사건·이정표·고스트, 자세히는 접힘)을 그린다. 12턴이면 마무리 퀴즈 → 수령 → 결과."
       }
     ],
     "column_fit": "spread"
