@@ -205,7 +205,7 @@ describe('setDefaultOption(진행 중 판)', () => {
 
 describe('12턴째 정산 창', () => {
   const summary: TurnSummary = {
-    turn: 12, marketHeadline: '마지막 턴', shock: false, alert: null, actionLine: '그대로', actionLines: ['그대로'],
+    turn: 12, marketHeadline: '마지막 턴', shock: false, actionLine: '그대로', actionLines: ['그대로'],
     irpBefore: 120_000_000, irpAfter: 120_000_000, irpOpen: 119_000_000, irpAfterMarket: 120_000_000,
     marketDelta: 1_000_000, lifeDelta: 0, actionDelta: 0, riskBefore: 0.4, riskAfter: 0.4,
     productDeltas: [], nextHints: ['수고했습니다'], productReturns: { deposit: 0, shortBond: 0, longBond: 0, balanced: 0.01, equityEtf: 0, tdf: 0 },
