@@ -105,14 +105,52 @@ describe('배포용 매뉴얼', () => {
     expect(operator).toContain('settlement-engine.ts');
     expect(operator).toContain('2.5D 말');
     expect(operator).toContain('연출 코어');
-    expect(operator).toContain('회귀 169개');
-    expect(operator).toContain('Q1~Q36');
+    expect(operator).toContain('회귀 222개');
+    expect(operator).toContain('Q1~Q45');
     expect(operator).not.toContain('Q1~Q16');
+    expect(operator).not.toContain('Q1~Q36');
     expect(user).toContain('구현 기준 2026-09-06');
     expect(user).not.toContain('구현 기준 2026-08-17');
     expect(user).toContain('12턴 IRP 곡선');
-    expect(user).toContain('효과음 8종');
-    expect(user).toContain('설정(동작 줄이기·캐릭터 표시·효과음)');
+    expect(user).toContain('효과음 9종');
+    expect(user).toContain('설정(동작 줄이기·캐릭터 표시·효과음·"그대로 둔 나" 비교)');
+  });
+
+  it('묶음 A 현행화: 시장 먼저 순서·칸 효과·환급·행동 2회·고스트가 두 매뉴얼에 있다', () => {
+    const user = readFileSync('public/user-manual.html', 'utf8');
+    const operator = readFileSync('public/operator-manual.html', 'utf8');
+    // 사용자: 순서·규칙
+    expect(user).toContain('시장이 먼저 움직입니다');
+    expect(user).toContain('내 IRP에 반영');
+    expect(user).toContain('도착 칸 효과');
+    expect(user).toContain('연말정산 칸을 지날 때');
+    expect(user).toContain('환급 대기');
+    expect(user).toContain('행동 1/2 하기');
+    expect(user).toContain('스포트라이트');
+    expect(user).toContain('은퇴 전망대');
+    expect(user).toContain('그대로 둔 나');
+    expect(user).toContain('판단의 값어치');
+    expect(user).toContain('고스트 격파');
+    expect(user).toContain('턴 시작 → 시장 반영 → 내 행동 후');
+    expect(user).not.toContain('아직 잔고에는 안 들어갑니다');
+    expect(user).not.toContain('거래 없이 이번 턴 시장만 반영합니다');
+    for (const id of ['C30', 'C31', 'C32', 'C33', 'C34', 'C35', 'C36', 'C37']) expect(user).toContain(`${id}.`);
+    // 운영자: 모듈·저장·QA·게이트·절차
+    expect(operator).toContain('tile-effects.ts');
+    expect(operator).toContain('ghost.ts');
+    expect(operator).toContain('tile-effects-view.ts');
+    expect(operator).toContain('settings.ghost');
+    expect(operator).toContain('버전 4');
+    expect(operator).toContain('pendingTaxCredit');
+    expect(operator).toContain('newsChaser');
+    expect(operator).toContain('turn-order.test.ts');
+    expect(operator).toContain('OUTLOOK_FORKS');
+    expect(operator).toContain('EXTRA_LIFE_EVENT_CAP');
+    expect(operator).toContain('prod-2026-09-06-bundle-a');
+    expect(operator).toContain('필수 절차');
+    for (const id of ['Q37', 'Q38', 'Q39', 'Q40', 'Q41', 'Q42', 'Q43', 'Q44', 'Q45']) expect(operator).toContain(`<td>${id}</td>`);
+    expect(operator).not.toContain('브리핑 → 생활사건 → 행동 1회 → 정산');
+    expect(operator).not.toContain('WebAudio 합성 8종');
   });
 
   it('다이어그램 5장이 배포 폴더에 있고 운영자 매뉴얼이 링크한다', () => {
