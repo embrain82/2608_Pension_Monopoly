@@ -50,6 +50,33 @@ export function behaviorProfile(state: GameState): ProfileId {
   return closest.id;
 }
 
+/** 지식 점수 항목별 상한. 기본 4 + 퀴즈 8 + 이해 6 + 리밸런싱 4(합 22) − 규칙 위반 5/회, 0~20으로 자른다 */
+export const KNOWLEDGE_CAPS = { base: 4, quiz: 8, understanding: 6, rebalance: 4, breachPenalty: 5 } as const;
+
+export interface KnowledgeBreakdown {
+  quizCorrect: number;
+  quiz: number;
+  understanding: number;
+  rebalance: number;
+  penalty: number;
+  total: number;
+}
+
+/** 지식 점수(0~20)의 항목 분해. 퀴즈 정답 ×2(최대 8), 이해 포인트(최대 6), 리밸런싱 ×2(최대 4) */
+export function knowledgeBreakdown(state: GameState): KnowledgeBreakdown {
+  const quizCorrect = state.quizLog.filter((record) => record.correct).length;
+  const quiz = Math.min(KNOWLEDGE_CAPS.quiz, quizCorrect * 2);
+  const understanding = Math.min(KNOWLEDGE_CAPS.understanding, Math.max(0, state.understandingPoints));
+  const rebalance = Math.min(KNOWLEDGE_CAPS.rebalance, state.rebalanceCount * 2);
+  const penalty = state.ruleBreaches * KNOWLEDGE_CAPS.breachPenalty;
+  const total = Math.min(20, Math.max(0, KNOWLEDGE_CAPS.base + quiz + understanding + rebalance - penalty));
+  return { quizCorrect, quiz, understanding, rebalance, penalty, total };
+}
+
+export function knowledgeScoreOf(state: GameState): number {
+  return knowledgeBreakdown(state).total;
+}
+
 export function starTitle(stars: 0 | 1 | 2 | 3): string {
   return ['연금 설계 입문자', '목표에 가까워진 적립가', '균형 잡힌 적립가', '지속 가능한 연금 설계자'][stars];
 }
@@ -94,7 +121,7 @@ export function calculateScore(state: GameState): ScoreResult {
     Math.min(7, diversification * 2.4) +
     Math.max(0, 5 - state.cashShortages * 2)
   ));
-  const knowledgeScore = Math.min(20, Math.max(0, 8 + state.understandingPoints + state.rebalanceCount * 2 - state.ruleBreaches * 5));
+  const knowledgeScore = knowledgeScoreOf(state);
   const totalScore = Math.round(Math.min(100, Math.max(0, incomeScore + stabilityScore + knowledgeScore)));
   const returnRate = balanceConfig.startingIrp <= 0 ? 0 : (irpValue - balanceConfig.startingIrp) / balanceConfig.startingIrp;
   const investmentReturnRate = balanceConfig.startingIrp <= 0 ? 0 : (irpValue - balanceConfig.startingIrp - state.contributionTotal) / balanceConfig.startingIrp;

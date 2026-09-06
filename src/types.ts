@@ -165,6 +165,15 @@ export interface LifeResolution {
   message: string;
 }
 
+/** 카드 1장 = 3지선다 1문항. `answer`는 `options`의 정답 위치 */
+export interface QuizQuestion {
+  q: string;
+  options: string[];
+  answer: 0 | 1 | 2;
+  /** 정답·오답 뒤 함께 보이는 해설 */
+  why: string;
+}
+
 export interface LearningCard {
   id: string;
   category: '시장' | '상품' | '제도' | '운용';
@@ -174,6 +183,14 @@ export interface LearningCard {
   source_url: string;
   reviewed_at: string;
   simplified: boolean;
+  quiz: QuizQuestion;
+}
+
+/** 퀴즈 한 번의 기록. 카드마다 한 판에 한 번만 출제된다 */
+export interface QuizRecord {
+  cardId: string;
+  correct: boolean;
+  turn: number;
 }
 
 export interface PolicyRules {
@@ -400,6 +417,12 @@ export interface GameState {
   defaultOption: DefaultOptionId | null;
   /** 이번 턴 생활사건 해결 기록. 다음 턴 시작에 비운다 */
   lifeResolution: LifeResolution | null;
+  /** 이번 판에 푼 퀴즈. 정답 수가 지식 점수에 들어간다 */
+  quizLog: QuizRecord[];
+  /** 연속 정답 수. 오답이면 0 */
+  quizStreak: number;
+  /** 이번 턴 출제 대기 카드. 속보를 닫은 뒤 모달로 뜨고 다음 턴 시작에 비운다 */
+  pendingQuizCardId: string | null;
 }
 
 export interface TurnProductDelta {

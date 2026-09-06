@@ -1,4 +1,4 @@
-import { balanceConfig, learningCards, lifeEvents, marketScenario, marketShocks, policyRules, products } from '../data/content';
+import { balanceConfig, boardTiles, learningCards, lifeEvents, marketScenario, marketShocks, policyRules, products } from '../data/content';
 import type { ActionKind, ActionResult, DefaultOptionId, GameState, GhostTrack, LifeChoice, LifeEvent, PayoutChoice, ProfileId, ProductId } from '../types';
 import { ALERT_CARD_ID, applyMarketStep, emptyMarketStep, generateMarketPath, marketPathOf } from './market-engine';
 import { pickTileBriefing } from './tile-briefing';
@@ -11,6 +11,7 @@ import { REBALANCE_TILE_BONUS, applyTileArrival } from './tile-effects';
 import { payoutPlan } from './scoring-engine';
 import { applyDefaultOption, normalizeDefaultOption, suggestDefaultOption } from './default-option';
 import { resolveLifeChoice } from './life-engine';
+import { answerQuiz, finalQuizCards, marketTileQuizzes, pickQuizCard, queueQuiz } from './quiz-engine';
 
 export { applyGoalToGame, clampGoalMonthly };
 
@@ -132,7 +133,10 @@ export function createGame(seed: string, profileId: ProfileId = 'balanced', goal
     ghost: options.ghost === false ? null : ghostTrackFor(seed, profileId, goal, tileEffectsEnabled),
     payoutChoice: null,
     defaultOption: options.defaultOption ? normalizeDefaultOption(profileId, options.defaultOption) : null,
-    lifeResolution: null
+    lifeResolution: null,
+    quizLog: [],
+    quizStreak: 0,
+    pendingQuizCardId: null
   };
 }
 
@@ -159,6 +163,27 @@ export function choosePayout(state: GameState, choice: PayoutChoice): ActionResu
 
 function unlock(state: GameState, cardId: string): GameState {
   return state.unlockedCards.includes(cardId) ? state : { ...state, unlockedCards: [...state.unlockedCards, cardId] };
+}
+
+/**
+ * 도착 칸 퀴즈 출제. 제도 안내 칸은 방금 연 카드(없으면 해금·미출제 카드 1장), 시장 뉴스 칸은 시드·턴이
+ * 짝수일 때 1장. 칸 효과 켬/끔과 무관하게 배움 장치로 동작하며, 퀴즈는 점수의 지식 항목에만 들어간다.
+ */
+function queueTileQuiz(state: GameState, position: number): GameState {
+  const tile = boardTiles[position];
+  if (!tile) return state;
+  if (tile.kind === 'policy') {
+    const opened = state.tileEffects.find((effect) => effect.kind === 'policy-brief')?.cardId;
+    return queueQuiz(state, opened && !state.quizLog.some((record) => record.cardId === opened) ? opened : pickQuizCard(state, state.turn));
+  }
+  if (tile.kind === 'market' && marketTileQuizzes(state.seed, state.turn)) return queueQuiz(state, pickQuizCard(state, state.turn));
+  return state;
+}
+
+/** 퀴즈 답. `quiz-engine.answerQuiz`를 게임 행동 형태로 감싼다 */
+export function submitQuiz(state: GameState, cardId: string, option: number): ActionResult & { correct: boolean } {
+  const result = answerQuiz(state, cardId, option);
+  return { ok: result.ok, message: result.message, state: result.state, correct: result.correct };
 }
 
 /**
@@ -195,7 +220,8 @@ export function startTurn(state: GameState, steps = 0): ActionResult {
     turnActionLines: [],
     spotlightProductId: null,
     rebalanceBonusTurn: null,
-    lifeResolution: null
+    lifeResolution: null,
+    pendingQuizCardId: null
   }, market);
   next = settleOrders(next);
   next = {
@@ -214,6 +240,7 @@ export function startTurn(state: GameState, steps = 0): ActionResult {
   if (next.tileEffectsEnabled) {
     next = applyTileArrival(next, { position, crossedStart, scheduledEvent: Boolean(scheduled) });
   }
+  next = queueTileQuiz(next, position);
   if (scheduled) {
     next = { ...next, eventHistory: [...next.eventHistory, scheduled.eventId] };
     return { ok: true, message: '생활사건이 발생했습니다.', state: next };
@@ -386,6 +413,15 @@ export interface AutoplayOptions extends GameOptions {
   goalMonthly?: number;
   /** 생활사건 선택 규칙. 기본: 모든 사건을 생활자금 쪽으로(`cash`) */
   lifeChoice?: (state: GameState, event: LifeEvent) => LifeChoice;
+  /** 퀴즈 응답. `correct`는 다 맞히고 `wrong`은 다 틀리고 `none`(기본)은 풀지 않는다 */
+  quiz?: 'correct' | 'wrong' | 'none';
+}
+
+function autoAnswer(state: GameState, cardId: string, mode: 'correct' | 'wrong'): GameState {
+  const card = learningCards.find((item) => item.id === cardId);
+  if (!card) return state;
+  const option = mode === 'correct' ? card.quiz.answer : (card.quiz.answer + 1) % card.quiz.options.length;
+  return answerQuiz(state, cardId, option).state;
 }
 
 /**
@@ -462,8 +498,10 @@ export function autoplay(seed: string, strategy: AutoStrategy = 'balanced', prof
         : { kind: 'hold' };
     return action;
   };
+  const quizMode = options.quiz ?? 'none';
   while (state.status === 'playing') {
     state = startTurn(state, diceStepsForTurn(state.seed, state.turn)).state;
+    if (quizMode !== 'none' && state.pendingQuizCardId) state = autoAnswer(state, state.pendingQuizCardId, quizMode);
     if (state.currentEventId) {
       const event = lifeEvents.find((item) => item.id === state.currentEventId)!;
       const choose = options.lifeChoice ?? (strategy === 'withdrawer' ? withdrawerLifeChoice : defaultLifeChoice);
@@ -476,6 +514,9 @@ export function autoplay(seed: string, strategy: AutoStrategy = 'balanced', prof
       const acted = performAction(state, decide());
       state = acted.ok ? acted.state : performAction(state, { kind: 'hold' }).state;
     }
+  }
+  if (quizMode !== 'none') {
+    for (const card of finalQuizCards(state)) state = autoAnswer(state, card.id, quizMode);
   }
   return state;
 }

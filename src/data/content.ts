@@ -95,4 +95,9 @@ export function validateContent(): void {
   if (boardTiles.filter((tile) => tile.effect === 'spotlight').length !== products.length) {
     throw new Error('상품 거리 칸은 상품 6종마다 하나여야 합니다.');
   }
+  if (learningCards.some((card) => !card.quiz || !card.quiz.q || !card.quiz.why || card.quiz.options.length !== 3
+    || card.quiz.options.some((option) => !option) || new Set(card.quiz.options).size !== 3
+    || !Number.isInteger(card.quiz.answer) || card.quiz.answer < 0 || card.quiz.answer > 2)) {
+    throw new Error('학습 카드마다 3지선다 퀴즈(질문·서로 다른 선택지 3개·정답 위치·해설)가 있어야 합니다.');
+  }
 }
