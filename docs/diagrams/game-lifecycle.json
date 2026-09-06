@@ -20,7 +20,7 @@
           "acting",
           "settle"
         ],
-        "note": "타이틀 → 주사위 → 속보 → 운용 → 정산 장면. 이 레일을 12번 돈다."
+        "note": "타이틀 → 주사위 → 속보(시장은 이미 반영) → 운용 → 정산 장면. 이 레일을 12번 돈다."
       },
       {
         "id": "loops",
@@ -83,7 +83,7 @@
       "id": "reading",
       "type": "active",
       "label": "속보 · 사건",
-      "sublabel": "시장 카드 · 생활사건",
+      "sublabel": "IRP 반영 · 칸 효과",
       "lane": "main",
       "col": 2,
       "step": "03",
@@ -92,7 +92,7 @@
     {
       "id": "acting",
       "type": "decision",
-      "label": "운용 1회",
+      "label": "운용 1~2회",
       "sublabel": "awaitingAction",
       "lane": "main",
       "col": 3,
@@ -122,7 +122,7 @@
       "id": "finished",
       "type": "success",
       "label": "결과 리포트",
-      "sublabel": "월 연금 · 별 · 100점",
+      "sublabel": "월 연금 · 별 · 값어치",
       "lane": "terminal",
       "col": 2,
       "tag": "finished",
@@ -211,15 +211,15 @@
       "title": "주 레일",
       "items": [
         "createGame 한 번, 12턴 반복",
-        "속보 안에 칸 설명·생활사건(3회)"
+        "시장 먼저 반영 · 속보 안에 칸 효과·사건"
       ]
     },
     {
       "dot": "amber",
       "title": "대기 · 끝",
       "items": [
-        "정산 장면은 「다음 턴 준비」로 닫아야 진행",
-        "12턴째만 결과 리포트 → 새 판"
+        "운용지시 칸은 행동 2회, 시트 유지",
+        "12턴째만 결과 리포트(고스트 비교) → 새 판"
       ]
     },
     {
