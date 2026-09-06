@@ -31,7 +31,7 @@
           "portfolio",
           "policy"
         ],
-        "note": "성향 등급과 70% 한도는 매수 함수 안에서 먼저 검사되고, 거절이면 상태가 바뀌지 않는다. 지금 산 상품은 다음 턴 수익률부터 받는다."
+        "note": "성향 등급과 70% 한도는 매수 함수 안에서 먼저 검사되고, 거절이면 상태가 바뀌지 않는다. 「그대로」(hold)면 applyDefaultOption이 대기자금을 디폴트옵션 상품으로 균등 매수한다(한도까지)."
       },
       {
         "id": "render-path",
@@ -42,7 +42,7 @@
           "app",
           "player"
         ],
-        "note": "마지막 행동 뒤 finalizeTurn이 마감하고, TurnSummary가 정산 장면(막대 3개·시장/내 행동·칸 효과·고스트)을 그린다."
+        "note": "마지막 행동 뒤 finalizeTurn이 마감·이정표를 찍고, TurnSummary가 정산 장면(막대 3개·사건·이정표·고스트)을 그린다. 12턴이면 마무리 퀴즈 → 수령 방식 → 결과."
       }
     ],
     "column_fit": "spread"
@@ -100,13 +100,13 @@
   "segments": [
     {
       "from": 146,
-      "to": 314,
+      "to": 286,
       "label": "startTurn — 시장 먼저"
     },
     {
-      "from": 320,
+      "from": 292,
       "to": 482,
-      "label": "행동 → 게이트"
+      "label": "행동 → 게이트 (hold → 디폴트옵션)"
     },
     {
       "from": 488,
@@ -140,18 +140,10 @@
       "variant": "return"
     },
     {
-      "id": "settle-orders",
-      "from": "game",
-      "to": "portfolio",
-      "y": 244,
-      "label": "settleOrders — 지난 턴 펀드 주문 체결",
-      "variant": "dashed"
-    },
-    {
       "id": "tile-arrival",
       "from": "game",
       "to": "tiles",
-      "y": 272,
+      "y": 244,
       "label": "applyTileArrival — 연말정산 환급 · 도착 칸 효과",
       "variant": "emphasis"
     },
@@ -159,15 +151,15 @@
       "id": "news",
       "from": "game",
       "to": "app",
-      "y": 300,
-      "label": "state → 속보 카드 (IRP 반영 · 도착 효과)",
+      "y": 272,
+      "label": "state → 속보 카드 (IRP 반영 · 주문 체결 · 도착 효과)",
       "variant": "return"
     },
     {
       "id": "click-buy",
       "from": "player",
       "to": "app",
-      "y": 328,
+      "y": 300,
       "label": "매수 실행 (ETF, 가능액)",
       "variant": "default"
     },
@@ -175,7 +167,7 @@
       "id": "perform",
       "from": "app",
       "to": "game",
-      "y": 356,
+      "y": 328,
       "label": "performAction({kind:'buy'})",
       "variant": "emphasis"
     },
@@ -183,7 +175,7 @@
       "id": "buy",
       "from": "game",
       "to": "portfolio",
-      "y": 384,
+      "y": 356,
       "label": "buyProduct(state, id, amount)",
       "variant": "emphasis"
     },
@@ -191,7 +183,7 @@
       "id": "profile-check",
       "from": "portfolio",
       "to": "policy",
-      "y": 412,
+      "y": 384,
       "label": "canBuyForProfile · decideBuyAgainstRiskLimit",
       "variant": "security"
     },
@@ -199,7 +191,7 @@
       "id": "gate-result",
       "from": "policy",
       "to": "portfolio",
-      "y": 440,
+      "y": 412,
       "label": "ok / 한도 금액 제안 / 거절",
       "variant": "return"
     },
@@ -207,16 +199,24 @@
       "id": "bought",
       "from": "portfolio",
       "to": "game",
-      "y": 468,
+      "y": 440,
       "label": "holdings 갱신 (즉시 · 다음 턴 주문 · 스포트라이트면 즉시)",
       "variant": "return"
+    },
+    {
+      "id": "hold-default",
+      "from": "game",
+      "to": "portfolio",
+      "y": 468,
+      "label": "hold → applyDefaultOption — 대기자금 균등 매수(한도까지)",
+      "variant": "dashed"
     },
     {
       "id": "summarize",
       "from": "game",
       "to": "settle",
       "y": 496,
-      "label": "finalizeTurn → summarizeTurn(opened, next, lines)",
+      "label": "finalizeTurn → stampMilestones → summarizeTurn",
       "variant": "default"
     },
     {
@@ -232,7 +232,7 @@
       "from": "app",
       "to": "player",
       "y": 552,
-      "label": "정산 장면 (막대 3개 · 고스트) · 다음 턴 준비",
+      "label": "정산 장면 (막대 3개 · 사건 · 이정표 · 고스트) · 다음 턴 준비 / 12턴: 마무리",
       "variant": "return"
     }
   ],
@@ -246,7 +246,7 @@
     {
       "participant": "game",
       "from": 154,
-      "to": 306,
+      "to": 278,
       "type": "backend"
     },
     {
@@ -257,26 +257,26 @@
     },
     {
       "participant": "tiles",
-      "from": 266,
-      "to": 278,
+      "from": 238,
+      "to": 250,
       "type": "backend"
     },
     {
       "participant": "game",
-      "from": 350,
+      "from": 322,
       "to": 530,
       "type": "backend"
     },
     {
       "participant": "portfolio",
-      "from": 378,
+      "from": 350,
       "to": 474,
       "type": "backend"
     },
     {
       "participant": "policy",
-      "from": 406,
-      "to": 446,
+      "from": 378,
+      "to": 418,
       "type": "security"
     },
     {
@@ -297,18 +297,18 @@
     },
     {
       "dot": "rose",
-      "title": "게이트 결과 세 가지",
+      "title": "게이트 · 디폴트옵션",
       "items": [
         "성향 밖 → 거절 · 70% 초과 → 한도 제안",
-        "통과 → 즉시 보유 또는 다음 턴 주문"
+        "hold → 디폴트옵션이 대기자금 균등 매수"
       ]
     },
     {
       "dot": "emerald",
       "title": "마감",
       "items": [
-        "행동 남으면(운용지시 칸) 시트 유지",
-        "마지막 행동 뒤 finalizeTurn → 요약"
+        "finalizeTurn → 이정표 → 정산 장면",
+        "12턴: 퀴즈 ≤3 → 수령 방식 → 결과"
       ]
     }
   ]

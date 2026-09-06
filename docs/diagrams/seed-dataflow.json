@@ -26,7 +26,7 @@
           "actions",
           "state"
         ],
-        "note": "매 턴 시장 수익률이 먼저 보유분에 반영되고, 칸 효과·사건·행동이 같은 GameState에 순수 함수로 이어진다."
+        "note": "매 턴 시장 수익률이 먼저 보유분에 반영되고, 칸 효과·퀴즈·사건 3지선다·행동(그대로=디폴트옵션)이 같은 GameState에 순수 함수로 이어진다."
       },
       {
         "id": "outcome",
@@ -36,7 +36,7 @@
           "score",
           "save"
         ],
-        "note": "최종 IRP ÷ 240 = 월 연금. 별·100점은 체크리스트, 기록만 LocalStorage에 남는다."
+        "note": "최종 IRP × 수령 계수 ÷ 240 = 월 연금(연금 1 · 일시금 0.8836). 별·100점은 체크리스트, 기록·디폴트옵션만 LocalStorage(v5)에 남는다."
       }
     ],
     "viewBox": [
@@ -97,8 +97,8 @@
     {
       "id": "life",
       "type": "security",
-      "label": "생활사건 일정",
-      "sublabel": "3회 + 칸 1회",
+      "label": "사건 · 퀴즈 일정",
+      "sublabel": "12종 3지선다 · 카드 20장",
       "stage": 1,
       "row": 2
     },
@@ -106,7 +106,7 @@
       "id": "actions",
       "type": "frontend",
       "label": "플레이어 행동",
-      "sublabel": "행동 1~2회 · 그대로",
+      "sublabel": "행동 1~2회 · 디폴트옵션",
       "stage": 2,
       "row": 1
     },
@@ -114,7 +114,7 @@
       "id": "state",
       "type": "database",
       "label": "GameState",
-      "sublabel": "보유 · 장부 · 고스트",
+      "sublabel": "보유 · 장부 · 이정표",
       "stage": 3,
       "row": 1
     },
@@ -122,7 +122,7 @@
       "id": "score",
       "type": "backend",
       "label": "calculateScore",
-      "sublabel": "월 연금 · 별 · 100점",
+      "sublabel": "수령 계수 · 별 · 서사",
       "stage": 4,
       "row": 0
     },
@@ -130,7 +130,7 @@
       "id": "save",
       "type": "database",
       "label": "LocalStorage",
-      "sublabel": "기록 · 성향 · 목표",
+      "sublabel": "기록 · 성향 · 디폴트옵션",
       "stage": 4,
       "row": 2
     }
@@ -172,8 +172,8 @@
       "id": "seed-life",
       "from": "seed",
       "to": "life",
-      "label": "사건 턴 추첨",
-      "classification": "3회",
+      "label": "사건 턴 · 출제 추첨",
+      "classification": "3회 + 칸 · 퀴즈",
       "variant": "dashed",
       "fromSide": "bottom",
       "toSide": "left",
@@ -260,8 +260,8 @@
       "id": "life-state",
       "from": "life",
       "to": "state",
-      "label": "비용 · 강제 매도",
-      "classification": "생활자금 우선",
+      "label": "선택 · 정답",
+      "classification": "3지선다 · 지식 점수",
       "variant": "security",
       "fromSide": "right",
       "toSide": "bottom",
@@ -280,7 +280,7 @@
       "id": "state-score",
       "from": "state",
       "to": "score",
-      "label": "최종 IRP ÷ 240",
+      "label": "IRP × 수령계수 ÷ 240",
       "classification": "월 연금",
       "variant": "emphasis",
       "fromSide": "right",
@@ -327,18 +327,18 @@
     },
     {
       "dot": "rose",
-      "title": "사건과 충격",
+      "title": "사건 · 퀴즈 · 충격",
       "items": [
         "충격 6종 · 슬롯 3개 · 직전 턴 강/약/거짓 신호",
-        "사건 3회 + 생활 사건 칸 1회, 도착 칸 효과 10종"
+        "사건 12종 3지선다 · 퀴즈 시드 출제 · 칸 효과 10종"
       ]
     },
     {
       "dot": "amber",
-      "title": "저장 범위",
+      "title": "수령 · 저장",
       "items": [
-        "판 도중 GameState는 저장 안 함",
-        "LocalStorage v4: 설정·기록·성향·목표·카드"
+        "연금 5.5% / 일시금 16.5% → 계수 0.8836",
+        "LocalStorage v5: 설정·기록·성향·목표·카드·디폴트옵션"
       ]
     }
   ]
