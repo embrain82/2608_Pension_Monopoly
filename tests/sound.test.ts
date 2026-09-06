@@ -2,9 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { MAX_SOUND_SECONDS, SOUND_NAMES, scriptDuration, settlementSound, toneScript } from '../src/ui/sound';
 
 describe('효과음 스크립트', () => {
-  it('9종 모두 비어 있지 않고 0.6초 안에 끝난다', () => {
-    expect(SOUND_NAMES).toHaveLength(9);
+  it('10종 모두 비어 있지 않고 0.6초 안에 끝난다', () => {
+    expect(SOUND_NAMES).toHaveLength(10);
     expect(SOUND_NAMES).toContain('refund');
+    expect(SOUND_NAMES).toContain('milestone');
     for (const name of SOUND_NAMES) {
       const steps = toneScript(name);
       expect(steps.length).toBeGreaterThan(0);

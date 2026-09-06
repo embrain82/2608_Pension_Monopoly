@@ -1,5 +1,6 @@
 import { balanceConfig, products } from '../data/content';
 import { formatRateDelta } from '../engine/market-engine';
+import { isUrgent } from '../engine/milestones';
 import { portfolioValue } from '../engine/portfolio-engine';
 import type { GameState, MarketStep } from '../types';
 import { isCompletedTurn, isRevealedTurn, isUpcomingSpoiler } from './dice';
@@ -109,10 +110,11 @@ export function renderTurnTrack(state: GameState, waiting: boolean): string {
       : `${step.phase}${showShock ? ' · 충격' : ''}`;
     return `<i class="${classes}" title="${label}">${step.turn}</i>`;
   }).join('');
-  const aria = waiting
+  const urgent = isUrgent(state);
+  const aria = `${waiting
     ? `12턴 중 ${state.turn}턴 정산 후 시장 대기`
-    : `12턴 중 ${state.turn}턴, 현재 국면 ${state.phase}`;
-  return `<div class="turn-track" role="img" aria-label="${aria}">${cells}</div>`;
+    : `12턴 중 ${state.turn}턴, 현재 국면 ${state.phase}`}${urgent ? ' · 남은 턴이 적고 목표 미달' : ''}`;
+  return `<div class="turn-track ${urgent ? 'urgent' : ''}" role="img" aria-label="${aria}">${cells}</div>`;
 }
 
 export function renderMarketTimeline(state: GameState | null, waiting: boolean): string {

@@ -1,4 +1,4 @@
-import { balanceConfig, boardTiles, learningCards, lifeEvents, marketScenario, marketShocks, policyRules, products } from '../data/content';
+import { balanceConfig, boardTiles, defaultOptions, learningCards, lifeEvents, marketScenario, marketShocks, policyRules, products } from '../data/content';
 import type { ActionKind, ActionResult, DefaultOptionId, GameState, GhostTrack, LifeChoice, LifeEvent, PayoutChoice, ProfileId, ProductId } from '../types';
 import { ALERT_CARD_ID, applyMarketStep, emptyMarketStep, generateMarketPath, marketPathOf } from './market-engine';
 import { pickTileBriefing } from './tile-briefing';
@@ -168,6 +168,19 @@ export function choosePayout(state: GameState, choice: PayoutChoice): ActionResu
 
 function unlock(state: GameState, cardId: string): GameState {
   return state.unlockedCards.includes(cardId) ? state : { ...state, unlockedCards: [...state.unlockedCards, cardId] };
+}
+
+/**
+ * 디폴트옵션 지정·변경·해제. 판 시작 모달과 설정이 함께 쓴다. 성향 밖 값은 추천값으로 바뀌고,
+ * 지정하면 `default-option` 카드가 열린다. 진행 중 판에도 바로 적용된다(다음 「그대로」부터).
+ */
+export function setDefaultOption(state: GameState, wanted: DefaultOptionId | null): GameState {
+  const next = wanted ? normalizeDefaultOption(state.profileId, wanted) : null;
+  if (next === state.defaultOption) return state;
+  const name = next ? defaultOptions.find((option) => option.id === next)?.name ?? next : null;
+  const message = next ? `디폴트옵션 ${name} 지정 · 「그대로」를 고르면 대기자금을 이 옵션으로 운용합니다.` : '디폴트옵션 해제 · 대기자금은 직접 매수해야 합니다.';
+  const stamped: GameState = { ...state, defaultOption: next, logs: [...state.logs, { turn: state.turn, type: 'default-option', message }] };
+  return next ? unlock(stamped, 'default-option') : stamped;
 }
 
 /**
