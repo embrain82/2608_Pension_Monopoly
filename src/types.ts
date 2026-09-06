@@ -144,6 +144,26 @@ export interface PolicyRules {
   earlyDepositPenaltyRate: number;
   allowedWithdrawalFeeRate: number;
   receivingMonths: number;
+  /** 연금 수령 시 연금소득세(교육용 단순화) */
+  pensionTaxRate: number;
+  /** 일시금 수령 시 기타소득세(교육용 단순화) */
+  lumpSumTaxRate: number;
+  payoutReviewedAt: string;
+}
+
+/** 12턴 뒤 최종 결정. 연금(20년 분할) 또는 일시금 */
+export type PayoutChoice = 'annuity20' | 'lumpSum';
+
+export interface PayoutPlan {
+  choice: PayoutChoice;
+  taxRate: number;
+  tax: number;
+  /** 세후 총액 */
+  net: number;
+  /** 세후 월 수령(일시금은 240개월로 나눈 환산) */
+  monthlyNet: number;
+  /** 목표 판정에 쓰는 연금 기준 세전 월액. 연금은 IRP÷240, 일시금은 세후 총액을 연금 세후 기준으로 환산 */
+  monthlyBasis: number;
 }
 
 export interface BalanceConfig {
@@ -320,6 +340,8 @@ export interface GameState {
   extraLifeEvents: number;
   tileEffectsEnabled: boolean;
   ghost: GhostTrack | null;
+  /** 12턴 뒤 고른 수령 방식. 아직이면 null(점수는 연금 기준) */
+  payoutChoice: PayoutChoice | null;
 }
 
 export interface TurnProductDelta {
@@ -395,6 +417,8 @@ export interface ScoreResult {
   relatedCardIds: string[];
   returnRate: number;
   investmentReturnRate: number;
+  /** 적용된 수령 방식 계산(미선택이면 연금 기준) */
+  payout: PayoutPlan;
 }
 
 export interface SaveData {

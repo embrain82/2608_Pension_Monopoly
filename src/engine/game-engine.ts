@@ -1,5 +1,5 @@
 import { balanceConfig, learningCards, lifeEvents, marketScenario, marketShocks, policyRules, products } from '../data/content';
-import type { ActionKind, ActionResult, GameState, GhostTrack, ProfileId, ProductId } from '../types';
+import type { ActionKind, ActionResult, GameState, GhostTrack, PayoutChoice, ProfileId, ProductId } from '../types';
 import { ALERT_CARD_ID, applyMarketStep, emptyMarketStep, generateMarketPath, marketPathOf } from './market-engine';
 import { pickTileBriefing } from './tile-briefing';
 import { buyProduct, liquidateForLivingCost, portfolioValue, rebalancePortfolio, sellProduct, settleOrders, switchProduct } from './portfolio-engine';
@@ -8,6 +8,7 @@ import { holdingsMap, summarizeTurn } from './settlement-engine';
 import { diceStepsForTurn, hashSeed, nextRandom } from './random-engine';
 import { applyGoalToGame, clampGoalMonthly } from './goal';
 import { REBALANCE_TILE_BONUS, applyTileArrival } from './tile-effects';
+import { payoutPlan } from './scoring-engine';
 
 export { applyGoalToGame, clampGoalMonthly };
 
@@ -124,8 +125,30 @@ export function createGame(seed: string, profileId: ProfileId = 'balanced', goal
     rebalanceBonusTurn: null,
     extraLifeEvents: 0,
     tileEffectsEnabled,
-    ghost: options.ghost === false ? null : ghostTrackFor(seed, profileId, goal, tileEffectsEnabled)
+    ghost: options.ghost === false ? null : ghostTrackFor(seed, profileId, goal, tileEffectsEnabled),
+    payoutChoice: null
   };
+}
+
+/**
+ * 12턴 뒤 최종 결정: 연금(20년 분할)으로 받을지 일시금으로 받을지. 점수의 목표 판정에 반영되고
+ * 연금소득세·수령 요건 카드가 열린다. 끝난 판에서만 가능하다.
+ */
+export function choosePayout(state: GameState, choice: PayoutChoice): ActionResult {
+  if (state.status !== 'finished') return { ok: false, message: '12턴을 마친 뒤에 수령 방식을 정할 수 있습니다.', state };
+  const irp = portfolioValue(state);
+  const plan = payoutPlan(irp, choice);
+  const label = choice === 'lumpSum' ? '일시금' : '연금(20년)';
+  const message = choice === 'lumpSum'
+    ? `일시금 수령 · 교육용 기타소득세 ${Math.round(policyRules.lumpSumTaxRate * 1000) / 10}% ${Math.round(plan.tax).toLocaleString('ko-KR')}원을 뺀 ${Math.round(plan.net).toLocaleString('ko-KR')}원.`
+    : `연금 수령 · 교육용 연금소득세 ${Math.round(policyRules.pensionTaxRate * 1000) / 10}%를 뺀 월 ${Math.round(plan.monthlyNet).toLocaleString('ko-KR')}원을 240개월.`;
+  let next: GameState = {
+    ...state,
+    payoutChoice: choice,
+    logs: [...state.logs.filter((log) => log.type !== 'payout'), { turn: state.turn, type: 'payout', message: `${label} 선택 · ${message}` }]
+  };
+  next = unlock(unlock(next, 'pension-tax'), 'payout-choice');
+  return { ok: true, message, state: next };
 }
 
 function unlock(state: GameState, cardId: string): GameState {

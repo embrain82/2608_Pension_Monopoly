@@ -1,10 +1,33 @@
 import { balanceConfig, investorProfiles, policyRules, products } from '../data/content';
-import type { GameState, ProfileId, ScoreResult } from '../types';
+import type { GameState, PayoutChoice, PayoutPlan, ProfileId, ScoreResult } from '../types';
 import { portfolioValue, rebalanceTargetRisk } from './portfolio-engine';
 import { canBuyForProfile, riskAssetRatio } from './policy-engine';
 
-export function monthlyPension(irpValue: number): number {
-  return irpValue / policyRules.receivingMonths;
+/**
+ * 목표 판정 계수. 게임의 월 연금 단위는 "연금으로 받을 때 세전 IRP÷240"이다. 일시금은 세금이 더 붙으므로
+ * 세후 총액을 연금 세후 기준으로 되돌린 만큼만 인정한다: (1−일시금세율)/(1−연금세율).
+ */
+export function payoutFactor(choice: PayoutChoice): number {
+  if (choice === 'lumpSum') return (1 - policyRules.lumpSumTaxRate) / (1 - policyRules.pensionTaxRate);
+  return 1;
+}
+
+export function payoutPlan(irpValue: number, choice: PayoutChoice): PayoutPlan {
+  const taxRate = choice === 'lumpSum' ? policyRules.lumpSumTaxRate : policyRules.pensionTaxRate;
+  const tax = irpValue * taxRate;
+  const net = irpValue - tax;
+  return {
+    choice,
+    taxRate,
+    tax,
+    net,
+    monthlyNet: net / policyRules.receivingMonths,
+    monthlyBasis: (irpValue * payoutFactor(choice)) / policyRules.receivingMonths
+  };
+}
+
+export function monthlyPension(irpValue: number, choice: PayoutChoice = 'annuity20'): number {
+  return (irpValue * payoutFactor(choice)) / policyRules.receivingMonths;
 }
 
 export function diversificationCount(state: GameState): number {
@@ -44,7 +67,9 @@ export function starChecklist(state: GameState, score: ScoreResult): { label: st
 
 export function calculateScore(state: GameState): ScoreResult {
   const irpValue = portfolioValue(state);
-  const pension = monthlyPension(irpValue);
+  const choice: PayoutChoice = state.payoutChoice ?? 'annuity20';
+  const payout = payoutPlan(irpValue, choice);
+  const pension = payout.monthlyBasis;
   const goalRate = state.goalMonthly <= 0 ? 0 : pension / state.goalMonthly;
   const goalMet = goalRate >= 1;
   const riskRatio = riskAssetRatio(state);
@@ -95,6 +120,7 @@ export function calculateScore(state: GameState): ScoreResult {
     incomeScore: Math.round(incomeScore), stabilityScore: Math.round(stabilityScore), knowledgeScore: Math.round(knowledgeScore),
     behaviorProfile: actualProfile, profileAligned, bestDecision, improvement,
     relatedCardIds: ['pension-assumption', !safeCash ? 'emergency-cash' : !diversified ? 'diversification' : 'rebalance'],
-    returnRate, investmentReturnRate
+    returnRate, investmentReturnRate,
+    payout
   };
 }
