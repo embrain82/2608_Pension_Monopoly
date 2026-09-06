@@ -31,7 +31,7 @@ import { ghostMonthlyNow, renderGoalMeter, renderRiskMeter } from './hud';
 import { renderGhostVerdict } from './ghost';
 import { percent, renderMarketCard, renderMarketTimeline, renderSettingsEntry, renderTurnTrack, signedPercent } from './market-view';
 import { loadSave, saveData } from './ui-state';
-import { AUTO_SETTLE_MS, canAutoSettle, renderSettlementModal } from './settlement';
+import { AUTO_SETTLE_MS, SETTLE_CTA_NEXT, canAutoSettle, renderSettlementModal } from './settlement';
 import { avatarMood, renderAvatar, resultMood } from './avatars';
 import { renderSpeech } from './speech';
 import { settlementSound } from './sound';
@@ -161,9 +161,17 @@ export class PensionRoadApp {
     this.starTimers.push(window.setTimeout(() => this.sound.play('milestone'), delay));
   }
 
+  /** 예약을 지우고, 열린 정산 창의 진행 막대·「자동 진행」 문구도 재렌더 없이(펼친 <details>·포커스를 지키려고) 걷는다 */
   private clearAutoSettle(): void {
-    if (this.autoSettleTimer) window.clearTimeout(this.autoSettleTimer);
+    if (!this.autoSettleTimer) return;
+    window.clearTimeout(this.autoSettleTimer);
     this.autoSettleTimer = 0;
+    const cta = this.root.querySelector<HTMLElement>('.settle-cta.auto');
+    if (!cta) return;
+    cta.classList.remove('auto');
+    cta.querySelector('.auto-bar')?.remove();
+    const button = cta.querySelector('button');
+    if (button) button.textContent = SETTLE_CTA_NEXT;
   }
 
   /** 설정이 켜져 있고 읽을 것이 없는 턴이면 2.5초 뒤 정산 창을 닫는다. 창 안을 누르면 취소 */
@@ -1286,7 +1294,10 @@ export class PensionRoadApp {
   /** 「그대로」는 확인 화면 없이 바로 실행되므로 무슨 일이 일어나는지 목록 한 줄이 다 말해야 한다 */
   private holdMenuNote(game: GameState): string {
     if (this.holdAutoRuns(game)) return `대기자금 ${formatShortWon(game.irpCash)}을 디폴트옵션(${defaultOptionName(game.defaultOption)})이 ${defaultOptionProducts(game.defaultOption)}로 균등 매수 · 바로 마감`;
-    if (game.defaultOption) return `구성 그대로 마감 · 대기자금 ${formatShortWon(game.irpCash)}은 10만 원 미만이라 디폴트옵션(${defaultOptionName(game.defaultOption)})이 살 것이 없음`;
+    if (game.defaultOption) {
+      const cash = game.irpCash < 10_000 ? '대기자금이 없어' : `대기자금 ${formatShortWon(game.irpCash)}은 10만 원 미만이라`;
+      return `구성 그대로 마감 · ${cash} 디폴트옵션(${defaultOptionName(game.defaultOption)})이 살 것이 없음`;
+    }
     return `구성 그대로 마감${game.irpCash >= 100_000 ? ` · 대기자금 ${formatShortWon(game.irpCash)}은 디폴트옵션이 없어 남음(설정에서 지정)` : ''}`;
   }
 

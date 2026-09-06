@@ -25,6 +25,10 @@ export interface SettlementOptions {
 
 /** 정산 자동 진행 대기 시간 */
 export const AUTO_SETTLE_MS = 2500;
+/** 다음 턴 버튼 문구. 자동 진행이 취소되면 app이 이 문구로 되돌린다 */
+export const SETTLE_CTA_NEXT = '다음 턴 준비';
+export const SETTLE_CTA_AUTO = '다음 턴 준비 · 자동 진행';
+export const SETTLE_CTA_FINAL = '마무리로 · 퀴즈와 수령 방식';
 
 /**
  * 자동 진행이 허용되는 턴인가. 마지막 턴(마무리로 이어짐)·충격·이정표·생활사건 턴은 읽어야 할 것이 있어
@@ -105,7 +109,7 @@ export function renderSettlementModal(summary: TurnSummary, options: SettlementO
   const cheer = (summary.milestones ?? []).find((milestone) => milestone.tone === 'cheer');
   const reactionTone = cheer ? 'positive' : summary.shock ? 'shock' : 'default';
   const auto = options.autoSettleMs ?? null;
-  const cta = options.final ? '마무리로 · 퀴즈와 수령 방식' : auto ? '다음 턴 준비 · 자동 진행' : '다음 턴 준비';
+  const cta = options.final ? SETTLE_CTA_FINAL : auto ? SETTLE_CTA_AUTO : SETTLE_CTA_NEXT;
   const autoBar = auto && !options.reducedMotion ? `<i class="auto-bar" style="--ms:${auto}ms" aria-hidden="true"></i>` : '';
   const hints = options.final
     ? ['12턴이 끝났습니다. 배운 카드에서 마무리 퀴즈(최대 3문항)를 풀고, 연금과 일시금 중 수령 방식을 정하면 결과 리포트가 열립니다.']
