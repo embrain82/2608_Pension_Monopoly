@@ -1,14 +1,21 @@
 import { clampGoalMonthly } from '../engine/goal';
-import { isProfileId } from '../engine/profile-engine';
+import { isProfileId, PROFILE_IDS } from '../engine/profile-engine';
 import { isDefaultOptionId } from '../engine/default-option';
-import type { SaveData } from '../types';
+import { isAchievementId } from '../engine/achievements';
+import type { AchievementId, AnimationSpeed, Collection, ProfileId, SaveData } from '../types';
 
 export const STORAGE_KEY = 'pension-road-save-v1';
 
+export function emptyCollection(): Collection {
+  return Object.fromEntries(PROFILE_IDS.map((id) => [id, { plays: 0, bestStars: 0 as const }])) as Collection;
+}
+
 export const defaultSave: SaveData = {
-  version: 5,
-  settings: { reducedMotion: false, sound: false, characters: true, ghost: true },
+  version: 6,
+  settings: { reducedMotion: false, sound: false, characters: true, ghost: true, speed: 1, autoSettle: false, settleExpanded: false },
   defaultOption: null,
+  achievements: [],
+  collection: emptyCollection(),
   unlockedCards: [],
   bestScore: 0,
   lastSeed: '',
@@ -25,11 +32,30 @@ function finiteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value);
 }
 
+function migrateCollection(value: unknown): Collection {
+  const collection = emptyCollection();
+  if (!value || typeof value !== 'object') return collection;
+  for (const id of PROFILE_IDS as ProfileId[]) {
+    const entry = (value as Record<string, { plays?: unknown; bestStars?: unknown } | undefined>)[id];
+    if (!entry || typeof entry !== 'object') continue;
+    const plays = finiteNumber(entry.plays) && entry.plays >= 0 ? Math.floor(entry.plays) : 0;
+    const stars = finiteNumber(entry.bestStars) && [0, 1, 2, 3].includes(entry.bestStars) ? (entry.bestStars as 0 | 1 | 2 | 3) : 0;
+    // 판 수가 잘못됐으면 별도 믿지 않는다
+    collection[id] = plays > 0 ? { plays, bestStars: stars } : { plays: 0, bestStars: 0 };
+  }
+  return collection;
+}
+
+function migrateAchievements(value: unknown): AchievementId[] {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value.filter(isAchievementId))];
+}
+
 function migrateSave(value: unknown): SaveData | null {
   if (!value || typeof value !== 'object') return null;
   const data = value as {
     version?: number;
-    settings?: { reducedMotion?: unknown; sound?: unknown; characters?: unknown; ghost?: unknown };
+    settings?: { reducedMotion?: unknown; sound?: unknown; characters?: unknown; ghost?: unknown; speed?: unknown; autoSettle?: unknown; settleExpanded?: unknown };
     unlockedCards?: unknown;
     bestScore?: unknown;
     lastSeed?: unknown;
@@ -41,20 +67,26 @@ function migrateSave(value: unknown): SaveData | null {
     profileId?: unknown;
     goalMonthly?: unknown;
     defaultOption?: unknown;
+    achievements?: unknown;
+    collection?: unknown;
   };
   if (!finiteNumber(data.bestScore) || typeof data.lastSeed !== 'string') return null;
   if (!Array.isArray(data.unlockedCards) || !data.unlockedCards.every((item) => typeof item === 'string')) return null;
   if (!data.settings || typeof data.settings.reducedMotion !== 'boolean' || typeof data.settings.sound !== 'boolean') return null;
-  if (![1, 2, 3, 4, 5].includes(data.version ?? 0)) return null;
+  if (![1, 2, 3, 4, 5, 6].includes(data.version ?? 0)) return null;
   return {
-    version: 5,
+    version: 6,
     settings: {
       reducedMotion: data.settings.reducedMotion,
       sound: data.settings.sound,
       // v1·v2 저장에는 없던 값. 캐릭터는 기본 켬.
       characters: typeof data.settings.characters === 'boolean' ? data.settings.characters : true,
       // v1~v3 저장에는 없던 값. 고스트("그대로 둔 나")는 기본 켬.
-      ghost: typeof data.settings.ghost === 'boolean' ? data.settings.ghost : true
+      ghost: typeof data.settings.ghost === 'boolean' ? data.settings.ghost : true,
+      // v1~v5 저장에는 없던 값. 속도 1×, 자동 진행 끔, 정산 「자세히」 접힘.
+      speed: data.settings.speed === 2 ? 2 : (1 as AnimationSpeed),
+      autoSettle: data.settings.autoSettle === true,
+      settleExpanded: data.settings.settleExpanded === true
     },
     unlockedCards: data.unlockedCards,
     bestScore: data.bestScore,
@@ -67,7 +99,10 @@ function migrateSave(value: unknown): SaveData | null {
     profileId: isProfileId(data.profileId) ? data.profileId : 'balanced',
     goalMonthly: clampGoalMonthly(finiteNumber(data.goalMonthly) ? data.goalMonthly : 500_000),
     // v1~v4 저장에는 없던 값. null이면 다음 판 시작에 고른다.
-    defaultOption: isDefaultOptionId(data.defaultOption) ? data.defaultOption : null
+    defaultOption: isDefaultOptionId(data.defaultOption) ? data.defaultOption : null,
+    // v1~v5 저장에는 없던 값. 업적은 빈 배열, 컬렉션은 성향 5종 모두 0판.
+    achievements: migrateAchievements(data.achievements),
+    collection: migrateCollection(data.collection)
   };
 }
 

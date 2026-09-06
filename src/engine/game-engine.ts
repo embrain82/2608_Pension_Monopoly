@@ -1,5 +1,5 @@
 import { balanceConfig, boardTiles, defaultOptions, learningCards, lifeEvents, marketScenario, marketShocks, policyRules, products } from '../data/content';
-import type { ActionKind, ActionResult, DefaultOptionId, GameState, GhostTrack, LifeChoice, LifeEvent, PayoutChoice, ProfileId, ProductId } from '../types';
+import type { ActionKind, ActionResult, DefaultOptionId, GameState, GhostTrack, LifeChoice, LifeEvent, PayoutChoice, PlayRecord, ProfileId, ProductId } from '../types';
 import { ALERT_CARD_ID, applyMarketStep, emptyMarketStep, generateMarketPath, marketPathOf } from './market-engine';
 import { pickTileBriefing } from './tile-briefing';
 import { buyProduct, portfolioValue, rebalancePortfolio, sellProduct, settleOrders, switchProduct } from './portfolio-engine';
@@ -8,7 +8,7 @@ import { holdingsMap, summarizeTurn } from './settlement-engine';
 import { diceStepsForTurn, hashSeed, nextRandom } from './random-engine';
 import { applyGoalToGame, clampGoalMonthly } from './goal';
 import { REBALANCE_TILE_BONUS, applyTileArrival } from './tile-effects';
-import { payoutPlan } from './scoring-engine';
+import { diversificationCount, payoutPlan } from './scoring-engine';
 import { applyDefaultOption, normalizeDefaultOption, suggestDefaultOption } from './default-option';
 import { resolveLifeChoice } from './life-engine';
 import { answerQuiz, finalQuizCards, marketTileQuizzes, pickQuizCard, queueQuiz } from './quiz-engine';
@@ -75,6 +75,10 @@ function cardForTurn(turn: number, path: GameState['marketPath']): string {
   return 'rebalance';
 }
 
+export function emptyRecord(): PlayRecord {
+  return { rebalanceTurns: [], diversifiedTurns: 0, defaultOptionRuns: 0, lifeChoices: [] };
+}
+
 /** 같은 시드·같은 주사위·행동은 늘 "그대로"인 경로. 결과 화면과 정산의 비교 기준. */
 export function ghostTrackFor(seed: string, profileId: ProfileId, goalMonthly: number, tileEffects: boolean): GhostTrack {
   const ghost = autoplay(seed, 'passive', profileId, { ghost: false, tileEffects, goalMonthly });
@@ -139,7 +143,8 @@ export function createGame(seed: string, profileId: ProfileId = 'balanced', goal
     quizStreak: 0,
     pendingQuizCardId: null,
     milestonesHit: [],
-    turnMilestones: []
+    turnMilestones: [],
+    record: emptyRecord()
   };
   // 시작 시점에 이미 넘어선 이정표(기본 목표면 90%까지)는 배너 없이 기록만 한다.
   return { ...state, milestonesHit: milestonesReached(state) };
@@ -345,10 +350,15 @@ export function performAction(state: GameState, action: GameAction): ActionResul
     case 'hold': {
       // 운용지시가 없으면 디폴트옵션이 대기자금을 운용한다(제도의 사전지정운용). 없으면 예전처럼 유지.
       const auto = applyDefaultOption(opened);
+      const ran = auto.bought.length > 0;
       result = {
         ok: true,
-        message: auto.bought.length ? auto.message : '이번 턴은 행동하지 않고 현재 구성을 유지했습니다.',
-        state: { ...auto.state, safeActionCount: auto.state.safeActionCount + 1 }
+        message: ran ? auto.message : '이번 턴은 행동하지 않고 현재 구성을 유지했습니다.',
+        state: {
+          ...auto.state,
+          safeActionCount: auto.state.safeActionCount + 1,
+          record: ran ? { ...auto.state.record, defaultOptionRuns: auto.state.record.defaultOptionRuns + 1 } : auto.state.record
+        }
       };
       break;
     }
@@ -356,6 +366,9 @@ export function performAction(state: GameState, action: GameAction): ActionResul
   if (!result.ok) return { ...result, state: { ...result.state, ledger: state.ledger } };
   let acted: GameState = result.state;
   let message = result.message;
+  if (action.kind === 'rebalance') {
+    acted = { ...acted, record: { ...acted.record, rebalanceTurns: [...acted.record.rebalanceTurns, state.turn] } };
+  }
   if (boughtSpotlight(opened, acted, action)) {
     acted = { ...acted, understandingPoints: acted.understandingPoints + 1 };
     message = `${message} 스포트라이트 상품 · 이해 +1.`;
@@ -401,6 +414,7 @@ export function finalizeTurn(state: GameState): GameState {
       };
     }
   }
+  const diversified = diversificationCount(next) >= balanceConfig.diversificationMin;
   return stampMilestones({
     ...next,
     status: state.turn >= balanceConfig.maxTurns ? 'finished' : 'playing',
@@ -409,6 +423,7 @@ export function finalizeTurn(state: GameState): GameState {
     spotlightProductId: null,
     rebalanceBonusTurn: null,
     irpHistory: [...next.irpHistory, portfolioValue(next)],
+    record: diversified ? { ...next.record, diversifiedTurns: next.record.diversifiedTurns + 1 } : next.record,
     logs: [...next.logs, { turn: state.turn, type: 'settle', message: `${state.turn}턴 마감` }]
   });
 }

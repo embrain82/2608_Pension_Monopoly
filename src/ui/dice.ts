@@ -65,18 +65,19 @@ function facePips(face: number): string {
   return Array.from({ length: 9 }, (_, index) => `<i class="pip${active.has(index + 1) ? ' on' : ''}"></i>`).join('');
 }
 
-function cubeMarkup(face: number, variant: 0 | 1, rolling: boolean): string {
+function cubeMarkup(face: number, variant: 0 | 1, rolling: boolean, durationMs: number): string {
   const faces = [1, 2, 3, 4, 5, 6].map((value) => `<div class="dice-face n${value}">${facePips(value)}</div>`).join('');
   const alt = variant === 1 ? ' alt' : '';
-  return `<div class="dice-slot${alt}"><div class="dice ${rolling ? `rolling${alt}` : 'landed'}" style="--land:${diceLandTransform(face, variant)};--dice-ms:${DICE_ROLL_DURATION_MS}ms">${faces}</div></div>`;
+  return `<div class="dice-slot${alt}"><div class="dice ${rolling ? `rolling${alt}` : 'landed'}" style="--land:${diceLandTransform(face, variant)};--dice-ms:${durationMs}ms">${faces}</div></div>`;
 }
 
-export function renderDiceMarkup(faces: [number, number], rolling: boolean): string {
+/** 주사위 오버레이. `durationMs`는 설정 속도(2×면 절반)를 반영한 굴림 길이로, CSS `--dice-ms`가 그대로 쓴다 */
+export function renderDiceMarkup(faces: [number, number], rolling: boolean, durationMs = DICE_ROLL_DURATION_MS): string {
   const label = dicePairLabel(faces[0], faces[1]);
   return `<div class="dice-overlay" role="status" aria-live="assertive" aria-label="${rolling ? '주사위 두 개를 굴리는 중입니다' : `주사위 결과 ${label}`}">
-    <div class="dice-scene" style="--dice-ms:${DICE_ROLL_DURATION_MS}ms">
-      ${cubeMarkup(faces[0], 0, rolling)}
-      ${cubeMarkup(faces[1], 1, rolling)}
+    <div class="dice-scene" style="--dice-ms:${durationMs}ms">
+      ${cubeMarkup(faces[0], 0, rolling, durationMs)}
+      ${cubeMarkup(faces[1], 1, rolling, durationMs)}
     </div>
     <p>${rolling ? '주사위를 굴리는 중' : `${label} 이동 · 이번 턴 시장을 확인하세요`}</p>
   </div>`;

@@ -4,6 +4,7 @@ import type { BoardTile, MarketStep, TileEffect } from '../types';
 import { renderMarketAlert, signedPercent } from './market-view';
 import { renderSpeech } from './speech';
 import { renderTileEffects } from './tile-effects-view';
+import type { ScenePace } from './fx';
 
 const DIAL_SWEEP_DEG = 120;
 
@@ -17,6 +18,8 @@ export interface NewsFlashOptions {
   tileEffects?: TileEffect[];
   /** 1턴에만 나오는 코치 말풍선 */
   coach?: boolean;
+  /** 후반 가속. fast면 헤드라인 타이핑·다이얼·화살표 연출이 절반 길이 */
+  pace?: ScenePace;
 }
 
 const formatWon = (value: number) => `${Math.round(value).toLocaleString('ko-KR')}원`;
@@ -48,7 +51,7 @@ export function renderNewsFlash(step: MarketStep, prev: MarketStep, tile: BoardT
     characters: options.characters,
     tone: step.shock ? (shock?.positive ? 'positive' : 'shock') : 'default'
   });
-  const classes = ['news-flash', step.shock ? 'shock' : '', shock?.positive ? 'positive' : ''].filter(Boolean).join(' ');
+  const classes = ['news-flash', step.shock ? 'shock' : '', shock?.positive ? 'positive' : '', options.pace === 'fast' ? 'fast' : ''].filter(Boolean).join(' ');
   const from = dialAngle(prev.turn === 0 ? market.rateStartPct : prev.ratePct, market.rateMinPct, market.rateMaxPct);
   const to = dialAngle(step.ratePct, market.rateMinPct, market.rateMaxPct);
   const arrows = products.map((product, index) => {

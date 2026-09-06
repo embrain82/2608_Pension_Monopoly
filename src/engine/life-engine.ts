@@ -152,6 +152,7 @@ function finish(state: GameState, event: LifeEvent, resolution: LifeResolution, 
     currentEventId: null,
     awaitingAction: true,
     lifeResolution: resolution,
+    record: { ...state.record, lifeChoices: [...state.record.lifeChoices, { eventId: event.id, choice: resolution.choice }] },
     logs: [...state.logs, { turn: state.turn, type: 'life', message: `${event.title}: ${resolution.message}`, impact: -event.cost }]
   };
   next = unlockCard(next, event.learningCardId);

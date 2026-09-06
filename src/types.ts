@@ -439,6 +439,8 @@ export interface GameState {
   milestonesHit: MilestoneId[];
   /** 이번 턴 마감에 처음 넘은 이정표. 정산 배너가 쓰고 다음 턴 시작에 비운다 */
   turnMilestones: Milestone[];
+  /** 업적 판정용 행동 기록 */
+  record: PlayRecord;
 }
 
 export interface TurnProductDelta {
@@ -522,11 +524,53 @@ export interface ScoreResult {
   payout: PayoutPlan;
 }
 
+/** 판 하나의 행동 기록. 점수에는 들어가지 않고 업적 판정에만 쓴다 */
+export interface PlayRecord {
+  /** 리밸런싱에 성공한 턴 */
+  rebalanceTurns: number[];
+  /** 마감 시 5% 이상 보유 상품이 3종 이상이었던 턴 수 */
+  diversifiedTurns: number;
+  /** 「그대로」에서 디폴트옵션이 실제로 매수한 횟수 */
+  defaultOptionRuns: number;
+  /** 생활사건 선택 기록 */
+  lifeChoices: Array<{ eventId: string; choice: LifeChoice }>;
+}
+
+export type AchievementId =
+  | 'goal-reached' | 'three-stars' | 'calm-seas' | 'diversified-12' | 'pre-shock-rebalance' | 'tax-credit-max'
+  | 'quiz-perfect' | 'ghost-crusher' | 'annuity-choice' | 'default-option-run' | 'severance-to-irp' | 'all-profiles';
+
+export interface AchievementDef {
+  id: AchievementId;
+  title: string;
+  detail: string;
+  /** 판 하나에서 판정(game) / 저장 누적에서 판정(meta) */
+  scope: 'game' | 'meta';
+}
+
+/** 성향(캐릭터)별 완주 기록. 도감 「캐릭터 컬렉션」의 재료 */
+export type Collection = Record<ProfileId, { plays: number; bestStars: 0 | 1 | 2 | 3 }>;
+
+export type AnimationSpeed = 1 | 2;
+
 export interface SaveData {
-  version: 5;
-  settings: { reducedMotion: boolean; sound: boolean; characters: boolean; ghost: boolean };
+  version: 6;
+  settings: {
+    reducedMotion: boolean;
+    sound: boolean;
+    characters: boolean;
+    ghost: boolean;
+    /** 애니메이션 속도. 2면 주사위·말·숫자·속보·정산 연출이 절반 길이 */
+    speed: AnimationSpeed;
+    /** 정산 창 자동 진행(2.5초). 마지막·충격·이정표·사건 턴은 제외 */
+    autoSettle: boolean;
+    /** 정산 창 「자세히」 펼침 기억 */
+    settleExpanded: boolean;
+  };
   /** 마지막으로 고른 디폴트옵션. null이면 다음 판 시작에 고른다 */
   defaultOption: DefaultOptionId | null;
+  achievements: AchievementId[];
+  collection: Collection;
   unlockedCards: string[];
   bestScore: number;
   lastSeed: string;

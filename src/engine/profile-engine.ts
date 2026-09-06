@@ -1,7 +1,7 @@
 import { investorProfiles } from '../data/content';
 import type { GameState, ProfileId } from '../types';
 
-const PROFILE_IDS: ProfileId[] = ['stable', 'stableGrowth', 'balanced', 'growth', 'aggressive'];
+export const PROFILE_IDS: ProfileId[] = ['stable', 'stableGrowth', 'balanced', 'growth', 'aggressive'];
 
 export function isProfileId(value: unknown): value is ProfileId {
   return typeof value === 'string' && PROFILE_IDS.includes(value as ProfileId);
