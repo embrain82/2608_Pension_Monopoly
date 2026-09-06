@@ -4,6 +4,7 @@ import { getLifeEvent, getLearningCard } from '../engine/content-engine';
 import { portfolioValue, rebalanceShares, sellProduct } from '../engine/portfolio-engine';
 import { canBuyForProfile, contributionCredit, decideBuyAgainstRiskLimit, expectedRiskAfterBuy, maxBuyWithinRiskLimit, riskAssetRatio, type BuyLimitDecision } from '../engine/policy-engine';
 import { rebalanceGapLine } from '../engine/tile-effects';
+import { heldProductIds, pickHeldProduct, tradeBlockReason } from './action-form';
 import { randomSeed } from '../engine/random-engine';
 import { emptyMarketStep } from '../engine/market-engine';
 import { applyProfileToGame, profileFromScore } from '../engine/profile-engine';
@@ -797,7 +798,8 @@ export class PensionRoadApp {
 
   private productOptions(selected: ProductId, holdingsOnly = false, forBuy = false): string {
     if (!this.game) return '';
-    return products.filter((product) => !holdingsOnly || (this.game!.holdings.find((holding) => holding.productId === product.id)?.amount ?? 0) >= 100000)
+    const held = holdingsOnly ? heldProductIds(this.game) : null;
+    return products.filter((product) => !held || held.includes(product.id))
       .map((product) => {
         const blocked = forBuy && !canBuyForProfile(this.game!.profileId, product.id).ok;
         return `<option value="${product.id}" ${selected === product.id ? 'selected' : ''} ${blocked ? 'disabled' : ''}>${product.name} · ${product.riskGrade}등급${blocked ? ' · 성향 밖' : ''}</option>`;
@@ -891,7 +893,10 @@ export class PensionRoadApp {
         ${actions}`;
     }
     if (this.actionView === 'sell') {
+      // 전액 매도·교체 뒤에도 선택값이 옛 상품에 남으면 셀렉트와 금액이 어긋난다. 항상 실제 보유 상품으로 맞춘다.
+      this.selectedSell = pickHeldProduct(game, this.selectedSell);
       const amount = this.currentAmount('sell', this.selectedSell);
+      const blocked = tradeBlockReason(game, 'sell', amount);
       const depositWaived = game.spotlightProductId === 'deposit' && this.selectedSell === 'deposit';
       const sellNote = depositWaived
         ? '오늘은 예금 거리 스포트라이트 · 만기 전 해지 불이익이 없습니다. 펀드는 다음 턴 대금.'
@@ -900,20 +905,22 @@ export class PensionRoadApp {
         <p class="eyebrow">매도${depositWaived ? ' · 해지 불이익 면제' : ''}</p><h2>무엇을 줄일까요?</h2>
         <label for="sell-product">상품</label><select id="sell-product">${this.productOptions(this.selectedSell, true)}</select>
         ${this.amountButtons('sell', this.selectedSell)}
-        <div class="preview-box"><strong>미리보기</strong><p>${formatWon(amount)} 매도. ${sellNote}</p></div>
-        <button class="primary jumbo" data-action="do-sell">매도 실행</button>`;
+        <div class="preview-box ${blocked ? 'warning' : ''}"><strong>미리보기</strong><p>${blocked ?? `${formatWon(amount)} 매도. ${sellNote}`}</p></div>
+        <button class="primary jumbo" data-action="do-sell" ${blocked ? 'disabled' : ''}>매도 실행</button>`;
     }
     if (this.actionView === 'switch') {
+      this.switchFrom = pickHeldProduct(game, this.switchFrom);
       this.switchTo = this.allowedProductId(this.switchTo, this.switchFrom);
       const amount = this.currentAmount('switch', this.switchFrom);
       const suitability = canBuyForProfile(game.profileId, this.switchTo);
+      const blocked = suitability.ok ? tradeBlockReason(game, 'switch', amount) : suitability.reason;
       return `<button class="text-button" data-action="action-view" data-view="menu">← 행동 목록</button>
         <p class="eyebrow">교체매매</p><h2>무엇을 바꿀까요?</h2>
         <label for="switch-from">기존 상품</label><select id="switch-from">${this.productOptions(this.switchFrom, true)}</select>
         <label for="switch-to">새 상품</label><select id="switch-to">${this.productOptions(this.switchTo, false, true)}</select>
         ${this.amountButtons('switch', this.switchFrom)}
-        <div class="preview-box"><strong>미리보기</strong><p>${suitability.ok ? this.switchPreview(amount) : suitability.reason}</p></div>
-        <button class="primary jumbo" data-action="do-switch" ${suitability.ok ? '' : 'disabled'}>교체 실행</button>`;
+        <div class="preview-box ${blocked ? 'warning' : ''}"><strong>미리보기</strong><p>${blocked ?? this.switchPreview(amount)}</p></div>
+        <button class="primary jumbo" data-action="do-switch" ${blocked ? 'disabled' : ''}>교체 실행</button>`;
     }
     if (this.actionView === 'rebalance') {
       const shares = rebalanceShares(game.profileId);
