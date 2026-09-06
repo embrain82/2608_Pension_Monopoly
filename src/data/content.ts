@@ -7,7 +7,8 @@ import profilesJson from './investor-profiles.json';
 import balanceJson from './balance-config.json';
 import tileBriefingsJson from './tile-briefings.json';
 import marketShocksJson from './market-shocks.json';
-import type { BalanceConfig, BoardTile, InvestorProfile, LearningCard, LifeEvent, MarketShock, MarketStep, PolicyRules, Product, TileBriefingSet } from '../types';
+import defaultOptionsJson from './default-options.json';
+import type { BalanceConfig, BoardTile, DefaultOption, InvestorProfile, LearningCard, LifeEvent, MarketShock, MarketStep, PolicyRules, Product, TileBriefingSet } from '../types';
 
 export const products = productsJson as Product[];
 export const marketScenario = marketJson as MarketStep[];
@@ -18,6 +19,7 @@ export const learningCards = learningJson as LearningCard[];
 export const investorProfiles = profilesJson as InvestorProfile[];
 export const balanceConfig = balanceJson as BalanceConfig;
 export const tileBriefings = tileBriefingsJson as TileBriefingSet[];
+export const defaultOptions = defaultOptionsJson as DefaultOption[];
 
 /** 칸 종류·이름·효과. 효과 규칙은 src/engine/tile-effects.ts, 설명 글은 tile-briefings.json. */
 const tileKinds: Array<Omit<BoardTile, 'index'>> = [

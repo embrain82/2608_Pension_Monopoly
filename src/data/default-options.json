@@ -1,0 +1,6 @@
+[
+  {"id":"principal","name":"원리금보장형","products":["deposit"],"blurb":"대기자금을 예금으로. 원금은 지키지만 물가를 못 따라갈 수 있어요."},
+  {"id":"lowRisk","name":"저위험","products":["shortBond","deposit"],"blurb":"단기채와 예금 절반씩. 금리 변화에 조금만 흔들려요."},
+  {"id":"midRisk","name":"중위험","products":["balanced","tdf"],"blurb":"혼합형과 TDF 절반씩. 성장과 방어를 함께 노려요."},
+  {"id":"highRisk","name":"고위험","products":["tdf","equityEtf"],"blurb":"TDF와 주식 ETF 절반씩. 장기 성장을 노리지만 크게 흔들려요."}
+]

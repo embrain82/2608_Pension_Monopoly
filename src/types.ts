@@ -188,6 +188,16 @@ export interface BalanceConfig {
   market: MarketConfig;
 }
 
+/** 디폴트옵션(사전지정운용). 「그대로」를 고르면 대기자금이 이 상품들로 균등 매수된다. */
+export type DefaultOptionId = 'principal' | 'lowRisk' | 'midRisk' | 'highRisk';
+
+export interface DefaultOption {
+  id: DefaultOptionId;
+  name: string;
+  products: ProductId[];
+  blurb: string;
+}
+
 export interface InvestorProfile {
   id: ProfileId;
   name: string;
@@ -342,6 +352,8 @@ export interface GameState {
   ghost: GhostTrack | null;
   /** 12턴 뒤 고른 수령 방식. 아직이면 null(점수는 연금 기준) */
   payoutChoice: PayoutChoice | null;
+  /** 지정한 디폴트옵션. null이면 「그대로」가 대기자금을 건드리지 않는다(고스트·시뮬 기준선) */
+  defaultOption: DefaultOptionId | null;
 }
 
 export interface TurnProductDelta {
@@ -422,8 +434,10 @@ export interface ScoreResult {
 }
 
 export interface SaveData {
-  version: 4;
+  version: 5;
   settings: { reducedMotion: boolean; sound: boolean; characters: boolean; ghost: boolean };
+  /** 마지막으로 고른 디폴트옵션. null이면 다음 판 시작에 고른다 */
+  defaultOption: DefaultOptionId | null;
   unlockedCards: string[];
   bestScore: number;
   lastSeed: string;

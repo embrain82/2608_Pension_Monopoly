@@ -1,5 +1,5 @@
 import { balanceConfig, learningCards, lifeEvents, marketScenario, marketShocks, policyRules, products } from '../data/content';
-import type { ActionKind, ActionResult, GameState, GhostTrack, PayoutChoice, ProfileId, ProductId } from '../types';
+import type { ActionKind, ActionResult, DefaultOptionId, GameState, GhostTrack, PayoutChoice, ProfileId, ProductId } from '../types';
 import { ALERT_CARD_ID, applyMarketStep, emptyMarketStep, generateMarketPath, marketPathOf } from './market-engine';
 import { pickTileBriefing } from './tile-briefing';
 import { buyProduct, liquidateForLivingCost, portfolioValue, rebalancePortfolio, sellProduct, settleOrders, switchProduct } from './portfolio-engine';
@@ -9,6 +9,7 @@ import { diceStepsForTurn, hashSeed, nextRandom } from './random-engine';
 import { applyGoalToGame, clampGoalMonthly } from './goal';
 import { REBALANCE_TILE_BONUS, applyTileArrival } from './tile-effects';
 import { payoutPlan } from './scoring-engine';
+import { applyDefaultOption, normalizeDefaultOption, suggestDefaultOption } from './default-option';
 
 export { applyGoalToGame, clampGoalMonthly };
 
@@ -27,6 +28,8 @@ export interface GameOptions {
   tileEffects?: boolean;
   /** 고스트("그대로 둔 나") 경로를 함께 계산. 시뮬·고스트 자신은 끔. 기본 켬 */
   ghost?: boolean;
+  /** 디폴트옵션. 성향 밖이면 추천값으로 바뀐다. 없으면 null(「그대로」가 대기자금을 건드리지 않음) */
+  defaultOption?: DefaultOptionId | null;
 }
 
 function initialHoldings() {
@@ -126,7 +129,8 @@ export function createGame(seed: string, profileId: ProfileId = 'balanced', goal
     extraLifeEvents: 0,
     tileEffectsEnabled,
     ghost: options.ghost === false ? null : ghostTrackFor(seed, profileId, goal, tileEffectsEnabled),
-    payoutChoice: null
+    payoutChoice: null,
+    defaultOption: options.defaultOption ? normalizeDefaultOption(profileId, options.defaultOption) : null
   };
 }
 
@@ -346,7 +350,16 @@ export function performAction(state: GameState, action: GameAction): ActionResul
     case 'sell': result = action.productId ? sellProduct(opened, action.productId, action.amount) : { ok: false, message: '매도 상품을 선택하세요.', state }; break;
     case 'switch': result = action.fromProductId && action.toProductId ? switchProduct(opened, action.fromProductId, action.toProductId, action.amount) : { ok: false, message: '교체할 두 상품을 선택하세요.', state }; break;
     case 'rebalance': result = rebalancePortfolio(opened); break;
-    case 'hold': result = { ok: true, message: '이번 턴은 행동하지 않고 현재 구성을 유지했습니다.', state: { ...opened, safeActionCount: opened.safeActionCount + 1 } }; break;
+    case 'hold': {
+      // 운용지시가 없으면 디폴트옵션이 대기자금을 운용한다(제도의 사전지정운용). 없으면 예전처럼 유지.
+      const auto = applyDefaultOption(opened);
+      result = {
+        ok: true,
+        message: auto.bought.length ? auto.message : '이번 턴은 행동하지 않고 현재 구성을 유지했습니다.',
+        state: { ...auto.state, safeActionCount: auto.state.safeActionCount + 1 }
+      };
+      break;
+    }
   }
   if (!result.ok) return { ...result, state: { ...result.state, ledger: state.ledger } };
   let acted: GameState = result.state;
@@ -408,9 +421,9 @@ export function finalizeTurn(state: GameState): GameState {
   };
 }
 
-export type AutoStrategy = 'balanced' | 'passive' | 'contributor' | 'growth' | 'steward' | 'etfOnly' | 'stopLoss' | 'momentum' | 'newsChaser';
+export type AutoStrategy = 'balanced' | 'passive' | 'contributor' | 'growth' | 'steward' | 'etfOnly' | 'stopLoss' | 'momentum' | 'newsChaser' | 'defaultOption';
 
-export const AUTO_STRATEGIES: AutoStrategy[] = ['balanced', 'passive', 'contributor', 'growth', 'steward', 'etfOnly', 'stopLoss', 'momentum', 'newsChaser'];
+export const AUTO_STRATEGIES: AutoStrategy[] = ['balanced', 'passive', 'contributor', 'growth', 'steward', 'etfOnly', 'stopLoss', 'momentum', 'newsChaser', 'defaultOption'];
 
 /** 전략이 ETF를 살 수 있도록 성향을 맞춘다. 게이트(성향 밖 매수 거절)는 그대로 둔다. */
 export function defaultProfileFor(strategy: AutoStrategy): ProfileId {
@@ -432,7 +445,9 @@ export interface AutoplayOptions extends GameOptions {
  * 같은 턴에서 `awaitingAction`이 풀릴 때까지 전략 판단을 반복한다.
  */
 export function autoplay(seed: string, strategy: AutoStrategy = 'balanced', profileId: ProfileId = defaultProfileFor(strategy), options: AutoplayOptions = {}): GameState {
-  let state = createGame(seed, profileId, options.goalMonthly ?? balanceConfig.defaultGoal, { ghost: false, ...options });
+  // defaultOption 전략만 추천 디폴트옵션을 지정한다. 나머지(고스트 기준선 passive 포함)는 없음.
+  const defaultOption = options.defaultOption ?? (strategy === 'defaultOption' ? suggestDefaultOption(profileId) : null);
+  let state = createGame(seed, profileId, options.goalMonthly ?? balanceConfig.defaultGoal, { ghost: false, ...options, defaultOption });
   let stoppedOut = false;
   const decide = (): GameAction => {
     const etfReturn = state.lastMarket.returns.equityEtf;
@@ -451,6 +466,8 @@ export function autoplay(seed: string, strategy: AutoStrategy = 'balanced', prof
       } else action = state.cash > balanceConfig.contributionAmount ? { kind: 'contribute' } : { kind: 'hold' };
     }
     else if (strategy === 'contributor') action = state.cash > balanceConfig.contributionAmount ? { kind: 'contribute' } : { kind: 'hold' };
+    // 납입 여력이 있으면 납입, 아니면 「그대로」 — 매수는 디폴트옵션에 맡긴다.
+    else if (strategy === 'defaultOption') action = state.cash > balanceConfig.safeCashThreshold + balanceConfig.contributionAmount ? { kind: 'contribute' } : { kind: 'hold' };
     else if (strategy === 'growth') action = state.turn % 2 === 1
       ? { kind: 'contribute' }
       : { kind: 'buy', productId: 'equityEtf', amount: balanceConfig.contributionAmount };
