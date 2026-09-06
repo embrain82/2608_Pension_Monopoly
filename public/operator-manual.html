@@ -47,13 +47,14 @@
     </section>
 
     <section id="shipped">
-      <h2>2. 구현된 기능 (2026-09-06, <code>main</code> 태그 <code>prod-2026-09-06-bundle-a</code>)</h2>
+      <h2>2. 구현된 기능 (2026-09-06, <code>main</code> 태그 <code>prod-2026-09-06-sell-switch-fix</code>)</h2>
       <table>
         <thead><tr><th>영역</th><th>상태</th><th>메모</th></tr></thead>
         <tbody>
           <tr><td>12턴 시장 먼저 루프</td><td>구현</td><td><code>startTurn</code>: 턴+1 → 위치 → <strong>시장 반영·펀드 주문 체결</strong> → 급여 → 칸 효과 → 생활사건/운용 대기. <code>performAction</code>: 행동(운용지시 칸은 2회) → <code>finalizeTurn</code>(12턴 잔여 주문 강제 체결·잔여 환급·<code>irpHistory</code>). 속보의 수익률은 이미 보유분에 들어간 값이고 지금 산 상품은 다음 턴 수익률부터 받는다. 장부 <code>ledger.open / afterMarket / beforeAction</code></td></tr>
           <tr><td>칸 효과 10종</td><td>구현</td><td><code>tile-effects.ts</code>(순수). 연말정산 통과·도착 환급(<code>tax-refund</code>), 상품 거리 스포트라이트(즉시 체결·예금 해지 면제·이해 +1), 시장 뉴스·금리 전망길 신호 미리 보기, 생활 사건 칸 추가 사건(판당 1회, 2~11턴, 시드 일정 없는 턴), 운용지시 행동 2회, 제도 안내 카드 1장 + 이해 +1, 리밸런싱 칸 「지금 → 목표」 + 이해 +2, 은퇴 전망대(분기 20개 p10/p50/p90), 성향 점검(±10%p 이해 +1), 분산 광장(3종 이해 +1). 수익률·강제 매매 없음. <code>createGame(…, { tileEffects: false })</code>로 끌 수 있음(시뮬용)</td></tr>
           <tr><td>연말정산 환급</td><td>구현</td><td><code>contribute()</code>는 공제액을 <code>pendingTaxCredit</code>에 보류. 출발 칸 통과·도착 시 생활자금 환급 + 속보 스트립 + 효과음 <code>refund</code>. 12턴 마감 시 잔여 일괄 환급(총액 손해 없음). HUD에 「환급 대기」 줄</td></tr>
+          <tr><td>매도·교체 「기존 상품」 선택 보정</td><td>구현(핫픽스)</td><td><code>src/ui/action-form.ts</code>(순수). 매도·바꾸기 시트를 그릴 때 내부 선택값(<code>selectedSell</code>·<code>switchFrom</code>)을 <code>pickHeldProduct</code>로 10만원 이상 보유 상품에 맞춘다. 전액 교체·매도·중도인출 뒤 선택값이 잔고 0 상품에 남아 셀렉트에는 첫 보유 상품(예: 혼합형)이 보이는데 금액 프리셋이 0만원으로 계산되던 오류 수정. 보유 없음·10만원 미만이면 <code>tradeBlockReason</code>으로 실행 버튼 비활성 + 미리보기 노란 안내</td></tr>
           <tr><td>고스트 "그대로 둔 나"</td><td>구현</td><td><code>createGame</code>이 <code>autoplay(seed, 'passive')</code>로 <code>ghost.irpHistory·finalCash</code> 저장. 정산 비교 줄, 결과 스파크라인 점선 + 「판단의 값어치」 + 격파 배지/가장 벌어진 턴, HUD 목표 게이지 마커. <code>settings.ghost</code> 기본 켬</td></tr>
           <tr><td>시드 시장 경로</td><td>구현</td><td>금리 국면 엔진(퍼센트, 0.25 스텝), 충격 6종 2~3회, 직전 턴 신호. 수익률과 헤드라인 방향 일치</td></tr>
           <tr><td>24칸 보드·주사위</td><td>구현</td><td>합만큼 이동. 턴 게이트 아님. 칸마다 <code>effect</code> 1개(<code>content.ts boardTiles</code>)</td></tr>
@@ -107,6 +108,7 @@
           <tr><td><code>src/ui/token3d.ts</code></td><td>2.5D 말(퍽) 오버레이. 칸 중심 퍼센트(<code>tokenPercent</code>), 마크업(<code>renderTokenLayer</code>, <code>aria-hidden</code>). SVG 말은 <code>tokenInSvg: false</code>로 생략. 이동은 <code>app.ts</code>의 <code>animateToken</code>이 직전 칸→현재 칸을 Web Animations API로 붙임(렌더마다 노드가 새로 만들어져 CSS transition은 못 씀)</td></tr>
           <tr><td><code>src/ui/sound.ts</code> / <code>sound-dom.ts</code></td><td>효과음 스크립트 9종(순수, 0.6초 이내, <code>refund</code> 포함) / WebAudio 재생기 <code>SoundPlayer</code></td></tr>
           <tr><td><code>src/ui/result-chart.ts</code></td><td>IRP 스파크라인 시리즈 2개(<code>sparklinePoints</code>, 공통 축 <code>chartDomain</code>, 고스트 점선·끝 라벨), 최대 낙폭 턴(<code>worstTurn</code>)</td></tr>
+          <tr><td><code>src/ui/action-form.ts</code></td><td>매도·교체 시트 순수 헬퍼: 보유 상품 목록(<code>heldProductIds</code>, 최소 거래 단위 <code>MIN_TRADE_AMOUNT</code> 10만원), 선택값 보정(<code>pickHeldProduct</code>), 실행 차단 사유(<code>tradeBlockReason</code>)</td></tr>
           <tr><td><code>src/ui/ui-state.ts</code></td><td>LocalStorage 로드·마이그레이션(v4: <code>settings.ghost</code>)</td></tr>
           <tr><td><code>src/data/content.ts</code> / <code>*.json</code></td><td><code>boardTiles</code>(칸 종류·<code>effect</code>·스포트라이트 <code>productId</code>)와 <code>validateContent</code> / 상품·성향·정책·사건·학습·칸 설명</td></tr>
           <tr><td><code>public/*.html</code></td><td>이 매뉴얼. 빌드 시 <code>dist/</code>로 복사</td></tr>
@@ -127,7 +129,7 @@ npm run typecheck
 npm run test
 npm run simulate -- --runs=1000
 npm run build</code></pre>
-      <p>테스트는 Vitest입니다. 매뉴얼 문자열 검사를 포함해 회귀 222개(2026-09-06)입니다. 콘텐츠 검사는 <code>validateContent()</code>가 상품 6개, 시장 템플릿 12턴, 충격 카탈로그 6종, 국면 설정 4개, 칸 설명 24×5, 위험등급 1~5, 보드 24칸의 <code>effect</code>와 스포트라이트 <code>productId</code>를 확인합니다.</p>
+      <p>테스트는 Vitest입니다. 매뉴얼 문자열 검사를 포함해 회귀 231개(2026-09-06, <code>action-form.test.ts</code> 8개 포함)입니다. 콘텐츠 검사는 <code>validateContent()</code>가 상품 6개, 시장 템플릿 12턴, 충격 카탈로그 6종, 국면 설정 4개, 칸 설명 24×5, 위험등급 1~5, 보드 24칸의 <code>effect</code>와 스포트라이트 <code>productId</code>를 확인합니다.</p>
       <p><code>tests/market-regime.test.ts</code>는 시드 200개로 금리 이동 턴 비율(≥50%), 빅스텝 판 비율(≥60%), 충격 슬롯 규칙, 신호 비율, ETF 기대수익(양수·예금 초과)과 표준편차(≥3.5%p)를 고정합니다. <code>tests/balance-gate.test.ts</code>는 전략 9종 × 100판으로 「분산·납입·리밸런싱 &gt; 관망·집중·추격」, 위험한도 추종형의 낙폭·3별 비독점, 주사위 합–총점 무상관(|r|&lt;0.1), <strong><code>newsChaser</code>(속보 보고 갈아타기)가 <code>balanced</code>를 이기는 시드 ≤ 50%</strong>, 칸 효과 켬/끔의 월 연금 차이 한도를 고정합니다. 시장 상수나 턴 순서를 바꾸면 이 두 파일이 먼저 깨집니다.</p>
       <p><code>tests/turn-order.test.ts</code>는 시장 먼저 순서(턴 시작 반영, <code>finalizeTurn</code> 재반영 없음, ETF 매수 턴 수익률 미적용, 펀드 다음 턴 체결, 12턴 강제 체결, 장부 3점 분해)를, <code>tests/tile-effects.test.ts</code>는 칸 효과 10종·환급 보류/통과/마감·행동 2회·결정성·끔 옵션을, <code>tests/ghost.test.ts</code>는 고스트 경로 = <code>autoplay(seed, 'passive')</code>와 「아무 것도 안 하면 곡선이 겹친다」를 고정합니다.</p>
       <p>묶음 A 게이트 측정(시드 400, 2026-09-06, 기준 <code>main 9624cb0</code>): <code>newsChaser &gt; balanced</code> 21%. <code>passive</code> 월 연금 479,415원 → 479,415원(0%), <code>contributor</code> 529,415 → 533,778원(+0.8%). <code>momentum</code>·<code>stopLoss</code> 별 평균 1.07/1.58 → 1.06/0.96(오르지 않음). <code>passive</code> 0별 41%. <code>steward</code> 3별 94% → 94%, <code>balanced</code> 63% → 70%. 칸 효과 켬/끔 월 연금 차이 최대 +4,363원(<code>contributor</code>). <code>contributor</code> 별 1.91 → 1.63은 환급이 판 중간에 들어와 다시 납입되면서 마감 생활자금이 600만 원 아래로 내려가는 시드가 늘어난 것으로, 「전부 납입」 전략의 약점이 드러난 결과입니다.</p>
@@ -149,7 +151,7 @@ npm run build</code></pre>
       <p>수동 운영 배포: <code>npx vercel login</code> 후 프로젝트 루트에서 <code>npx vercel --yes --prod</code>.</p>
       <p class="warn"><code>.vercel/</code>과 <code>.env.local</code>에는 토큰이 생길 수 있습니다. 저장소에 커밋하지 마세요.</p>
       <h3>운영 태그와 되돌리기</h3>
-      <p>운영 배포마다 <code>main</code> 머지 커밋에 <code>prod-YYYY-MM-DD[-이름]</code> 태그를 붙입니다(예: <code>prod-2026-09-04-market-engine</code>, <code>prod-2026-09-05-drama-core</code>, <code>prod-2026-09-05-cartoon-sound</code>, <code>prod-2026-09-05-token-hotfix</code>, <code>prod-2026-09-06-token-3d</code>, <code>prod-2026-09-06-manual-diagrams</code>, <code>prod-2026-09-06-bundle-a</code>). PR마다 두 매뉴얼(<code>public/user-manual.html</code>·<code>operator-manual.html</code>)과 <code>tests/manuals.test.ts</code>를 같은 PR에서 현행화하는 것이 <strong>필수 절차</strong>입니다. 규칙·화면·저장 스키마가 바뀌면 다이어그램(<code>docs/diagrams/*.json</code>)도 함께 고칩니다. 배포 확인은 운영 URL의 <code>index-*.js</code> 해시가 로컬 <code>npm run build</code> 결과와 같은지, 두 매뉴얼에 그 릴리스의 문구(예: Q36)가 있는지로 합니다.</p>
+      <p>운영 배포마다 <code>main</code> 머지 커밋에 <code>prod-YYYY-MM-DD[-이름]</code> 태그를 붙입니다(예: <code>prod-2026-09-04-market-engine</code>, <code>prod-2026-09-05-drama-core</code>, <code>prod-2026-09-05-cartoon-sound</code>, <code>prod-2026-09-05-token-hotfix</code>, <code>prod-2026-09-06-token-3d</code>, <code>prod-2026-09-06-manual-diagrams</code>, <code>prod-2026-09-06-bundle-a</code>, <code>prod-2026-09-06-sell-switch-fix</code>). PR마다 두 매뉴얼(<code>public/user-manual.html</code>·<code>operator-manual.html</code>)과 <code>tests/manuals.test.ts</code>를 같은 PR에서 현행화하는 것이 <strong>필수 절차</strong>입니다. 규칙·화면·저장 스키마가 바뀌면 다이어그램(<code>docs/diagrams/*.json</code>)도 함께 고칩니다. 배포 확인은 운영 URL의 <code>index-*.js</code> 해시가 로컬 <code>npm run build</code> 결과와 같은지, 두 매뉴얼에 그 릴리스의 문구(예: Q36)가 있는지로 합니다.</p>
       <p>되돌리기: (1) Vercel 대시보드 Deployments에서 직전 Production을 <strong>Promote</strong>(가장 빠름, 코드 변경 없음). (2) 코드로 되돌릴 때는 <code>git revert -m 1 &lt;머지 커밋&gt;</code>을 <code>main</code>에 푸시(자동 배포). 태그를 강제로 옮기거나 <code>main</code>을 force-push하지 않습니다.</p>
       <h3>GitHub Pages(보조)</h3>
       <p><code>.github/workflows/pages.yml</code>은 <strong>수동 실행 전용</strong>입니다(Pages가 꺼진 저장소에서 <code>main</code> 푸시마다 실패 알림이 오는 것을 막기 위해 자동 트리거를 제거). 저장소 Settings → Pages → Source를 <strong>GitHub Actions</strong>로 한 뒤 Actions 탭에서 워크플로를 직접 실행하면 <code>https://embrain82.github.io/2608_Pension_Monopoly/</code> 형태가 됩니다. Vite <code>base</code>가 상대경로라 하위 경로에서도 동작합니다.</p>
@@ -285,6 +287,7 @@ npm run build</code></pre>
           <tr><td>Q43</td><td>생활 사건 칸(4·15·22번) 도착, 시드 일정 사건 없는 2~11턴</td><td>스트립 「생활 사건 칸 · 사건 하나 더」(♥, 강조) 후 생활사건 창. 같은 판에서 두 번째 도착은 「추가 사건은 한 판에 한 번」 안내만. 같은 시드 재시작 시 같은 턴·같은 사건</td></tr>
           <tr><td>Q44</td><td>은퇴 전망대(12번)·성향 점검(20번)·분산 광장(17번)·제도 안내(7·18번)·리밸런싱(10·23번) 도착</td><td>각각 「이대로 가면 월 연금 A~B(중간 C)」, 「진단 X · 행동 Y(위험비중 %, 성향 목표 %)」, 「5% 이상 보유 N종」, 「카드 제목 — 요약 (이해 +1)」과 도감 해금, 「예금 a%→30% · …」 + 「이번 턴 리밸런싱하면 이해 +2」(리밸런싱 미리보기에도 지금→목표·보너스). 같은 시드·같은 구성이면 전망 범위 동일</td></tr>
           <tr><td>Q45</td><td>고스트(기본 켬) / 설정에서 끔</td><td>켬: 목표 게이지 아래 점선 마커, 정산 「그대로 뒀다면 X · 내 판단 Y (±Z)」, 결과 곡선 회색 점선 + 「내 판단」·「그대로 둔 나」 라벨(겹치지 않음) + 「판단의 값어치 월 연금 ±N · 총자산 기준 ±M」 + 이기면 「고스트 격파」/지면 「가장 벌어진 턴」. 12턴 「그대로」만 하면 두 곡선이 정확히 겹치고 값어치 0원. 끔: 마커·줄·점선·블록 모두 없음, 카드 제목에 「그대로 둔 나와 비교」 없음</td></tr>
+          <tr><td>Q46</td><td>턴 N 「바꾸기」로 예금 → 혼합형 <strong>가능액</strong> 교체(예금 잔고 0) → 턴 N+1 「바꾸기」·「매도」 열기</td><td>기존 상품 셀렉트에 혼합형(첫 보유 상품)이 보이고 금액 프리셋도 혼합형 잔고 기준(기본 800만원·절반 400만원·가능액 = 잔고). 「교체 실행」/「매도 실행」이 실제로 체결돼 정산이 뜬다. 회귀 기준(bundle-a 이전): 셀렉트는 혼합형인데 기본·절반·가능액 모두 0만원, 미리보기 「0원 교체」, 실행해도 「잔고가 부족합니다」로 아무 변화 없음. 보유 상품이 하나도 없으면(전부 매도 후 대기자금만) 실행 버튼 비활성 + 미리보기 「매도할 보유 상품이 없습니다」</td></tr>
           <tr><td>Q29</td><td>동작 줄이기 켬</td><td>다이얼·화살표·막대·숫자 트윈이 즉시 끝 상태. 정보 누락 없음. 목표 게이지 95% 눈금과 상태 한 줄, 위험 게이지 70% 선은 그대로</td></tr>
           <tr><td>Q9</td><td>안정형 리밸런싱 미리보기</td><td>예금·단기채만, 퍼센트 합 100. 실행 후 ETF/혼합 0</td></tr>
           <tr><td>Q10</td><td>운용 모달 열고 닫기</td><td>턴 유지. 그대로 두기 하면 정산</td></tr>
@@ -343,7 +346,7 @@ npm run build</code></pre>
         <li>lint / typecheck / test / build 초록</li>
         <li>Vercel(또는 동등 정적 호스팅)에서 게임·두 매뉴얼 URL 200</li>
         <li>면책 문구, 출처 3링크, 기준일 확인</li>
-        <li>Q1~Q45 스모크(최소 Q1·Q14·Q24·Q27·Q28·Q30·Q32·Q36·Q37·Q39·Q40·Q45)</li>
+        <li>Q1~Q46 스모크(최소 Q1·Q14·Q24·Q27·Q28·Q30·Q32·Q36·Q37·Q39·Q40·Q45·Q46)</li>
         <li>두 매뉴얼·<code>tests/manuals.test.ts</code>·다이어그램이 이 릴리스의 규칙·화면과 일치(필수 절차)</li>
         <li><code>main</code> 머지 커밋에 <code>prod-*</code> 태그, 운영 URL 번들 해시 확인</li>
         <li>정책 JSON이 시행 규정과 어긋나지 않는지 담당 검수</li>
@@ -352,7 +355,7 @@ npm run build</code></pre>
     </section>
 
     <footer>
-      <p>연금로드 운영자 매뉴얼 · 구현 기준 2026-09-06 (<code>main</code> · 태그 <code>prod-2026-09-06-bundle-a</code>) · 저장소 embrain82/2608_Pension_Monopoly</p>
+      <p>연금로드 운영자 매뉴얼 · 구현 기준 2026-09-06 (<code>main</code> · 태그 <code>prod-2026-09-06-sell-switch-fix</code>) · 저장소 embrain82/2608_Pension_Monopoly</p>
     </footer>
   </main>
 </body>

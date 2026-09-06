@@ -105,8 +105,9 @@ describe('배포용 매뉴얼', () => {
     expect(operator).toContain('settlement-engine.ts');
     expect(operator).toContain('2.5D 말');
     expect(operator).toContain('연출 코어');
-    expect(operator).toContain('회귀 222개');
-    expect(operator).toContain('Q1~Q45');
+    expect(operator).toContain('회귀 231개');
+    expect(operator).toContain('Q1~Q46');
+    expect(operator).not.toContain('Q1~Q45');
     expect(operator).not.toContain('Q1~Q16');
     expect(operator).not.toContain('Q1~Q36');
     expect(user).toContain('구현 기준 2026-09-06');
@@ -151,6 +152,20 @@ describe('배포용 매뉴얼', () => {
     for (const id of ['Q37', 'Q38', 'Q39', 'Q40', 'Q41', 'Q42', 'Q43', 'Q44', 'Q45']) expect(operator).toContain(`<td>${id}</td>`);
     expect(operator).not.toContain('브리핑 → 생활사건 → 행동 1회 → 정산');
     expect(operator).not.toContain('WebAudio 합성 8종');
+  });
+
+  it('매도·교체 선택 보정 핫픽스: 두 매뉴얼이 규칙과 QA 케이스를 담는다', () => {
+    const user = readFileSync('public/user-manual.html', 'utf8');
+    const operator = readFileSync('public/operator-manual.html', 'utf8');
+    expect(user).toContain('10만 원 이상 보유한 상품만');
+    expect(user).toContain('첫 보유 상품으로 자동으로 넘어갑니다');
+    expect(user).toContain('위험 상품을 안전자산으로 옮기는 가장 빠른 길');
+    expect(user).toContain('C38.');
+    expect(operator).toContain('action-form.ts');
+    expect(operator).toContain('pickHeldProduct');
+    expect(operator).toContain('tradeBlockReason');
+    expect(operator).toContain('<td>Q46</td>');
+    expect(operator).toContain('prod-2026-09-06-sell-switch-fix');
   });
 
   it('다이어그램 5장이 배포 폴더에 있고 운영자 매뉴얼이 링크한다', () => {
