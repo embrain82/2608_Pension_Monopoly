@@ -1,0 +1,345 @@
+{
+  "schema_version": 1,
+  "diagram_type": "dataflow",
+  "meta": {
+    "title": "연금로드 데이터 흐름 — 시드에서 결과까지",
+    "output": "../../public/diagrams/seed-dataflow.html",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "market-gen",
+        "label": "시장 생성",
+        "focus": [
+          "seed",
+          "regime",
+          "shocks",
+          "returns"
+        ],
+        "note": "시드 → 국면 상태기계 → 충격·신호 → 상품 6종 턴 수익률. 게임 시작 시 12턴이 한 번에 만들어진다."
+      },
+      {
+        "id": "turn-apply",
+        "label": "턴 반영",
+        "focus": [
+          "returns",
+          "life",
+          "actions",
+          "state"
+        ],
+        "note": "매 턴 수익률·사건·플레이어 행동이 같은 GameState에 순수 함수로 반영된다."
+      },
+      {
+        "id": "outcome",
+        "label": "결과",
+        "focus": [
+          "state",
+          "score",
+          "save"
+        ],
+        "note": "최종 IRP ÷ 240 = 월 연금. 별·100점은 체크리스트, 기록만 LocalStorage에 남는다."
+      }
+    ],
+    "viewBox": [
+      1080,
+      500
+    ]
+  },
+  "stages": [
+    {
+      "label": "입력"
+    },
+    {
+      "label": "시장 생성"
+    },
+    {
+      "label": "턴 반영"
+    },
+    {
+      "label": "상태"
+    },
+    {
+      "label": "결과"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "seed",
+      "type": "external",
+      "label": "시드",
+      "sublabel": "해시 → 난수열",
+      "stage": 0,
+      "row": 1
+    },
+    {
+      "id": "regime",
+      "type": "backend",
+      "label": "국면 엔진",
+      "sublabel": "금리 · 물가 · 주가",
+      "stage": 1,
+      "row": 0
+    },
+    {
+      "id": "shocks",
+      "type": "security",
+      "label": "충격 · 신호",
+      "sublabel": "6종 · 2~3회 · 신호",
+      "stage": 1,
+      "row": 1
+    },
+    {
+      "id": "returns",
+      "type": "backend",
+      "label": "return-model",
+      "sublabel": "상품 6종 수익률",
+      "stage": 2,
+      "row": 0
+    },
+    {
+      "id": "life",
+      "type": "security",
+      "label": "생활사건 일정",
+      "sublabel": "3회 · 2~11턴",
+      "stage": 1,
+      "row": 2
+    },
+    {
+      "id": "actions",
+      "type": "frontend",
+      "label": "플레이어 행동",
+      "sublabel": "납입 · 매매 · 그대로",
+      "stage": 2,
+      "row": 1
+    },
+    {
+      "id": "state",
+      "type": "database",
+      "label": "GameState",
+      "sublabel": "보유 · 현금 · 기록",
+      "stage": 3,
+      "row": 1
+    },
+    {
+      "id": "score",
+      "type": "backend",
+      "label": "calculateScore",
+      "sublabel": "월 연금 · 별 · 100점",
+      "stage": 4,
+      "row": 0
+    },
+    {
+      "id": "save",
+      "type": "database",
+      "label": "LocalStorage",
+      "sublabel": "기록 · 성향 · 목표",
+      "stage": 4,
+      "row": 2
+    }
+  ],
+  "flows": [
+    {
+      "id": "seed-regime",
+      "from": "seed",
+      "to": "regime",
+      "label": "12턴 경로 시드",
+      "classification": "결정적",
+      "variant": "emphasis",
+      "fromSide": "top",
+      "toSide": "left",
+      "via": [
+        [
+          100,
+          157
+        ]
+      ],
+      "labelAt": [
+        100,
+        214
+      ]
+    },
+    {
+      "id": "seed-shocks",
+      "from": "seed",
+      "to": "shocks",
+      "label": "슬롯 추첨",
+      "classification": "4~6 · 7~9 · 10~11턴",
+      "route": "straight",
+      "labelAt": [
+        207,
+        254
+      ]
+    },
+    {
+      "id": "seed-life",
+      "from": "seed",
+      "to": "life",
+      "label": "사건 턴 추첨",
+      "classification": "3회",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "left",
+      "via": [
+        [
+          100,
+          385
+        ]
+      ],
+      "labelAt": [
+        100,
+        328
+      ]
+    },
+    {
+      "id": "shock-regime",
+      "from": "shocks",
+      "to": "regime",
+      "label": "지표 이동 · 국면 전이",
+      "classification": "충격 강제치",
+      "variant": "security",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "route": "straight",
+      "labelAt": [
+        315,
+        214
+      ]
+    },
+    {
+      "id": "regime-returns",
+      "from": "regime",
+      "to": "returns",
+      "label": "Δ금리 · 주가 · 물가",
+      "classification": "턴별 지표",
+      "variant": "emphasis",
+      "route": "straight",
+      "labelAt": [
+        422,
+        140
+      ]
+    },
+    {
+      "id": "returns-state",
+      "from": "returns",
+      "to": "state",
+      "label": "applyMarketStep",
+      "classification": "턴마다 1회",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "top",
+      "via": [
+        [
+          637.5,
+          157
+        ],
+        [
+          637.5,
+          214
+        ],
+        [
+          745,
+          214
+        ]
+      ],
+      "labelAt": [
+        690,
+        198
+      ]
+    },
+    {
+      "id": "actions-state",
+      "from": "actions",
+      "to": "state",
+      "label": "performAction",
+      "classification": "턴당 1회",
+      "route": "straight",
+      "labelAt": [
+        637,
+        254
+      ]
+    },
+    {
+      "id": "life-state",
+      "from": "life",
+      "to": "state",
+      "label": "비용 · 강제 매도",
+      "classification": "생활자금 우선",
+      "variant": "security",
+      "fromSide": "right",
+      "toSide": "bottom",
+      "via": [
+        [
+          745,
+          385
+        ]
+      ],
+      "labelAt": [
+        560,
+        368
+      ]
+    },
+    {
+      "id": "state-score",
+      "from": "state",
+      "to": "score",
+      "label": "최종 IRP ÷ 240",
+      "classification": "월 연금",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "left",
+      "via": [
+        [
+          852,
+          271
+        ],
+        [
+          852,
+          157
+        ]
+      ],
+      "labelAt": [
+        852,
+        214
+      ]
+    },
+    {
+      "id": "score-save",
+      "from": "score",
+      "to": "save",
+      "label": "최고 기록",
+      "classification": "bestScore",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "route": "straight",
+      "labelAt": [
+        960,
+        271
+      ]
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "시장은 시작 시 확정",
+      "items": [
+        "generateMarketPath(seed)가 12턴을 한 번에 생성",
+        "행동은 시장을 못 바꾸고, 시장이 보유분에 적용"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "사건과 충격",
+      "items": [
+        "충격 6종 · 슬롯 3개 · 직전 턴 강/약/거짓 신호",
+        "생활사건은 생활자금 → 대기자금 → 보유 매도"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "저장 범위",
+      "items": [
+        "판 도중 GameState는 저장 안 함",
+        "LocalStorage v3: 설정·기록·성향·목표·카드"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,442 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "연금로드 시스템 구성",
+    "output": "../../public/diagrams/architecture.html",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/embrain82/2608_Pension_Monopoly",
+      "revision": "090480a320781555a2badd90742acf2b5237a24f"
+    },
+    "views": [
+      {
+        "id": "play-path",
+        "label": "플레이 경로",
+        "focus": [
+          "browser",
+          "app",
+          "game",
+          "market",
+          "portfolio",
+          "scoring"
+        ],
+        "note": "클릭 한 번이 엔진의 순수 함수 호출로 바뀌어 새 GameState를 돌려받는 길."
+      },
+      {
+        "id": "render-path",
+        "label": "렌더·연출",
+        "focus": [
+          "app",
+          "views",
+          "fx"
+        ],
+        "note": "상태를 마크업으로 바꾸고, DOM이 필요한 애니메이션·소리만 fx 계층이 맡는다."
+      },
+      {
+        "id": "data-and-save",
+        "label": "데이터와 저장",
+        "focus": [
+          "data",
+          "storage",
+          "vercel"
+        ],
+        "note": "규칙 숫자는 JSON, 플레이어 설정·기록은 LocalStorage, 배포는 정적 파일."
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "vercel",
+      "type": "cloud",
+      "label": "Vercel 정적 호스팅",
+      "sublabel": "dist/ 정적 배포",
+      "pos": [
+        40,
+        140
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "tag": "main 머지 → 배포"
+    },
+    {
+      "id": "browser",
+      "type": "external",
+      "label": "플레이어 브라우저",
+      "sublabel": "데스크톱 · 모바일",
+      "pos": [
+        40,
+        320
+      ],
+      "size": [
+        160,
+        64
+      ]
+    },
+    {
+      "id": "views",
+      "type": "frontend",
+      "label": "렌더 모듈",
+      "sublabel": "보드 · 속보 · 정산 · HUD",
+      "pos": [
+        290,
+        140
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "sources": [
+        {
+          "path": "src/ui/board.ts"
+        },
+        {
+          "path": "src/ui/news-flash.ts"
+        },
+        {
+          "path": "src/ui/settlement.ts"
+        }
+      ]
+    },
+    {
+      "id": "app",
+      "type": "frontend",
+      "label": "PensionRoadApp",
+      "sublabel": "화면·모달 상태기계",
+      "pos": [
+        290,
+        320
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "tag": "news → settle",
+      "sources": [
+        {
+          "path": "src/ui/app.ts"
+        }
+      ]
+    },
+    {
+      "id": "fx",
+      "type": "frontend",
+      "label": "연출 실행",
+      "sublabel": "트윈 · 소리 · 말 이동",
+      "pos": [
+        290,
+        500
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "sources": [
+        {
+          "path": "src/ui/fx-dom.ts"
+        },
+        {
+          "path": "src/ui/sound-dom.ts"
+        },
+        {
+          "path": "src/ui/token3d.ts"
+        }
+      ]
+    },
+    {
+      "id": "storage",
+      "type": "database",
+      "label": "LocalStorage",
+      "sublabel": "save-v1 · 설정·기록",
+      "pos": [
+        550,
+        140
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "sources": [
+        {
+          "path": "src/ui/ui-state.ts"
+        }
+      ]
+    },
+    {
+      "id": "game",
+      "type": "backend",
+      "label": "game-engine",
+      "sublabel": "12턴 루프 · 정산",
+      "pos": [
+        550,
+        320
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "sources": [
+        {
+          "path": "src/engine/game-engine.ts"
+        }
+      ]
+    },
+    {
+      "id": "tests",
+      "type": "external",
+      "label": "검증",
+      "sublabel": "Vitest 168 · 시뮬 8전략",
+      "pos": [
+        550,
+        600
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "sources": [
+        {
+          "path": "tests/balance-gate.test.ts"
+        },
+        {
+          "path": "scripts/simulate.ts"
+        }
+      ]
+    },
+    {
+      "id": "market",
+      "type": "backend",
+      "label": "market · regime",
+      "sublabel": "시장 경로 · 충격 · 신호",
+      "pos": [
+        820,
+        200
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "sources": [
+        {
+          "path": "src/engine/market-engine.ts"
+        },
+        {
+          "path": "src/engine/regime-engine.ts"
+        },
+        {
+          "path": "src/engine/return-model.ts"
+        }
+      ]
+    },
+    {
+      "id": "scoring",
+      "type": "backend",
+      "label": "scoring · settlement",
+      "sublabel": "월 연금 · 별 · 턴 요약",
+      "pos": [
+        820,
+        320
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "sources": [
+        {
+          "path": "src/engine/scoring-engine.ts"
+        },
+        {
+          "path": "src/engine/settlement-engine.ts"
+        }
+      ]
+    },
+    {
+      "id": "portfolio",
+      "type": "backend",
+      "label": "portfolio · policy",
+      "sublabel": "매매 · 70% · 성향",
+      "pos": [
+        820,
+        440
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "sources": [
+        {
+          "path": "src/engine/portfolio-engine.ts"
+        },
+        {
+          "path": "src/engine/policy-engine.ts"
+        }
+      ]
+    },
+    {
+      "id": "data",
+      "type": "database",
+      "label": "콘텐츠 JSON",
+      "sublabel": "products · balance · cards",
+      "pos": [
+        1080,
+        320
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "tag": "validateContent()",
+      "sources": [
+        {
+          "path": "src/data/content.ts"
+        },
+        {
+          "path": "src/data/balance-config.json"
+        }
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "브라우저 안에서 전부 실행 — 서버·API·로그인 없음",
+      "wraps": [
+        "views",
+        "app",
+        "fx",
+        "storage",
+        "game",
+        "market",
+        "scoring",
+        "portfolio",
+        "data"
+      ]
+    },
+    {
+      "kind": "security-group",
+      "label": "순수 함수 엔진 · DOM 없음 · 같은 시드 = 같은 판",
+      "wraps": [
+        "game",
+        "market",
+        "scoring",
+        "portfolio",
+        "data"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "deploy",
+      "from": "vercel",
+      "to": "browser",
+      "label": "정적 파일",
+      "labelDy": 24
+    },
+    {
+      "id": "input",
+      "from": "browser",
+      "to": "app",
+      "label": "클릭 · 키보드",
+      "variant": "emphasis"
+    },
+    {
+      "id": "render",
+      "from": "app",
+      "to": "views",
+      "label": "마크업",
+      "labelDy": -40
+    },
+    {
+      "id": "animate",
+      "from": "app",
+      "to": "fx",
+      "label": "WAAPI · WebAudio",
+      "variant": "dashed",
+      "labelDy": 24
+    },
+    {
+      "id": "save",
+      "from": "app",
+      "to": "storage",
+      "label": "saveSave",
+      "fromSide": "top",
+      "toSide": "left"
+    },
+    {
+      "id": "act",
+      "from": "app",
+      "to": "game",
+      "label": "performAction",
+      "variant": "emphasis"
+    },
+    {
+      "id": "market-path",
+      "from": "game",
+      "to": "market",
+      "label": "applyMarketStep",
+      "fromSide": "top",
+      "toSide": "left"
+    },
+    {
+      "id": "summary",
+      "from": "game",
+      "to": "scoring",
+      "label": "summarizeTurn"
+    },
+    {
+      "id": "trade",
+      "from": "game",
+      "to": "portfolio",
+      "label": "buy · sell · switch",
+      "fromSide": "bottom",
+      "toSide": "left"
+    },
+    {
+      "id": "market-data",
+      "from": "market",
+      "to": "data",
+      "label": "market 계수"
+    },
+    {
+      "id": "policy-data",
+      "from": "portfolio",
+      "to": "data",
+      "label": "products · policy"
+    },
+    {
+      "id": "simulate",
+      "from": "tests",
+      "to": "game",
+      "label": "autoplay",
+      "variant": "dashed"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "UI 계층",
+      "items": [
+        "app.ts가 화면·모달·설정 상태를 들고 렌더",
+        "DOM 연출은 fx-dom · token3d · sound-dom만"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "엔진 계층",
+      "items": [
+        "GameState → 새 GameState, 전부 순수 함수",
+        "시드 FNV-1a → xorshift32로 판 재현"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "데이터·배포",
+      "items": [
+        "규칙 숫자는 src/data/*.json + validateContent()",
+        "저장은 설정·기록·성향·목표만, 배포는 Vercel 정적"
+      ]
+    }
+  ]
+}

@@ -88,4 +88,42 @@ describe('배포용 매뉴얼', () => {
     expect(operator).toContain('Q28');
     expect(operator).toContain('Q29');
   });
+
+  it('2026-09-06 현행화: 구현 기준일·운영 태그·모듈 목록·기능 목록이 최신이다', () => {
+    const user = readFileSync('public/user-manual.html', 'utf8');
+    const operator = readFileSync('public/operator-manual.html', 'utf8');
+    expect(operator).toContain('구현 기준 2026-09-06');
+    expect(operator).not.toContain('구현 기준 2026-08-17');
+    expect(operator).not.toContain('2026-08-17)');
+    expect(operator).toContain('prod-2026-09-06-token-3d');
+    expect(operator).toContain('운영 태그와 되돌리기');
+    expect(operator).toContain('Promote');
+    expect(operator).toContain('git revert -m 1');
+    expect(operator).toContain('board.ts');
+    expect(operator).toContain('dice.ts');
+    expect(operator).toContain('market-view.ts');
+    expect(operator).toContain('settlement-engine.ts');
+    expect(operator).toContain('2.5D 말');
+    expect(operator).toContain('연출 코어');
+    expect(operator).toContain('회귀 169개');
+    expect(operator).toContain('Q1~Q36');
+    expect(operator).not.toContain('Q1~Q16');
+    expect(user).toContain('구현 기준 2026-09-06');
+    expect(user).not.toContain('구현 기준 2026-08-17');
+    expect(user).toContain('12턴 IRP 곡선');
+    expect(user).toContain('효과음 8종');
+    expect(user).toContain('설정(동작 줄이기·캐릭터 표시·효과음)');
+  });
+
+  it('다이어그램 5장이 배포 폴더에 있고 운영자 매뉴얼이 링크한다', () => {
+    const operator = readFileSync('public/operator-manual.html', 'utf8');
+    expect(operator).toContain('href="./diagrams/"');
+    const index = readFileSync('public/diagrams/index.html', 'utf8');
+    for (const name of ['architecture', 'turn-workflow', 'seed-dataflow', 'game-lifecycle', 'action-sequence']) {
+      expect(index).toContain(`./${name}.html`);
+      const html = readFileSync(`public/diagrams/${name}.html`, 'utf8');
+      expect(html).toContain('<svg');
+      expect(JSON.parse(readFileSync(`docs/diagrams/${name}.json`, 'utf8')).meta.quality_profile).toBe('showcase');
+    }
+  });
 });

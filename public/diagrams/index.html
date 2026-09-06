@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>연금로드 다이어그램</title>
+  <style>
+    :root { color-scheme: light; }
+    body { margin: 0; font-family: "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif; background: #f6f7fb; color: #1f2937; }
+    main { max-width: 880px; margin: 0 auto; padding: 40px 20px 64px; }
+    h1 { font-size: 26px; margin: 0 0 8px; }
+    p.lead { margin: 0 0 28px; color: #4b5563; }
+    ol { list-style: none; padding: 0; margin: 0; display: grid; gap: 14px; }
+    li { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px 18px; }
+    li a.title { font-weight: 700; font-size: 17px; color: #1d4ed8; text-decoration: none; }
+    li a.title:hover { text-decoration: underline; }
+    li span.kind { display: inline-block; margin-left: 8px; font-size: 12px; color: #6b7280; border: 1px solid #d1d5db; border-radius: 999px; padding: 1px 8px; vertical-align: middle; }
+    li p { margin: 8px 0 0; color: #374151; font-size: 14px; line-height: 1.6; }
+    footer { margin-top: 32px; font-size: 13px; color: #6b7280; }
+    footer a { color: #1d4ed8; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>연금로드 다이어그램</h1>
+    <p class="lead">구현 기준 2026-09-06(<code>main</code>). 각 다이어그램은 확대·검색·경로 추적이 되는 단독 HTML입니다. 뷰어의 버튼 문구(Light, Present, Export 등)는 영어입니다.</p>
+    <ol>
+      <li><a class="title" href="./architecture.html">시스템 구성</a><span class="kind">architecture</span><p>서버 없는 정적 SPA. UI 계층(app.ts · 렌더 모듈 · 연출 실행), 순수 함수 엔진(game · market · portfolio · scoring), 콘텐츠 JSON, LocalStorage, Vercel 배포와 검증(Vitest · 시뮬)이 어떻게 이어지는지.</p></li>
+      <li><a class="title" href="./turn-workflow.html">한 턴의 순서</a><span class="kind">workflow</span><p>주사위 → startTurn → 속보 카드 → (칸 설명 · 생활사건) → 운용 시트 → performAction → 게이트(성향 · 70%) → finalizeTurn → 정산 장면 → 다음 턴 또는 결과.</p></li>
+      <li><a class="title" href="./seed-dataflow.html">데이터 흐름 — 시드에서 결과까지</a><span class="kind">dataflow</span><p>시드 하나가 국면 엔진 · 충격/신호 · 생활사건 일정을 만들고, 턴마다 수익률 · 사건 · 플레이어 행동이 GameState에 반영되어 월 연금 · 별 · 기록이 되는 길.</p></li>
+      <li><a class="title" href="./game-lifecycle.html">상태 흐름</a><span class="kind">lifecycle</span><p>타이틀 → 주사위 → 속보 → 운용 → 정산 장면의 레일을 12번 돌고, 거절 · 보류는 운용으로 되돌아가며, 12턴째 정산만 결과 리포트로 내려간다.</p></li>
+      <li><a class="title" href="./action-sequence.html">매수 한 번의 호출 순서</a><span class="kind">sequence</span><p>performAction 한 호출 안에서 buyProduct → policy 게이트 → applyMarketStep → settleOrders → summarizeTurn이 차례로 끝나는 순서. 시장 반영 시점(개선 3.2)이 바뀌는 지점을 표시.</p></li>
+    </ol>
+    <footer>원본 JSON과 재생성 방법은 저장소 <code>docs/diagrams/README.md</code>. 게임으로 돌아가기: <a href="../">/</a> · <a href="../operator-manual.html">운영자 매뉴얼</a></footer>
+  </main>
+</body>
+</html>
