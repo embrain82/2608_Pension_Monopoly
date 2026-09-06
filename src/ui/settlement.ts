@@ -87,6 +87,9 @@ export function renderSettlementModal(summary: TurnSummary, options: SettlementO
   const cheer = (summary.milestones ?? []).find((milestone) => milestone.tone === 'cheer');
   const reactionTone = cheer ? 'positive' : summary.shock ? 'shock' : 'default';
   const cta = options.final ? '마무리로 · 퀴즈와 수령 방식' : '다음 턴 준비';
+  const hints = options.final
+    ? ['12턴이 끝났습니다. 배운 카드에서 마무리 퀴즈(최대 3문항)를 풀고, 연금과 일시금 중 수령 방식을 정하면 결과 리포트가 열립니다.']
+    : summary.nextHints;
   return `<p class="eyebrow">${summary.turn}턴 정산${shock}${options.final ? '<span class="settle-final">마지막 턴</span>' : ''}</p>
     <h2>무엇이 바뀌었나요?</h2>
     <p class="settle-headline">${summary.marketHeadline}</p>
@@ -99,6 +102,6 @@ export function renderSettlementModal(summary: TurnSummary, options: SettlementO
     ${actionBlock(summary)}
     ${renderTileEffects(summary.tileEffects, { heading: '칸 효과' })}
     ${alert}
-    ${renderSpeech('coach', `<ul class="settle-hints">${summary.nextHints.map((hint) => `<li>${hint}</li>`).join('')}</ul>`, { characters: options.characters, title: '다음 판단' })}
+    ${renderSpeech('coach', `<ul class="settle-hints">${hints.map((hint) => `<li>${hint}</li>`).join('')}</ul>`, { characters: options.characters, title: options.final ? '남은 일' : '다음 판단' })}
     <button class="primary jumbo" data-action="dismiss-settle">${cta}</button>`;
 }

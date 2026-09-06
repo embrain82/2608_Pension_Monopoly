@@ -381,6 +381,7 @@ export class PensionRoadApp {
     this.quizCardId = cardId;
     this.quizPicked = null;
     this.modal = 'quiz';
+    this.announce(`퀴즈 · ${getLearningCard(cardId)?.title ?? ''} 카드에서 한 문제. 오답은 벌점이 없습니다.`);
   }
 
   private pickQuiz(option: number): void {
@@ -410,6 +411,7 @@ export class PensionRoadApp {
       const next = this.finalQuizQueue.shift();
       if (next) { this.openQuiz(next); return; }
       this.modal = 'payout';
+      this.announce('마지막 결정입니다. 연금(20년)과 일시금 중 수령 방식을 고르세요. 결과 화면에서 다시 바꿀 수 있습니다.');
       return;
     }
     this.modal = this.game?.currentEventId ? 'life' : null;
