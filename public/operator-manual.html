@@ -47,11 +47,17 @@
     </section>
 
     <section id="shipped">
-      <h2>2. 구현된 기능 (2026-09-06, <code>main</code> 태그 <code>prod-2026-09-06-sell-switch-fix</code>)</h2>
+      <h2>2. 구현된 기능 (2026-09-06, <code>main</code> 태그 <code>prod-2026-09-06-bundle-b</code>)</h2>
       <table>
         <thead><tr><th>영역</th><th>상태</th><th>메모</th></tr></thead>
         <tbody>
-          <tr><td>12턴 시장 먼저 루프</td><td>구현</td><td><code>startTurn</code>: 턴+1 → 위치 → <strong>시장 반영·펀드 주문 체결</strong> → 급여 → 칸 효과 → 생활사건/운용 대기. <code>performAction</code>: 행동(운용지시 칸은 2회) → <code>finalizeTurn</code>(12턴 잔여 주문 강제 체결·잔여 환급·<code>irpHistory</code>). 속보의 수익률은 이미 보유분에 들어간 값이고 지금 산 상품은 다음 턴 수익률부터 받는다. 장부 <code>ledger.open / afterMarket / beforeAction</code></td></tr>
+          <tr><td>12턴 시장 먼저 루프</td><td>구현</td><td><code>startTurn</code>: 턴+1 → 위치 → <strong>시장 반영·펀드 주문 체결</strong> → 급여 → 칸 효과 → 퀴즈 대기(<code>pendingQuizCardId</code>) → 생활사건/운용 대기. <code>performAction</code>: 행동(운용지시 칸은 2회) → <code>finalizeTurn</code>(12턴 잔여 주문 강제 체결·잔여 환급·<code>irpHistory</code>·이정표 <code>stampMilestones</code>). 속보의 수익률은 이미 보유분에 들어간 값이고 지금 산 상품은 다음 턴 수익률부터 받는다. 장부 <code>ledger.open / afterMarket / beforeAction</code>. 12턴 뒤 <code>choosePayout</code>으로 수령 방식을 정한 뒤 결과</td></tr>
+          <tr><td>수령 방식(묶음 B 3.6)</td><td>구현</td><td><code>PayoutChoice = 'annuity20' | 'lumpSum'</code>. <code>policy-rules.json</code> <code>pensionTaxRate 0.055</code>·<code>lumpSumTaxRate 0.165</code>(교육용, <code>payoutReviewedAt 2026-09-06</code>). <code>payoutPlan(irp, choice)</code> → 세율·세금·세후·월 세후·목표 판정 기준(<code>monthlyBasis</code>). <code>payoutFactor(lumpSum) = (1−0.165)/(1−0.055) ≈ 0.8836</code>, <code>calculateScore</code>는 <code>state.payoutChoice ?? 'annuity20'</code>이라 시뮬·고스트·기존 별 분포 불변. <code>choosePayout</code>은 <code>status === 'finished'</code>에서만, 카드 <code>pension-tax</code>·<code>payout-choice</code> 해금, 결과 화면에서 재선택 가능(최고 기록은 max, 판 수는 1회)</td></tr>
+          <tr><td>디폴트옵션(3.7)</td><td>구현</td><td><code>default-options.json</code> 4종(<code>principal</code> 예금 · <code>lowRisk</code> 단기채·예금 · <code>midRisk</code> 혼합형·TDF · <code>highRisk</code> TDF·ETF). <code>allowedDefaultOptions</code>(상품 전부 성향 통과) · <code>suggestDefaultOption</code>(안정형 principal, 안정추구형 lowRisk, 위험중립형 midRisk, 적극·공격 highRisk) · <code>normalizeDefaultOption</code>. <code>performAction('hold')</code>가 <code>applyDefaultOption</code>: <code>irpCash ≥ 10만</code>이면 상품 수로 균등 매수(몫 &lt; 10만이면 첫 상품 전액), <code>maxBuyWithinRiskLimit</code>으로 한도까지만(위반 아님), 펀드는 다음 턴 체결, <code>safeActionCount +1</code> 유지. <code>setDefaultOption(state, id|null)</code>이 시작 모달·설정에서 지정·변경·해제(성향 밖은 추천값으로, 카드 <code>default-option</code> 해금, 로그 <code>default-option</code>). 저장 v5 <code>defaultOption</code>. 고스트·<code>passive</code>는 없음(기준선 유지)</td></tr>
+          <tr><td>생활사건 3지선다(3.5)</td><td>구현</td><td><code>life-engine.ts</code>(순수). 사건 12종 <code>kind: 'cost' | 'bonus' | 'transfer'</code>(신규 <code>severance</code> +600만 transfer, <code>yearend-bonus</code> +300만, <code>tuition</code> 380만, <code>parents</code> 280만). <code>lifeChoicesFor(state, event)</code> → 선택지 3개(퇴직금은 2개)와 <code>enabled/reason/immediate/longTerm</code>. 비용: <code>cash</code>(부족 시 기존 <code>liquidateForLivingCost</code>) · <code>deposit</code>(예금 ≥ 10만, 만기 전 1.2%, 모자라면 생활자금) · <code>withdraw</code>(<code>eligibleWithdrawal</code>만, 3%). 보너스: <code>contribute-all</code> · <code>contribute-half</code>(연간 한도 안, 공제 환급 대기) · <code>cash</code>. 퇴직금: <code>transfer-irp</code>(대기자금, 세금 없음, 한도 무관) · <code>cash</code>(16.5% 차감). <code>resolveLifeChoice</code> → <code>lifeResolution</code>(제목·선택·비용·불이익·매도 내역·「다른 선택이었다면」) → <code>TurnSummary.lifeEvent</code> → 정산 「사건」 블록. 기준선(<code>defaultLifeChoice</code>)은 항상 <code>cash</code></td></tr>
+          <tr><td>퀴즈(3.4)</td><td>구현</td><td><code>quiz-engine.ts</code>(순수). 카드 20장 전부 <code>quiz: { q, options[3], answer, why }</code>(<code>validateContent</code> 검사). <code>pickQuizCard(state, salt)</code>(해금·미출제 카드에서 <code>seed:quiz:salt</code> 결정적 1장) · <code>marketTileQuizzes(seed, turn)</code>(<code>hashSeed % 2 === 0</code>) · <code>queueQuiz</code> · <code>answerQuiz</code>(정답 <code>quizStreak</code>+1, 3연속 문구, 오답 벌점 없음, 카드당 판 1회) · <code>finalQuizCards</code>(<code>seed:quiz:final</code>, 최대 3). 출제: 제도 안내 칸은 방금 연 카드, 시장 뉴스 칸은 짝수 해시 턴, 12턴 정산 뒤 마무리. <code>startTurn</code>이 <code>pendingQuizCardId</code>를 비움. UI 모달은 속보 닫은 뒤(사건·행동 전), 「이번엔 건너뛰기」 허용. <code>autoplay</code> 옵션 <code>quiz: 'correct' | 'wrong' | 'none'</code></td></tr>
+          <tr><td>지식 점수 재정의</td><td>구현</td><td><code>knowledgeBreakdown</code>: <code>KNOWLEDGE_CAPS = { base 4, quiz 8, understanding 6, rebalance 4, breachPenalty 5 }</code> → <code>4 + min(8, 정답×2) + min(6, understandingPoints) + min(4, rebalanceCount×2) − ruleBreaches×5</code>, 0~20. 별 조건 무관. 결과 화면 「기본 · 퀴즈 · 이해 · 리밸런싱(· 위반)」 분해</td></tr>
+          <tr><td>결과 서사·이정표(3.8)</td><td>구현</td><td><code>starLockReason(state, score)</code>(체크리스트 5개 중 통과 수 + 다음 별을 잠근 첫 조건 한 줄: 0별 95% 선 부족액, 1별 목표 부족액/생활자금 부족액, 2별 낙폭 → 분산 → 정렬). <code>shortfallPlan</code>(목표 미달만: 부족 월 연금 × 240 ÷ <code>payoutFactor</code> = 필요 IRP, 남은 납입 한도 안이면 「납입만으로 닿았다」 + 공제 한도 안 환급 추정, 밖이면 「납입 + 운용」). <code>milestones.ts</code>: <code>finalizeTurn</code>에서 목표 달성률 0.5/0.75/0.9/1.0 첫 통과(<code>goal-50…goal-100</code>, 한 턴에 여럿이면 배너는 최고 하나)·낙폭 12% 첫 초과(<code>drawdown-12</code>) → <code>milestonesHit</code>·<code>turnMilestones</code> → 정산 배너(100% 컨페티, 동작 줄이기면 없음) + 효과음 <code>milestone</code>. <code>createGame</code>이 시작값을 <code>milestonesHit</code>에 미리 기록해 시작부터 넘은 단계는 배너 없음. <code>isUrgent</code>(남은 턴 ≤ 3 · 목표 미달) → 턴 트랙 <code>urgent</code></td></tr>
           <tr><td>칸 효과 10종</td><td>구현</td><td><code>tile-effects.ts</code>(순수). 연말정산 통과·도착 환급(<code>tax-refund</code>), 상품 거리 스포트라이트(즉시 체결·예금 해지 면제·이해 +1), 시장 뉴스·금리 전망길 신호 미리 보기, 생활 사건 칸 추가 사건(판당 1회, 2~11턴, 시드 일정 없는 턴), 운용지시 행동 2회, 제도 안내 카드 1장 + 이해 +1, 리밸런싱 칸 「지금 → 목표」 + 이해 +2, 은퇴 전망대(분기 20개 p10/p50/p90), 성향 점검(±10%p 이해 +1), 분산 광장(3종 이해 +1). 수익률·강제 매매 없음. <code>createGame(…, { tileEffects: false })</code>로 끌 수 있음(시뮬용)</td></tr>
           <tr><td>연말정산 환급</td><td>구현</td><td><code>contribute()</code>는 공제액을 <code>pendingTaxCredit</code>에 보류. 출발 칸 통과·도착 시 생활자금 환급 + 속보 스트립 + 효과음 <code>refund</code>. 12턴 마감 시 잔여 일괄 환급(총액 손해 없음). HUD에 「환급 대기」 줄</td></tr>
           <tr><td>매도·교체 「기존 상품」 선택 보정</td><td>구현(핫픽스)</td><td><code>src/ui/action-form.ts</code>(순수). 매도·바꾸기 시트를 그릴 때 내부 선택값(<code>selectedSell</code>·<code>switchFrom</code>)을 <code>pickHeldProduct</code>로 10만원 이상 보유 상품에 맞춘다. 전액 교체·매도·중도인출 뒤 선택값이 잔고 0 상품에 남아 셀렉트에는 첫 보유 상품(예: 혼합형)이 보이는데 금액 프리셋이 0만원으로 계산되던 오류 수정. 보유 없음·10만원 미만이면 <code>tradeBlockReason</code>으로 실행 버튼 비활성 + 미리보기 노란 안내</td></tr>
@@ -59,16 +65,17 @@
           <tr><td>시드 시장 경로</td><td>구현</td><td>금리 국면 엔진(퍼센트, 0.25 스텝), 충격 6종 2~3회, 직전 턴 신호. 수익률과 헤드라인 방향 일치</td></tr>
           <tr><td>24칸 보드·주사위</td><td>구현</td><td>합만큼 이동. 턴 게이트 아님. 칸마다 <code>effect</code> 1개(<code>content.ts boardTiles</code>)</td></tr>
           <tr><td>칸 설명 24×5</td><td>구현</td><td><code>tile-briefings.json</code>. 시장 먼저 순서에 맞춰 5건 문구 갱신</td></tr>
-          <tr><td>생활사건 3회(+1)</td><td>구현</td><td>2~11턴 시드 일정 3회 + 생활 사건 칸 추가 최대 1회. 중도인출 가능/불가 분리. 생활자금 부족 시 대기자금·보유 즉시 매도</td></tr>
+          <tr><td>생활사건 3회(+1)</td><td>구현</td><td>2~11턴 시드 일정 3회 + 생활 사건 칸 추가 최대 1회. 사건 12종·3지선다(위 행). 중도인출 가능/불가는 <code>eligibleWithdrawal</code>(불가는 비활성 + 이유). <code>cash</code>에서 생활자금 부족 시 대기자금·보유 즉시 매도</td></tr>
           <tr><td>상품 6·행동 6</td><td>구현</td><td>펀드 시차(다음 턴 시작 체결), ETF·예금 즉시 잔고. 어느 상품도 매수 턴 수익률은 받지 않음</td></tr>
           <tr><td>70% 위험한도</td><td>구현</td><td>직접 매수는 한도 금액을 묻고 진행/보류. 바꾸기는 한도까지 부분 체결 · 사후 초과 때 비중 비가중 매수 허용</td></tr>
           <tr><td>성향 적합성</td><td>구현</td><td>등급 1~5. 바꾸기는 성향 밖이면 매도 전 거절</td></tr>
           <tr><td>진단 → 현재 판</td><td>구현</td><td><code>applyProfileToGame</code>, LocalStorage <code>profileId</code></td></tr>
           <tr><td>리밸런싱 재정규화</td><td>구현</td><td>미리보기 = 엔진 <code>rebalanceShares</code></td></tr>
-          <tr><td>결과·별·수익률</td><td>구현</td><td>시작 대비 / 납입 제외 구분. 별 순차 등장, 12턴 IRP 스파크라인(<code>irpHistory</code> + 고스트 점선), 가장 아슬아슬했던 턴, 판단의 값어치</td></tr>
-          <tr><td>연출 코어</td><td>구현</td><td>속보 카드(띠·헤드라인 타이핑·금리 다이얼·화살표 6개·「내 IRP에 반영」 줄·도착 효과 스트립·1턴 코치, 충격 턴 흔들림), 숫자 트윈 0.6초, 목표 게이지 95% 눈금·상태 한 줄·고스트 마커, 위험 게이지 70% 선, 정산 장면(IRP 막대 3개·시장/내 행동 분리·상품 막대·내가 한 일·칸 효과·고스트 줄). <code>prefers-reduced-motion</code>·설정 동작 줄이기면 즉시 끝 상태</td></tr>
+          <tr><td>결과·별·수익률</td><td>구현</td><td>시작 대비 / 납입 제외 구분. 별 순차 등장(수령 결정 뒤 소리), 12턴 IRP 스파크라인(<code>irpHistory</code> + 고스트 점선), 가장 아슬아슬했던 턴, 판단의 값어치, 잠긴 별 이유·처방·지식 분해·「배운 것」·수령 줄(「수령 방식 바꾸기」)</td></tr>
+          <tr><td>연출 코어</td><td>구현</td><td>속보 카드(띠·헤드라인 타이핑·금리 다이얼·화살표 6개·「내 IRP에 반영」 줄·도착 효과 스트립·1턴 코치, 충격 턴 흔들림), 숫자 트윈 0.6초, 목표 게이지 95% 눈금·상태 한 줄·고스트 마커, 위험 게이지 70% 선, 정산 장면(IRP 막대 3개·시장/내 행동 분리·이정표 배너·상품 막대·내가 한 일·칸 효과·사건 블록·고스트 줄, 12턴은 「마지막 턴」 배지·「남은 일」·CTA 「마무리로 · 퀴즈와 수령 방식」). <code>prefers-reduced-motion</code>·설정 동작 줄이기면 즉시 끝 상태</td></tr>
           <tr><td>캐릭터</td><td>구현</td><td>성향별 동물 아바타 5종 × 표정 3종, 앵커 부엉이·코치 펭귄 말풍선. 인라인 SVG. <code>settings.characters</code>(기본 켬)</td></tr>
-          <tr><td>효과음</td><td>구현</td><td>WebAudio 합성 9종(주사위·이동·도착·속보·충격·오름·내림·별·환급), 파일 없음, <code>settings.sound</code> 기본 끔. HUD <code>♪</code> 토글. 첫 클릭 뒤 <code>AudioContext</code> 생성</td></tr>
+          <tr><td>효과음</td><td>구현</td><td>WebAudio 합성 10종(주사위·이동·도착·속보·충격·오름·내림·별·환급·이정표), 파일 없음, <code>settings.sound</code> 기본 끔. HUD <code>♪</code> 토글. 첫 클릭 뒤 <code>AudioContext</code> 생성</td></tr>
+          <tr><td>모달 4종(묶음 B UI)</td><td>구현</td><td><code>default-option</code>(판 시작·설정, 카드 4장·성향 밖 잠김·추천 태그·「지정 안 함/해제」), <code>life</code>(선택지 카드 3장·지금/나중·잠김 이유), <code>quiz</code>(A/B/C·정답/오답 표시·코치 이유·「이번엔 건너뛰기」·진행 n/3), <code>payout</code>(연금/일시금 카드·세금·월 수령·목표 판정 기준·달성률 차이). 넷 모두 <strong>sticky</strong>(×·Esc 없음, 명시 행동으로만 닫힘). 하단 CTA는 <code>finished</code>면 「마무리 · 수령 방식 정하기」(<code>resume-finish</code>)로 창을 잃어도 막히지 않음</td></tr>
           <tr><td>보드 이펙트</td><td>구현</td><td>도착 칸 bounce·종류별 파티클(<code>landed</code>). 칸 설명 첫 문장 노출 + 「자세히」 접기. 엔진 규칙 변화 없음</td></tr>
           <tr><td>2.5D 말</td><td>구현</td><td>윗면(아바타 또는 「나」)·옆면·그림자를 가진 퍽 오버레이(<code>token3d.ts</code>). 첫 칸부터 마지막 칸까지 칸마다 같은 점프(260ms, Web Animations API). 현재 칸 테두리 없음. 설정 항목 없음, 동작 줄이기면 즉시 도착</td></tr>
           <tr><td>사용자·운영 매뉴얼</td><td>구현</td><td><code>/user-manual.html</code>, <code>/operator-manual.html</code></td></tr>
@@ -83,7 +90,11 @@
       <table>
         <thead><tr><th>경로</th><th>역할</th></tr></thead>
         <tbody>
-          <tr><td><code>src/engine/game-engine.ts</code></td><td>12턴 루프. <code>createGame</code>(옵션 <code>tileEffects</code>·<code>ghost</code>, 고스트 경로 <code>ghostTrackFor</code>), <code>startTurn</code>(시장 반영 → 주문 체결 → 급여 → 칸 효과 → 생활사건), <code>performAction</code>(행동 카운트 <code>actionsLeft</code>, 스포트라이트·리밸런싱 보너스), <code>finalizeTurn</code>(마감 전용), <code>autoplay</code> 전략 9종(<code>newsChaser</code> 포함)</td></tr>
+          <tr><td><code>src/engine/game-engine.ts</code></td><td>12턴 루프. <code>createGame</code>(옵션 <code>tileEffects</code>·<code>ghost</code>·<code>defaultOption</code>, 고스트 경로 <code>ghostTrackFor</code>, 시작 이정표 기록), <code>startTurn</code>(시장 반영 → 주문 체결 → 급여 → 칸 효과 → 칸 퀴즈 <code>queueTileQuiz</code> → 생활사건), <code>performAction</code>(행동 카운트 <code>actionsLeft</code>, <code>hold</code> → <code>applyDefaultOption</code>, 스포트라이트·리밸런싱 보너스), <code>finalizeTurn</code>(마감 전용 + <code>stampMilestones</code>), <code>resolveLifeEvent</code> → <code>life-engine</code> 위임, <code>choosePayout</code>, <code>setDefaultOption</code>, <code>autoplay</code> 전략 11종(<code>newsChaser</code>·<code>defaultOption</code>·<code>withdrawer</code> 포함, 옵션 <code>lifeChoice</code>·<code>quiz</code>)</td></tr>
+          <tr><td><code>src/engine/life-engine.ts</code></td><td>생활사건 3지선다(순수). <code>LIFE_CHOICE_LABELS</code>·<code>CASH_CHOICE_LABELS</code>, <code>lifeChoicesFor</code>(선택지·가능 여부·지금/나중 문구), <code>resolveLifeChoice</code>(선택 실행, <code>LifeResolution</code> 생성, 카드 해금). 예금 해지 계획 <code>depositBreakPlan</code>, 중도인출 <code>reduceIrpProportionally</code></td></tr>
+          <tr><td><code>src/engine/default-option.ts</code></td><td>디폴트옵션(순수). <code>allowedDefaultOptions</code>·<code>suggestDefaultOption</code>·<code>normalizeDefaultOption</code>·<code>isDefaultOptionId</code>, <code>applyDefaultOption</code>(hold 시 균등 매수, 한도까지, 정산 문장)</td></tr>
+          <tr><td><code>src/engine/quiz-engine.ts</code></td><td>퀴즈(순수). <code>QUIZ_CORRECT_POINTS 2</code>·<code>QUIZ_STREAK_CHEER 3</code>·<code>FINAL_QUIZ_MAX 3</code>, <code>quizCandidates</code>·<code>pickQuizCard</code>·<code>marketTileQuizzes</code>·<code>queueQuiz</code>·<code>finalQuizCards</code>·<code>answerQuiz</code>·<code>quizCorrectCount</code></td></tr>
+          <tr><td><code>src/engine/milestones.ts</code></td><td>이정표(순수). <code>goalRateOf</code>·<code>milestonesReached</code>·<code>stampMilestones</code>(첫 통과만, 배너는 최고 하나 + 낙폭 경고)·<code>isUrgent</code></td></tr>
           <tr><td><code>src/engine/tile-effects.ts</code></td><td>칸 효과(순수). <code>applyTileArrival</code>(통과 환급 → 도착 칸 효과, 0~2개), <code>refundTaxCredit</code>, <code>outlookRange</code>(분기 <code>seed:fork:k</code> 20개), <code>pickExtraLifeEvent</code>(<code>seed:tile-life:turn</code>), <code>rebalanceGapLine</code>. 상수 <code>OUTLOOK_FORKS</code>·<code>EXTRA_LIFE_EVENT_CAP</code>·<code>REBALANCE_TILE_BONUS</code></td></tr>
           <tr><td><code>src/engine/market-engine.ts</code></td><td>시드 12턴 경로 조립, 충격 배치(<code>planShocks</code>), 신호(<code>attachAlerts</code>), 낙폭</td></tr>
           <tr><td><code>src/engine/regime-engine.ts</code></td><td>국면 상태기계, 금리·물가·주가 연속값, 1~5 레벨 파생</td></tr>
@@ -91,32 +102,33 @@
           <tr><td><code>src/engine/portfolio-engine.ts</code></td><td>매수·매도·바꾸기·리밸런싱·주문 정산. 스포트라이트 상품(<code>spotlightProductId</code>)이면 펀드 즉시 체결·예금 해지 불이익 면제</td></tr>
           <tr><td><code>src/engine/policy-engine.ts</code></td><td>70% 한도, 성향 적합성, 세액공제</td></tr>
           <tr><td><code>src/engine/profile-engine.ts</code></td><td>진단 점수 → 성향, 진행 중 판에 적용</td></tr>
-          <tr><td><code>src/engine/scoring-engine.ts</code></td><td>월 연금, 별, 100점</td></tr>
+          <tr><td><code>src/engine/scoring-engine.ts</code></td><td>월 연금(<code>monthlyPension(irp, choice)</code>), 수령(<code>payoutFactor</code>·<code>payoutPlan</code>), 별, 100점(<code>KNOWLEDGE_CAPS</code>·<code>knowledgeBreakdown</code>), 서사(<code>starLockReason</code>·<code>shortfallPlan</code>·<code>starChecklist</code>)</td></tr>
           <tr><td><code>src/engine/settlement-engine.ts</code></td><td>턴 요약(<code>summarizeTurn</code>: 장부로 <code>irpOpen·irpAfterMarket·marketDelta·lifeDelta·actionDelta</code>, 행동 줄 배열, 칸 효과, <code>ghostIrp</code>), 반응 한 줄(<code>reactionLine</code>, 낙폭은 <code>irpOpen</code> 기준), 다음 판단 힌트 상수</td></tr>
           <tr><td><code>src/engine/goal.ts</code> / <code>random-engine.ts</code> / <code>tile-briefing.ts</code> / <code>content-engine.ts</code></td><td>월 목표 범위·적용 / 시드 해시(FNV-1a)·xorshift32·주사위 / 칸 설명 선택(<code>pickTileBriefing</code>) / 상품·카드·사건 조회</td></tr>
-          <tr><td><code>src/ui/app.ts</code></td><td>화면·모달·주사위·설정. 모달 순서 <code>news → (tile) → life → action(행동 남으면 유지) → settle</code>. 말 이동 <code>animateToken</code>. 행동 시트 「행동 n/2 하기」·스포트라이트/리밸런싱 미리보기·환급 대기 줄·결과 고스트 블록·설정 <code>ghost</code> 토글. 환급 턴엔 속보 소리 뒤 <code>refund</code></td></tr>
+          <tr><td><code>src/ui/app.ts</code></td><td>화면·모달·주사위·설정. 모달 순서 <code>news → (tile) → quiz(있으면) → life → action(행동 남으면 유지) → settle</code>, 12턴은 <code>settle(final) → quiz×≤3 → payout → result</code>(<code>afterSettlement</code>·<code>finishing</code>). 판 시작은 <code>howto?(첫 판) → default-option</code>. sticky 모달 <code>STICKY_MODALS = life · action · quiz · payout · default-option</code>. 말 이동 <code>animateToken</code>. 행동 시트 「행동 n/2 하기」·「그대로」 문구(<code>holdMenuNote</code>: 디폴트옵션 자동 매수 예고)·스포트라이트/리밸런싱 미리보기·환급 대기 줄·결과 서사·설정 <code>ghost</code> 토글·디폴트옵션 줄. <code>persist</code>/<code>recordResult(countPlay)</code> 분리(수령 재선택 시 판 수 중복 없음). 환급 턴엔 속보 소리 뒤 <code>refund</code>, 이정표 턴엔 정산 소리 뒤 <code>milestone</code></td></tr>
+          <tr><td><code>src/ui/life-view.ts</code> / <code>quiz-view.ts</code> / <code>payout-view.ts</code> / <code>default-option-view.ts</code></td><td>묶음 B 순수 뷰. 사건 모달(<code>renderLifeModal</code>)·정산 사건 블록(<code>renderLifeSettleBlock</code>) / 퀴즈 모달(<code>renderQuizModal</code>, 진행 n/3)·결과 「배운 것」(<code>renderLearnedBlock</code>) / 수령 모달(<code>renderPayoutModal</code>)·결과 수령 줄(<code>renderPayoutLine</code>) / 디폴트옵션 카드·모달(<code>renderDefaultOptionModal</code>, <code>mode: 'start' | 'settings'</code>, <code>defaultOptionName</code>·<code>defaultOptionProducts</code>)</td></tr>
           <tr><td><code>src/ui/board.ts</code></td><td>24칸 SVG 보드(<code>renderBoardMarkup</code>), 말 위치 결정(<code>boardViewFor</code>: 이동 중엔 항상 <code>tokenFocus</code>), 이동 경로(<code>movePath</code>), <code>TOKEN_STEP_MS</code></td></tr>
           <tr><td><code>src/ui/dice.ts</code></td><td>주사위 마크업·굴림 시간, 턴 트랙 공개/스포일러 판정(<code>isUpcomingSpoiler</code> 등)</td></tr>
-          <tr><td><code>src/ui/market-view.ts</code></td><td>시장 카드·상품 수익률·신호 상자·턴 트랙·12턴 타임라인</td></tr>
+          <tr><td><code>src/ui/market-view.ts</code></td><td>시장 카드·상품 수익률·신호 상자·턴 트랙(<code>isUrgent</code>면 <code>urgent</code> 클래스·aria 「남은 턴이 적고 목표 미달」)·12턴 타임라인</td></tr>
           <tr><td><code>src/ui/tile-briefing.ts</code> / <code>howto.ts</code></td><td>도착 칸 설명(첫 문장 <code>briefingLead</code> + 자세히) / 게임 방법 모달·학습 팁 표시 조건</td></tr>
           <tr><td><code>src/ui/news-flash.ts</code></td><td>속보 카드 마크업, 금리 다이얼 각도(<code>dialAngle</code>), 「내 IRP에 반영」 줄(<code>renderIrpApplied</code>), 도착 효과 스트립, 1턴 코치 <code>COACH_MARKET_FIRST</code></td></tr>
           <tr><td><code>src/ui/tile-effects-view.ts</code> / <code>ghost.ts</code></td><td>칸 효과 글리프(<code>TILE_EFFECT_GLYPHS</code>)·강조 규칙·스트립(<code>renderTileEffects</code>, 최대 2개) / 고스트 판정(<code>ghostVerdict</code>: 월 연금·총자산 차이·가장 벌어진 턴), 정산 줄(<code>renderGhostSettleLine</code>), 결과 블록(<code>renderGhostVerdict</code>)</td></tr>
           <tr><td><code>src/ui/hud.ts</code></td><td>목표 게이지·상태 한 줄(<code>goalStatusLine</code>)·고스트 마커(<code>ghostMonthlyNow</code>), 위험 게이지</td></tr>
           <tr><td><code>src/ui/fx.ts</code> / <code>fx-dom.ts</code></td><td>숫자 트윈(순수 함수 / DOM 실행). 마크업 <code>data-anim</code>·<code>data-from</code>·<code>data-to</code></td></tr>
-          <tr><td><code>src/ui/settlement.ts</code></td><td>정산 장면: IRP 막대 3개(턴 시작·시장 반영·내 행동 후) + 「시장 ±N · 내 행동 ±M(· 생활사건)」, 「시장이 한 일 · 상품별」 막대, 내가 한 일(행동 2회면 두 줄), 칸 효과 블록, 고스트 줄. 한 줄 정리·다음 판단은 코치 말풍선</td></tr>
+          <tr><td><code>src/ui/settlement.ts</code></td><td>정산 장면: IRP 막대 3개(턴 시작·시장 반영·내 행동 후) + 「시장 ±N · 내 행동 ±M(· 생활사건)」, 이정표 배너(<code>renderMilestoneBanner</code>, 100% 컨페티), 「시장이 한 일 · 상품별」 막대, 내가 한 일(행동 2회면 두 줄), 칸 효과 블록, 사건 블록, 고스트 줄. 한 줄 정리·다음 판단은 코치 말풍선. 옵션 <code>final</code>(12턴): 「마지막 턴」 배지·「남은 일」 힌트·CTA 「마무리로 · 퀴즈와 수령 방식」</td></tr>
           <tr><td><code>src/ui/avatars.ts</code> / <code>speech.ts</code></td><td>동물 아바타 5종×표정 3종(<code>avatarMood</code>·<code>resultMood</code>), 앵커·코치, 말풍선 그릇(<code>renderSpeech</code>). 캐릭터 끔이면 <code>plain</code></td></tr>
           <tr><td><code>src/ui/token3d.ts</code></td><td>2.5D 말(퍽) 오버레이. 칸 중심 퍼센트(<code>tokenPercent</code>), 마크업(<code>renderTokenLayer</code>, <code>aria-hidden</code>). SVG 말은 <code>tokenInSvg: false</code>로 생략. 이동은 <code>app.ts</code>의 <code>animateToken</code>이 직전 칸→현재 칸을 Web Animations API로 붙임(렌더마다 노드가 새로 만들어져 CSS transition은 못 씀)</td></tr>
-          <tr><td><code>src/ui/sound.ts</code> / <code>sound-dom.ts</code></td><td>효과음 스크립트 9종(순수, 0.6초 이내, <code>refund</code> 포함) / WebAudio 재생기 <code>SoundPlayer</code></td></tr>
+          <tr><td><code>src/ui/sound.ts</code> / <code>sound-dom.ts</code></td><td>효과음 스크립트 10종(순수, 0.6초 이내, <code>refund</code>·<code>milestone</code> 포함) / WebAudio 재생기 <code>SoundPlayer</code></td></tr>
           <tr><td><code>src/ui/result-chart.ts</code></td><td>IRP 스파크라인 시리즈 2개(<code>sparklinePoints</code>, 공통 축 <code>chartDomain</code>, 고스트 점선·끝 라벨), 최대 낙폭 턴(<code>worstTurn</code>)</td></tr>
           <tr><td><code>src/ui/action-form.ts</code></td><td>매도·교체 시트 순수 헬퍼: 보유 상품 목록(<code>heldProductIds</code>, 최소 거래 단위 <code>MIN_TRADE_AMOUNT</code> 10만원), 선택값 보정(<code>pickHeldProduct</code>), 실행 차단 사유(<code>tradeBlockReason</code>)</td></tr>
-          <tr><td><code>src/ui/ui-state.ts</code></td><td>LocalStorage 로드·마이그레이션(v4: <code>settings.ghost</code>)</td></tr>
-          <tr><td><code>src/data/content.ts</code> / <code>*.json</code></td><td><code>boardTiles</code>(칸 종류·<code>effect</code>·스포트라이트 <code>productId</code>)와 <code>validateContent</code> / 상품·성향·정책·사건·학습·칸 설명</td></tr>
+          <tr><td><code>src/ui/ui-state.ts</code></td><td>LocalStorage 로드·마이그레이션(v4: <code>settings.ghost</code>, v5: <code>defaultOption</code> — 모르는 값은 null)</td></tr>
+          <tr><td><code>src/data/content.ts</code> / <code>*.json</code></td><td><code>boardTiles</code>(칸 종류·<code>effect</code>·스포트라이트 <code>productId</code>)와 <code>validateContent</code>(카드 20장마다 3지선다 퀴즈 형식 검사 포함) / 상품·성향·정책·사건·학습·칸 설명·<code>default-options.json</code>(4종, 상품 키는 <code>default-option.test.ts</code>가 검사)</td></tr>
           <tr><td><code>public/*.html</code></td><td>이 매뉴얼. 빌드 시 <code>dist/</code>로 복사</td></tr>
           <tr><td><code>scripts/simulate.ts</code></td><td>헤드리스 대량 시뮬</td></tr>
         </tbody>
       </table>
       <p>난수는 시드 FNV-1a → xorshift32입니다. 같은 시드는 같은 주사위 합, 같은 시장 경로, 같은 생활사건 스케줄을 만듭니다.</p>
-      <p>그림으로 보려면 <a href="./diagrams/">/diagrams/</a>에 다이어그램 5장이 있습니다: 시스템 구성(architecture, <code>tile-effects.ts</code>·<code>ghost.ts</code> 포함), 한 턴의 순서(workflow, 시장 먼저 → 칸 효과 → 행동 n회), 데이터 흐름(dataflow, 고스트·칸 효과 시드), 상태 흐름(lifecycle), 매수 한 번의 호출 순서(sequence, 시장 반영은 <code>startTurn</code>에서). 원본 JSON과 재생성 방법은 저장소 <code>docs/diagrams/README.md</code>. 뷰어 버튼 문구는 영어, 내용은 한국어입니다.</p>
+      <p>그림으로 보려면 <a href="./diagrams/">/diagrams/</a>에 다이어그램 5장이 있습니다: 시스템 구성(architecture, <code>life-engine</code>·<code>quiz-engine</code>·묶음 B 뷰 포함), 한 턴의 순서(workflow, 시장 먼저 → 퀴즈·사건 3지선다 → 행동 n회 → 12턴 마무리·수령), 데이터 흐름(dataflow, 퀴즈·수령 계수·저장 v5), 상태 흐름(lifecycle, 12턴 정산 → 마무리(퀴즈·수령) → 결과), 한 턴의 호출 순서(sequence, 시장 반영은 <code>startTurn</code>에서, <code>hold</code> → <code>applyDefaultOption</code>). 원본 JSON과 재생성 방법은 저장소 <code>docs/diagrams/README.md</code>. 뷰어 버튼 문구는 영어, 내용은 한국어입니다.</p>
     </section>
 
     <section id="run">
@@ -129,7 +141,9 @@ npm run typecheck
 npm run test
 npm run simulate -- --runs=1000
 npm run build</code></pre>
-      <p>테스트는 Vitest입니다. 매뉴얼 문자열 검사를 포함해 회귀 231개(2026-09-06, <code>action-form.test.ts</code> 8개 포함)입니다. 콘텐츠 검사는 <code>validateContent()</code>가 상품 6개, 시장 템플릿 12턴, 충격 카탈로그 6종, 국면 설정 4개, 칸 설명 24×5, 위험등급 1~5, 보드 24칸의 <code>effect</code>와 스포트라이트 <code>productId</code>를 확인합니다.</p>
+      <p>테스트는 Vitest입니다. 매뉴얼 문자열 검사를 포함해 회귀 316개(2026-09-06 묶음 B, 파일 29개)입니다. 콘텐츠 검사는 <code>validateContent()</code>가 상품 6개, 시장 템플릿 12턴, 충격 카탈로그 6종, 국면 설정 4개, 칸 설명 24×5, 위험등급 1~5, 보드 24칸의 <code>effect</code>와 스포트라이트 <code>productId</code>, 학습 카드 20장의 3지선다 퀴즈 형식을 확인합니다.</p>
+      <p>묶음 B 테스트: <code>tests/payout.test.ts</code>(세율·<code>payoutPlan</code>·일시금 0.8836배·<code>choosePayout</code> 게이트·카드 해금), <code>tests/default-option.test.ts</code>(허용/추천/정규화, 균등 매수·10만 미만 몰아 넣기·한도 캡·펀드 시차, 전략 <code>defaultOption</code> &gt; <code>passive</code>, 저장 v5 마이그레이션), <code>tests/life-choices.test.ts</code>(사건 12종·선택지 문구·비활성 이유, 예금 해지·중도인출·납입·이전 각 경로, <code>lifeResolution</code>·정산 블록, <code>withdrawer</code> ≤ <code>balanced</code>, 기준선 <code>cash</code>), <code>tests/quiz.test.ts</code>(카드 20장 퀴즈, 결정적 출제, 칸별 출제, 점수·연속·중복 금지, 지식 점수 게이트), <code>tests/narrative.test.ts</code>(<code>starLockReason</code> 별 0~3, <code>shortfallPlan</code> 한도 안/밖·일시금, 이정표 첫 통과·낙폭·결정성·<code>isUrgent</code>), <code>tests/bundle-b-views.test.ts</code>(뷰 4종 마크업·<code>setDefaultOption</code>).</p>
+      <p>묶음 B 게이트 측정(시드 400, 2026-09-06, <code>gate-b-*</code>): <code>passive</code> 별 평균 0.76 · 0별 34.7% · 월 연금 481,004원(기준선 불변). <code>defaultOption</code> 별 평균 1.96(0별 0%)로 <code>passive</code> 0.76보다 높고 <code>balanced</code> 2.46보다 낮음(안전망이지 최적해 아님). <code>withdrawer</code> 별 평균 1.96 ≤ <code>balanced</code> 2.46(인출 발생 시드 188/400). <code>balanced</code> 생활자금 부족 평균 0.00회. 퀴즈 모드 지식 점수 <code>none</code> 14.0 = <code>wrong</code> 14.0 &lt; <code>correct</code> 20.0(판당 출제 평균 5.1문항, 3~9), 별·월 연금은 세 모드 동일. <code>payoutFactor(lumpSum)</code> 0.8836.</p>
       <p><code>tests/market-regime.test.ts</code>는 시드 200개로 금리 이동 턴 비율(≥50%), 빅스텝 판 비율(≥60%), 충격 슬롯 규칙, 신호 비율, ETF 기대수익(양수·예금 초과)과 표준편차(≥3.5%p)를 고정합니다. <code>tests/balance-gate.test.ts</code>는 전략 9종 × 100판으로 「분산·납입·리밸런싱 &gt; 관망·집중·추격」, 위험한도 추종형의 낙폭·3별 비독점, 주사위 합–총점 무상관(|r|&lt;0.1), <strong><code>newsChaser</code>(속보 보고 갈아타기)가 <code>balanced</code>를 이기는 시드 ≤ 50%</strong>, 칸 효과 켬/끔의 월 연금 차이 한도를 고정합니다. 시장 상수나 턴 순서를 바꾸면 이 두 파일이 먼저 깨집니다.</p>
       <p><code>tests/turn-order.test.ts</code>는 시장 먼저 순서(턴 시작 반영, <code>finalizeTurn</code> 재반영 없음, ETF 매수 턴 수익률 미적용, 펀드 다음 턴 체결, 12턴 강제 체결, 장부 3점 분해)를, <code>tests/tile-effects.test.ts</code>는 칸 효과 10종·환급 보류/통과/마감·행동 2회·결정성·끔 옵션을, <code>tests/ghost.test.ts</code>는 고스트 경로 = <code>autoplay(seed, 'passive')</code>와 「아무 것도 안 하면 곡선이 겹친다」를 고정합니다.</p>
       <p>묶음 A 게이트 측정(시드 400, 2026-09-06, 기준 <code>main 9624cb0</code>): <code>newsChaser &gt; balanced</code> 21%. <code>passive</code> 월 연금 479,415원 → 479,415원(0%), <code>contributor</code> 529,415 → 533,778원(+0.8%). <code>momentum</code>·<code>stopLoss</code> 별 평균 1.07/1.58 → 1.06/0.96(오르지 않음). <code>passive</code> 0별 41%. <code>steward</code> 3별 94% → 94%, <code>balanced</code> 63% → 70%. 칸 효과 켬/끔 월 연금 차이 최대 +4,363원(<code>contributor</code>). <code>contributor</code> 별 1.91 → 1.63은 환급이 판 중간에 들어와 다시 납입되면서 마감 생활자금이 600만 원 아래로 내려가는 시드가 늘어난 것으로, 「전부 납입」 전략의 약점이 드러난 결과입니다.</p>
@@ -151,7 +165,7 @@ npm run build</code></pre>
       <p>수동 운영 배포: <code>npx vercel login</code> 후 프로젝트 루트에서 <code>npx vercel --yes --prod</code>.</p>
       <p class="warn"><code>.vercel/</code>과 <code>.env.local</code>에는 토큰이 생길 수 있습니다. 저장소에 커밋하지 마세요.</p>
       <h3>운영 태그와 되돌리기</h3>
-      <p>운영 배포마다 <code>main</code> 머지 커밋에 <code>prod-YYYY-MM-DD[-이름]</code> 태그를 붙입니다(예: <code>prod-2026-09-04-market-engine</code>, <code>prod-2026-09-05-drama-core</code>, <code>prod-2026-09-05-cartoon-sound</code>, <code>prod-2026-09-05-token-hotfix</code>, <code>prod-2026-09-06-token-3d</code>, <code>prod-2026-09-06-manual-diagrams</code>, <code>prod-2026-09-06-bundle-a</code>, <code>prod-2026-09-06-sell-switch-fix</code>). PR마다 두 매뉴얼(<code>public/user-manual.html</code>·<code>operator-manual.html</code>)과 <code>tests/manuals.test.ts</code>를 같은 PR에서 현행화하는 것이 <strong>필수 절차</strong>입니다. 규칙·화면·저장 스키마가 바뀌면 다이어그램(<code>docs/diagrams/*.json</code>)도 함께 고칩니다. 배포 확인은 운영 URL의 <code>index-*.js</code> 해시가 로컬 <code>npm run build</code> 결과와 같은지, 두 매뉴얼에 그 릴리스의 문구(예: Q36)가 있는지로 합니다.</p>
+      <p>운영 배포마다 <code>main</code> 머지 커밋에 <code>prod-YYYY-MM-DD[-이름]</code> 태그를 붙입니다(예: <code>prod-2026-09-04-market-engine</code>, <code>prod-2026-09-05-drama-core</code>, <code>prod-2026-09-05-cartoon-sound</code>, <code>prod-2026-09-05-token-hotfix</code>, <code>prod-2026-09-06-token-3d</code>, <code>prod-2026-09-06-manual-diagrams</code>, <code>prod-2026-09-06-bundle-a</code>, <code>prod-2026-09-06-sell-switch-fix</code>, <code>prod-2026-09-06-bundle-b</code>). PR마다 두 매뉴얼(<code>public/user-manual.html</code>·<code>operator-manual.html</code>)과 <code>tests/manuals.test.ts</code>를 같은 PR에서 현행화하는 것이 <strong>필수 절차</strong>입니다. 규칙·화면·저장 스키마가 바뀌면 다이어그램(<code>docs/diagrams/*.json</code>)도 함께 고칩니다. 배포 확인은 운영 URL의 <code>index-*.js</code> 해시가 로컬 <code>npm run build</code> 결과와 같은지, 두 매뉴얼에 그 릴리스의 문구(예: Q36)가 있는지로 합니다.</p>
       <p>되돌리기: (1) Vercel 대시보드 Deployments에서 직전 Production을 <strong>Promote</strong>(가장 빠름, 코드 변경 없음). (2) 코드로 되돌릴 때는 <code>git revert -m 1 &lt;머지 커밋&gt;</code>을 <code>main</code>에 푸시(자동 배포). 태그를 강제로 옮기거나 <code>main</code>을 force-push하지 않습니다.</p>
       <h3>GitHub Pages(보조)</h3>
       <p><code>.github/workflows/pages.yml</code>은 <strong>수동 실행 전용</strong>입니다(Pages가 꺼진 저장소에서 <code>main</code> 푸시마다 실패 알림이 오는 것을 막기 위해 자동 트리거를 제거). 저장소 Settings → Pages → Source를 <strong>GitHub Actions</strong>로 한 뒤 Actions 탭에서 워크플로를 직접 실행하면 <code>https://embrain82.github.io/2608_Pension_Monopoly/</code> 형태가 됩니다. Vite <code>base</code>가 상대경로라 하위 경로에서도 동작합니다.</p>
@@ -171,12 +185,13 @@ npm run build</code></pre>
         <tbody>
           <tr><td><code>products.json</code></td><td>이름, 등급, 위험비율, 수수료</td><td><code>riskGrade</code> 1~5 정수. UI·적합성·한도가 같이 바뀜</td></tr>
           <tr><td><code>investor-profiles.json</code></td><td>점수 구간, <code>maxRiskGrade</code></td><td>구간이 겹치거나 비면 진단이 위험중립형으로 떨어짐</td></tr>
-          <tr><td><code>policy-rules.json</code></td><td>70% 한도, 납입·공제, 해지율</td><td>기준일과 출처 URL을 함께 갱신</td></tr>
+          <tr><td><code>policy-rules.json</code></td><td>70% 한도, 납입·공제, 해지율, 수령 세율(<code>pensionTaxRate</code> 0.055 · <code>lumpSumTaxRate</code> 0.165 · <code>payoutReviewedAt</code>)</td><td>기준일과 출처 URL을 함께 갱신. 세율을 바꾸면 <code>payoutFactor</code>와 <code>payout.test.ts</code>의 0.8836, 사용자 매뉴얼 12장 표가 같이 바뀜</td></tr>
+          <tr><td><code>default-options.json</code></td><td>디폴트옵션 4종: <code>id</code>·<code>name</code>·<code>products[]</code>·<code>blurb</code></td><td>상품 키는 <code>products.json</code> id. 성향 허용은 상품 등급에서 파생되므로 상품을 바꾸면 고를 수 있는 성향이 바뀜. 추천표 <code>SUGGESTION</code>은 <code>default-option.ts</code>. 저장된 <code>defaultOption</code>이 목록에 없으면 로드 시 null</td></tr>
           <tr><td><code>balance-config.json</code></td><td>시작 자산, 기본 거래액, 리밸런싱 표, <code>market</code>(금리 범위·국면 전이·수익률 계수·충격 슬롯·신호 확률)</td><td>시뮬·별 기준이 같이 움직임. <code>market</code>을 바꾸면 <code>market-regime</code>·<code>balance-gate</code> 테스트 재기준</td></tr>
           <tr><td><code>market-shocks.json</code></td><td>충격 6종: 지표 이동, 강제치(<code>forceMax</code>/<code>forceMin</code>), 국면 전이, 신호 문구, 학습 카드</td><td>id·6종 수·상품 키·카드 id를 검증. 문구는 카드 검수 규칙 동일</td></tr>
-          <tr><td><code>life-events.json</code></td><td>사건 문구·비용</td><td>시드가 배열에서 고름. 삭제 시 스케줄 분포 변화</td></tr>
+          <tr><td><code>life-events.json</code></td><td>사건 12종: 문구·<code>cost</code>(보너스·퇴직금은 음수)·<code>kind</code>(<code>cost</code>/<code>bonus</code>/<code>transfer</code>)·<code>eligibleWithdrawal</code>·카드 id</td><td>시드가 배열에서 고름. 삭제 시 스케줄 분포 변화. <code>kind</code>가 선택지 3개 구성을 정하고, <code>transfer</code>는 <code>life-choices.test.ts</code>의 기준선(passive 0별) 게이트에 걸림</td></tr>
           <tr><td><code>tile-briefings.json</code></td><td>칸 설명</td><td>24세트 × 본문 5개, 학습 카드 id 필수. 칸 효과 규칙을 바꾸면 해당 칸(0·5·10·11·23번 등) 문구도 함께</td></tr>
-          <tr><td><code>learning-cards.json</code></td><td>도감</td><td>칸 설명이 참조하는 id를 지우면 검증 실패. 제도 안내 칸은 <code>category: '제도'</code> 카드 중 미해금 1장을 연다</td></tr>
+          <tr><td><code>learning-cards.json</code></td><td>도감 20장 + 카드마다 <code>quiz: { q, options[3], answer 0~2, why }</code></td><td>칸 설명이 참조하는 id를 지우면 검증 실패. 퀴즈가 없거나 선택지가 중복이면 <code>validateContent</code> 실패. 제도 안내 칸은 <code>category: '제도'</code> 카드 중 미해금 1장을 열고 그 퀴즈를 낸다. 신규 <code>pension-tax</code>·<code>payout-choice</code>(수령 결정 시)·<code>default-option</code>(지정 시) 해금</td></tr>
           <tr><td><code>content.ts boardTiles</code></td><td>칸 종류·이름·<code>effect</code>·스포트라이트 <code>productId</code></td><td>JSON 아님. 24칸, 효과 10종 중 하나. <code>product</code> 칸이 <code>spotlight</code>면 <code>productId</code> 필수(분산 광장은 <code>diversify-check</code>, 금리 전망길은 <code>signal-preview</code>). 바꾸면 <code>tile-effects</code> 테스트와 다이어그램 갱신</td></tr>
           <tr><td><code>market-scenarios.json</code></td><td>템플릿 스토리</td><td>실제 경로는 시드 생성. 테스트 일부는 템플릿 6·8턴 충격을 봄</td></tr>
         </tbody>
@@ -198,8 +213,23 @@ npm run build</code></pre>
           <tr><td>예금 만기 / 중도해지</td><td>3턴 / 1.2%</td></tr>
           <tr><td>허용 인출 가산</td><td>3%</td></tr>
           <tr><td>수령 개월 / 기본 목표</td><td>240 / 월 50만</td></tr>
+          <tr><td>수령 세율(교육용) / 일시금 환산 계수</td><td>연금 5.5% · 일시금 16.5% / <code>payoutFactor(lumpSum)</code> = 0.835 ÷ 0.945 ≈ 0.8836</td></tr>
           <tr><td>2별 생활자금 / 3별 낙폭 / 분산</td><td>600만 / 12% / 3종(안정형은 2종, 각 5%+)</td></tr>
           <tr><td>1별 근접 / 3별 정렬</td><td>nearGoalRate 95% / 리밸런싱 목표 ±10%p</td></tr>
+          <tr><td>지식 20점</td><td>기본 4 + 퀴즈 정답×2(≤8) + 이해 포인트(≤6) + 리밸런싱×2(≤4) − 위반×5, 0~20</td></tr>
+        </tbody>
+      </table>
+      <h3>묶음 B (<code>life-engine</code> · <code>default-option</code> · <code>quiz-engine</code> · <code>milestones</code>)</h3>
+      <table>
+        <thead><tr><th>항목</th><th>값</th></tr></thead>
+        <tbody>
+          <tr><td>디폴트옵션 4종</td><td>principal 예금 · lowRisk 단기채+예금 · midRisk 혼합형+TDF · highRisk TDF+ETF. 추천: 안정형 principal · 안정추구형 lowRisk · 위험중립형 midRisk · 적극/공격 highRisk</td></tr>
+          <tr><td>디폴트옵션 발동</td><td><code>hold</code> && <code>irpCash ≥ 100,000</code>. 상품 수로 균등, 몫 &lt; 10만이면 첫 상품 전액. <code>maxBuyWithinRiskLimit</code>으로 70%까지만(잔여는 대기자금, 위반 아님). 펀드 다음 턴 체결</td></tr>
+          <tr><td>생활사건 선택지</td><td>비용: cash · deposit(예금 ≥ 10만, 만기 전 1.2%) · withdraw(<code>eligibleWithdrawal</code>, +3%) / 보너스: contribute-all · contribute-half(연간 한도 안, 공제 환급 대기) · cash / 퇴직금: transfer-irp(세금 0, 한도 무관) · cash(16.5% 차감)</td></tr>
+          <tr><td>사건 12종 금액</td><td>의료 350 · 이사 250 · 이직 준비 420 · 보증금 500 · 돌봄 300 · 교육 180 · 집수리 220 · 학자금 380 · 부모 부양 280 · 보너스 +250 · 연말 성과급 +300 · 퇴직금 +600(만 원). 중도인출 가능: 의료·보증금</td></tr>
+          <tr><td>퀴즈</td><td><code>QUIZ_CORRECT_POINTS</code> 2 · <code>QUIZ_STREAK_CHEER</code> 3 · <code>FINAL_QUIZ_MAX</code> 3. 출제 시드 <code>seed:quiz:turn</code>(시장 뉴스 칸은 해시 짝수 턴만) · <code>seed:quiz:final</code>. 카드당 판 1회, 오답 벌점 0</td></tr>
+          <tr><td>이정표</td><td>목표 달성률 0.50 / 0.75 / 0.90 / 1.00 첫 통과, 낙폭 <code>maxDrawdownThreshold</code> 12% 첫 초과. <code>isUrgent</code>: 남은 턴 ≤ 3 && 달성률 &lt; 1</td></tr>
+          <tr><td>기준선(고스트·<code>passive</code>)</td><td>디폴트옵션 없음, 모든 사건 <code>cash</code>(퇴직금은 지금 받기), 퀴즈 없음, 수령 연금. 그래서 IRP 이전·디폴트옵션·퀴즈는 모두 「판단」으로 남음</td></tr>
         </tbody>
       </table>
       <h3>칸 효과 (<code>tile-effects.ts</code> 상수 · <code>balance-config</code>)</h3>
@@ -288,6 +318,14 @@ npm run build</code></pre>
           <tr><td>Q44</td><td>은퇴 전망대(12번)·성향 점검(20번)·분산 광장(17번)·제도 안내(7·18번)·리밸런싱(10·23번) 도착</td><td>각각 「이대로 가면 월 연금 A~B(중간 C)」, 「진단 X · 행동 Y(위험비중 %, 성향 목표 %)」, 「5% 이상 보유 N종」, 「카드 제목 — 요약 (이해 +1)」과 도감 해금, 「예금 a%→30% · …」 + 「이번 턴 리밸런싱하면 이해 +2」(리밸런싱 미리보기에도 지금→목표·보너스). 같은 시드·같은 구성이면 전망 범위 동일</td></tr>
           <tr><td>Q45</td><td>고스트(기본 켬) / 설정에서 끔</td><td>켬: 목표 게이지 아래 점선 마커, 정산 「그대로 뒀다면 X · 내 판단 Y (±Z)」, 결과 곡선 회색 점선 + 「내 판단」·「그대로 둔 나」 라벨(겹치지 않음) + 「판단의 값어치 월 연금 ±N · 총자산 기준 ±M」 + 이기면 「고스트 격파」/지면 「가장 벌어진 턴」. 12턴 「그대로」만 하면 두 곡선이 정확히 겹치고 값어치 0원. 끔: 마커·줄·점선·블록 모두 없음, 카드 제목에 「그대로 둔 나와 비교」 없음</td></tr>
           <tr><td>Q46</td><td>턴 N 「바꾸기」로 예금 → 혼합형 <strong>가능액</strong> 교체(예금 잔고 0) → 턴 N+1 「바꾸기」·「매도」 열기</td><td>기존 상품 셀렉트에 혼합형(첫 보유 상품)이 보이고 금액 프리셋도 혼합형 잔고 기준(기본 800만원·절반 400만원·가능액 = 잔고). 「교체 실행」/「매도 실행」이 실제로 체결돼 정산이 뜬다. 회귀 기준(bundle-a 이전): 셀렉트는 혼합형인데 기본·절반·가능액 모두 0만원, 미리보기 「0원 교체」, 실행해도 「잔고가 부족합니다」로 아무 변화 없음. 보유 상품이 하나도 없으면(전부 매도 후 대기자금만) 실행 버튼 비활성 + 미리보기 「매도할 보유 상품이 없습니다」</td></tr>
+          <tr><td>Q47</td><td>바로 시작(첫 판은 게임 방법 닫은 뒤) → 디폴트옵션 창</td><td>카드 4장, 위험중립형이면 「중위험」에 성향 추천 태그·미리 선택, 「고위험」 잠김 + 「성향 밖 · 5등급」. 창은 ×·Esc로 안 닫힘. 「이 옵션으로 시작」 → 로그 「디폴트옵션 중위험 지정」, 도감에 「디폴트옵션, 지시가 없을 때 일하는 규칙」 해금. 「지정 안 함」 → 설정 줄이 「지정 안 함 · 지정」. 다음 판 시작 창에 마지막 선택이 미리 눌려 있음(저장 v5 <code>defaultOption</code>)</td></tr>
+          <tr><td>Q48</td><td>1턴 납입 100만 → 2턴 「이번엔 그대로」(디폴트옵션 중위험)</td><td>운용 메뉴 「그대로」 설명에 「대기자금 100만원은 디폴트옵션(중위험)이 자동 매수」. 실행 후 정산 「내가 한 일」에 「디폴트옵션(중위험)이 대기자금 1,000,000원을 혼합형·TDF로 운용했습니다. 펀드는 다음 턴 체결.」, 대기 주문 2건, 대기자금 0. 「지정 해제」 뒤 「그대로」는 예전 문구·매수 없음. 대기자금 &lt; 10만이면 매수 없음. 성향 적극·고위험이고 위험비중이 70% 근처면 한도까지만 사고 「…원은 대기자금으로 남겼습니다」</td></tr>
+          <tr><td>Q49</td><td>비용 사건(예: 집수리 220만) 창</td><td>카드 3장(생활자금 / 예금 중도해지 / IRP 중도인출), 각 「지금」·「나중」 문구. 중도인출 잠김 + 「법정 중도인출 사유(교육용 2종)가 아닙니다」. 예금 &lt; 10만이면 해지 카드도 잠김. 「예금 중도해지」 실행 → 예금 줄고 1턴 이내면 불이익 1.2% 문구, 생활자금 그대로. 정산 「사건」 블록에 제목·선택·즉시 금액·「다른 선택이었다면: …」. 의료비·보증금 사건은 인출 카드 열림, 실행 시 IRP −(비용×1.03)</td></tr>
+          <tr><td>Q50</td><td>보너스 사건(성과 보너스 250만) / 퇴직금 사건(600만)</td><td>보너스: 전액 납입(대기자금 +250만 · 환급 대기 33만) / 절반(IRP +125만 · 생활자금 +125만) / 생활자금 +250만. 연간 한도 소진이면 납입 카드 잠김. 퇴직금: 카드 2장 — IRP로 이전(대기자금 +600만, 세금 없음, 납입 한도·<code>contributionTotal</code> 불변) / 지금 받기(생활자금 +501만, 「기타소득세 16.5% 990,000원 차감」). 고스트는 지금 받기라 이전을 고르면 그 턴 고스트 줄 차이가 +600만 근처</td></tr>
+          <tr><td>Q51</td><td>제도 안내 칸(7·18번) 도착 → 속보 「계속」</td><td>퀴즈 모달(눈썹 「퀴즈」, 카드 카테고리·제목, 질문, A/B/C). 방금 스트립에 연 카드의 문제. 정답 클릭 → ✓, 코치 「정답! 제도·운용 이해 +2」 + 해설, 「계속」. 오답 → ✕와 정답 ✓ 동시 표시, 「아쉬워요 … 오답은 벌점이 없습니다」. 「이번엔 건너뛰기」 → 기록 없이 사건/운용으로. 같은 카드는 그 판에 다시 안 나옴. 시장 뉴스 칸은 시드·턴 짝수 해시 턴만 출제, 같은 시드 재시작 시 같은 턴에 같은 문제. ×·Esc 없음</td></tr>
+          <tr><td>Q52</td><td>12턴 마지막 행동 → 정산 → 마무리</td><td>정산 눈썹에 「마지막 턴」 배지, 코치 제목 「남은 일」(퀴즈·수령 안내), CTA 「마무리로 · 퀴즈와 수령 방식」. 누르면 해금·미출제 카드에서 최대 3문항(눈썹 「마무리 퀴즈 n/3」, 마지막은 「계속」) → 수령 방식 모달(IRP 평가액, 연금/일시금 카드에 세율·세금·월 세후·목표 판정 기준, 코치 「일시금은 세금이 N원 더 … 달성률 12% 낮게」) → 결과. 후보 카드가 없으면 퀴즈 생략. 결과 화면 진입 뒤에야 별 소리·<code>playCount +1</code>. 창을 잃으면 하단 「마무리 · 수령 방식 정하기」</td></tr>
+          <tr><td>Q53</td><td>결과 화면 서사</td><td>별 아래 「n/5 조건 · 별 k개까지: 이유」(3별은 「5/5 조건 모두 통과했습니다」). 목표 미달이면 코치 「처방 · 납입만으로 닿았습니다」 또는 「처방 · 납입 + 운용이 필요했습니다」와 「월 N원 부족 → IRP M원 …」. 수령 줄 「연금 수령 · 세금 5.5% …」 + 「수령 방식 바꾸기」 → 수령 모달 → 일시금 선택 시 월 연금·달성률·별이 즉시 재계산되고 수령 줄이 「일시금 수령 · 세금 16.5% N원 차감 → …」, 최고 기록은 둘 중 높은 값, 판 수 그대로. 「제도·운용 이해 n/20」 아래 「기본 4 · 퀴즈 k · 이해 u · 리밸런싱 r」. 「배운 것 · 퀴즈 n/m 정답」 목록(안 풀었으면 안내 문장). 면책에 수령 세율 단순화 문구</td></tr>
+          <tr><td>Q54</td><td>이정표·urgent (납입 위주로 진행)</td><td>예상 월 연금이 목표의 50/75/90/100%를 처음 넘은 턴 정산 위쪽에 ★ 배너 「목표의 절반 통과」·「목표의 75% 통과」·「목표의 90% 통과」·「목표 월 연금 도달!」(100%는 컨페티, 동작 줄이기면 없음). 효과음 켬이면 정산 소리 뒤 이정표 소리. 한 턴에 두 단계를 넘으면 배너는 최고 하나. 시작 IRP가 이미 넘은 단계(기본 목표 50만이면 90%까지)는 배너 없음. 낙폭 12% 첫 초과 턴에 「!」 경고 배너 「낙폭 12% 초과」. 9턴부터(남은 턴 ≤ 3) 목표 미달이면 턴 트랙에 <code>urgent</code>(주황·깜빡임, aria 「남은 턴이 적고 목표 미달」), 달성하면 해제</td></tr>
           <tr><td>Q29</td><td>동작 줄이기 켬</td><td>다이얼·화살표·막대·숫자 트윈이 즉시 끝 상태. 정보 누락 없음. 목표 게이지 95% 눈금과 상태 한 줄, 위험 게이지 70% 선은 그대로</td></tr>
           <tr><td>Q9</td><td>안정형 리밸런싱 미리보기</td><td>예금·단기채만, 퍼센트 합 100. 실행 후 ETF/혼합 0</td></tr>
           <tr><td>Q10</td><td>운용 모달 열고 닫기</td><td>턴 유지. 그대로 두기 하면 정산</td></tr>
@@ -304,7 +342,7 @@ npm run build</code></pre>
 
     <section id="save">
       <h2>9. 저장 데이터</h2>
-      <p>키 <code>pension-road-save-v1</code>, 버전 4.</p>
+      <p>키 <code>pension-road-save-v1</code>, 버전 5(묶음 B). 버전 4 이하 저장은 새 필드를 기본값으로 채워 읽습니다.</p>
       <table>
         <thead><tr><th>필드</th><th>의미</th></tr></thead>
         <tbody>
@@ -312,6 +350,7 @@ npm run build</code></pre>
           <tr><td>settings.characters</td><td>캐릭터 표시. v1·v2 저장은 true로 승격</td></tr>
           <tr><td>settings.sound</td><td>효과음. 기본 false</td></tr>
           <tr><td>settings.ghost</td><td>"그대로 둔 나" 비교 표시. 기본 true. v1~v3 저장은 true로 승격. 고스트 경로 자체는 판마다 <code>createGame</code>이 계산하고 저장하지 않음</td></tr>
+          <tr><td>defaultOption</td><td>마지막에 지정한 디폴트옵션 id(<code>principal</code>·<code>lowRisk</code>·<code>midRisk</code>·<code>highRisk</code>) 또는 null. v1~v4 저장은 null(첫 시작 창에서 고름). 목록에 없는 값은 null. 판 시작 창의 초기 선택과 설정 줄에 쓰이며, 판 자체의 값은 <code>GameState.defaultOption</code>(저장 안 함)</td></tr>
           <tr><td>unlockedCards</td><td>도감 해금</td></tr>
           <tr><td>bestScore / bestReturnRate / bestGoalRate / playCount</td><td>타이틀 기록</td></tr>
           <tr><td>lastSeed</td><td>마지막 시드</td></tr>
@@ -321,7 +360,7 @@ npm run build</code></pre>
           <tr><td>goalMonthly</td><td>월 연금 목표. 없으면 50만 원. 지금 판과 새로고침 후 유지</td></tr>
         </tbody>
       </table>
-      <p>판 도중 포트폴리오는 저장하지 않습니다. 깨진 JSON은 <code>defaultSave</code>로 복구합니다. v1~v3 저장은 v4 기본 필드를 채웁니다.</p>
+      <p>판 도중 포트폴리오는 저장하지 않습니다(수령 방식·퀴즈 기록·이정표도 판 안에만). 깨진 JSON은 <code>defaultSave</code>로 복구합니다. v1~v4 저장은 v5 기본 필드를 채웁니다.</p>
     </section>
 
     <section id="limits">
@@ -334,7 +373,12 @@ npm run build</code></pre>
         <li>은퇴 전망대의 범위는 가상 분기 20개의 p10/p90이며 실제 경로와 무관합니다. 실제 결과가 범위 밖일 수 있습니다.</li>
         <li>고스트 경로는 판 시작 때 한 번 계산하고 재계산하지 않습니다. 「그대로」만 하는 경로라 판 중간에 성향·목표를 바꿔도 IRP 경로는 같습니다.</li>
         <li>추가 생활사건은 시드 일정 사건과 같은 턴에는 나지 않으므로 한 턴에 사건 창은 최대 1개입니다.</li>
-        <li>제도 안내 칸은 '제도' 카드가 모두 열린 뒤에는 이해 +1만 줍니다. 퀴즈(묶음 B)로 교체 예정입니다.</li>
+        <li>제도 안내 칸은 '제도' 카드가 모두 열린 뒤에는 이해 +1과 배운 카드 중 퀴즈 1문항만 줍니다. 해금·미출제 카드가 없으면 퀴즈도 없습니다.</li>
+        <li>디폴트옵션은 「그대로」에만 개입합니다. 매수·매도·바꾸기·리밸런싱을 고른 턴의 잔여 대기자금은 그대로 남습니다. 고스트는 디폴트옵션이 없어, 디폴트옵션만 켜고 12턴 「그대로」를 해도 고스트를 앞섭니다(의도).</li>
+        <li>생활사건 「예금 중도해지」는 예금 잔고가 비용에 모자라면 나머지를 생활자금 → 대기자금·보유 상품 순으로 <code>cash</code>와 같게 자동 충당하고, 그래도 모자랄 때만 부족 횟수 +1입니다. 「IRP 중도인출」은 대기자금 → 보유 상품 비례 축소 순서이며 생활자금은 건드리지 않습니다. 보너스 납입·퇴직금 IRP 이전은 이해 +1과 카드(<code>tax-credit</code>·<code>default-option</code>) 해금이 붙고, 예금 해지는 <code>deposit-rate</code> 카드를 엽니다.</li>
+        <li>수령 방식은 결과 화면에서 몇 번이든 바꿀 수 있습니다. 별·달성률이 즉시 바뀌고 최고 기록은 max로만 갱신됩니다. 10년 분할 등 다른 수령 방식은 카드 본문으로만 다룹니다.</li>
+        <li>마무리 퀴즈는 최대 3문항이며 해금·미출제 카드가 적으면 그만큼만 나옵니다. 퀴즈 기록은 판이 끝나면 사라지고 도감에는 남지 않습니다.</li>
+        <li>처방(<code>shortfallPlan</code>)은 납입 기반만 계산합니다. 위험비중 대안 시뮬은 하지 않습니다.</li>
         <li>금융·세무 전문가 검수와 실제 사용자 5~8명 관찰은 자동 테스트로 대체할 수 없습니다.</li>
         <li>LocalStorage가 차단되면 게임은 되나 기록이 세션 밖에 안 남습니다.</li>
       </ul>
@@ -346,7 +390,7 @@ npm run build</code></pre>
         <li>lint / typecheck / test / build 초록</li>
         <li>Vercel(또는 동등 정적 호스팅)에서 게임·두 매뉴얼 URL 200</li>
         <li>면책 문구, 출처 3링크, 기준일 확인</li>
-        <li>Q1~Q46 스모크(최소 Q1·Q14·Q24·Q27·Q28·Q30·Q32·Q36·Q37·Q39·Q40·Q45·Q46)</li>
+        <li>Q1~Q54 스모크(최소 Q1·Q14·Q24·Q27·Q28·Q30·Q32·Q36·Q37·Q39·Q40·Q45·Q46·Q47·Q48·Q49·Q51·Q52·Q53)</li>
         <li>두 매뉴얼·<code>tests/manuals.test.ts</code>·다이어그램이 이 릴리스의 규칙·화면과 일치(필수 절차)</li>
         <li><code>main</code> 머지 커밋에 <code>prod-*</code> 태그, 운영 URL 번들 해시 확인</li>
         <li>정책 JSON이 시행 규정과 어긋나지 않는지 담당 검수</li>
@@ -355,7 +399,7 @@ npm run build</code></pre>
     </section>
 
     <footer>
-      <p>연금로드 운영자 매뉴얼 · 구현 기준 2026-09-06 (<code>main</code> · 태그 <code>prod-2026-09-06-sell-switch-fix</code>) · 저장소 embrain82/2608_Pension_Monopoly</p>
+      <p>연금로드 운영자 매뉴얼 · 구현 기준 2026-09-06 (<code>main</code> · 태그 <code>prod-2026-09-06-bundle-b</code>) · 저장소 embrain82/2608_Pension_Monopoly</p>
     </footer>
   </main>
 </body>

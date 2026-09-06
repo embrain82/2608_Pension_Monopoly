@@ -1,12 +1,14 @@
 import { clampGoalMonthly } from '../engine/goal';
 import { isProfileId } from '../engine/profile-engine';
+import { isDefaultOptionId } from '../engine/default-option';
 import type { SaveData } from '../types';
 
 export const STORAGE_KEY = 'pension-road-save-v1';
 
 export const defaultSave: SaveData = {
-  version: 4,
+  version: 5,
   settings: { reducedMotion: false, sound: false, characters: true, ghost: true },
+  defaultOption: null,
   unlockedCards: [],
   bestScore: 0,
   lastSeed: '',
@@ -38,13 +40,14 @@ function migrateSave(value: unknown): SaveData | null {
     howtoSeen?: unknown;
     profileId?: unknown;
     goalMonthly?: unknown;
+    defaultOption?: unknown;
   };
   if (!finiteNumber(data.bestScore) || typeof data.lastSeed !== 'string') return null;
   if (!Array.isArray(data.unlockedCards) || !data.unlockedCards.every((item) => typeof item === 'string')) return null;
   if (!data.settings || typeof data.settings.reducedMotion !== 'boolean' || typeof data.settings.sound !== 'boolean') return null;
-  if (data.version !== 1 && data.version !== 2 && data.version !== 3 && data.version !== 4) return null;
+  if (![1, 2, 3, 4, 5].includes(data.version ?? 0)) return null;
   return {
-    version: 4,
+    version: 5,
     settings: {
       reducedMotion: data.settings.reducedMotion,
       sound: data.settings.sound,
@@ -62,7 +65,9 @@ function migrateSave(value: unknown): SaveData | null {
     playCount: finiteNumber(data.playCount) ? data.playCount : 0,
     howtoSeen: data.howtoSeen === true,
     profileId: isProfileId(data.profileId) ? data.profileId : 'balanced',
-    goalMonthly: clampGoalMonthly(finiteNumber(data.goalMonthly) ? data.goalMonthly : 500_000)
+    goalMonthly: clampGoalMonthly(finiteNumber(data.goalMonthly) ? data.goalMonthly : 500_000),
+    // v1~v4 저장에는 없던 값. null이면 다음 판 시작에 고른다.
+    defaultOption: isDefaultOptionId(data.defaultOption) ? data.defaultOption : null
   };
 }
 

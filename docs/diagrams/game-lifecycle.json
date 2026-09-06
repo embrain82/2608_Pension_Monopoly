@@ -20,7 +20,7 @@
           "acting",
           "settle"
         ],
-        "note": "타이틀 → 주사위 → 속보(시장은 이미 반영) → 운용 → 정산 장면. 이 레일을 12번 돈다."
+        "note": "타이틀 → 디폴트옵션 → 주사위 → 속보(시장은 이미 반영) → 퀴즈·사건 → 운용 → 정산 장면. 이 레일을 12번 돈다."
       },
       {
         "id": "loops",
@@ -38,9 +38,10 @@
         "label": "판 끝",
         "focus": [
           "settle",
+          "closing",
           "finished"
         ],
-        "note": "12턴째 정산만 결과 리포트로 내려간다."
+        "note": "12턴째 정산만 마무리(퀴즈 ≤3 → 수령 방식)로 내려가고, 수령을 고르면 결과 리포트다."
       }
     ]
   },
@@ -63,7 +64,7 @@
       "id": "title",
       "type": "start",
       "label": "타이틀",
-      "sublabel": "면책 동의 · 바로 시작",
+      "sublabel": "면책 동의 · 디폴트옵션",
       "lane": "main",
       "col": 0,
       "step": "01",
@@ -82,8 +83,8 @@
     {
       "id": "reading",
       "type": "active",
-      "label": "속보 · 사건",
-      "sublabel": "IRP 반영 · 칸 효과",
+      "label": "속보 · 퀴즈 · 사건",
+      "sublabel": "IRP 반영 · 3지선다",
       "lane": "main",
       "col": 2,
       "step": "03",
@@ -93,7 +94,7 @@
       "id": "acting",
       "type": "decision",
       "label": "운용 1~2회",
-      "sublabel": "awaitingAction",
+      "sublabel": "그대로=디폴트옵션",
       "lane": "main",
       "col": 3,
       "step": "04",
@@ -103,7 +104,7 @@
       "id": "settle",
       "type": "waiting",
       "label": "정산 장면",
-      "sublabel": "다음 턴 준비 누르기",
+      "sublabel": "이정표 · 다음 턴 준비",
       "lane": "main",
       "col": 4,
       "step": "05",
@@ -119,13 +120,23 @@
       "tag": "턴 유지"
     },
     {
+      "id": "closing",
+      "type": "decision",
+      "label": "마무리",
+      "sublabel": "퀴즈 ≤3 · 수령 방식",
+      "lane": "terminal",
+      "col": 2,
+      "tag": "choosePayout",
+      "yOffset": -34
+    },
+    {
       "id": "finished",
       "type": "success",
       "label": "결과 리포트",
-      "sublabel": "월 연금 · 별 · 값어치",
+      "sublabel": "별 · 서사 · 값어치",
       "lane": "terminal",
-      "col": 2,
-      "tag": "finished",
+      "col": 1,
+      "tag": "finished · payout",
       "yOffset": -34
     }
   ],
@@ -156,12 +167,9 @@
     {
       "id": "last-turn",
       "from": "settle",
-      "to": "finished",
+      "to": "closing",
       "label": "12턴 정산",
       "variant": "default",
-      "fromSide": "bottom",
-      "toSide": "top",
-      "route": "straight",
       "labelAt": [
         710,
         300
@@ -203,6 +211,17 @@
         480,
         232
       ]
+    },
+    {
+      "id": "payout-done",
+      "from": "closing",
+      "to": "finished",
+      "label": "연금 / 일시금 선택",
+      "variant": "emphasis",
+      "labelAt": [
+        633,
+        412
+      ]
     }
   ],
   "cards": [
@@ -210,8 +229,8 @@
       "dot": "emerald",
       "title": "주 레일",
       "items": [
-        "createGame 한 번, 12턴 반복",
-        "시장 먼저 반영 · 속보 안에 칸 효과·사건"
+        "createGame 한 번 · 디폴트옵션 · 12턴",
+        "시장 먼저 반영 · 속보 뒤 퀴즈 · 사건"
       ]
     },
     {
@@ -219,7 +238,7 @@
       "title": "대기 · 끝",
       "items": [
         "운용지시 칸은 행동 2회, 시트 유지",
-        "12턴째만 결과 리포트(고스트 비교) → 새 판"
+        "12턴 정산 → 퀴즈 ≤3 → 수령 방식 → 결과"
       ]
     },
     {

@@ -7,7 +7,8 @@ import profilesJson from './investor-profiles.json';
 import balanceJson from './balance-config.json';
 import tileBriefingsJson from './tile-briefings.json';
 import marketShocksJson from './market-shocks.json';
-import type { BalanceConfig, BoardTile, InvestorProfile, LearningCard, LifeEvent, MarketShock, MarketStep, PolicyRules, Product, TileBriefingSet } from '../types';
+import defaultOptionsJson from './default-options.json';
+import type { BalanceConfig, BoardTile, DefaultOption, InvestorProfile, LearningCard, LifeEvent, MarketShock, MarketStep, PolicyRules, Product, TileBriefingSet } from '../types';
 
 export const products = productsJson as Product[];
 export const marketScenario = marketJson as MarketStep[];
@@ -18,6 +19,7 @@ export const learningCards = learningJson as LearningCard[];
 export const investorProfiles = profilesJson as InvestorProfile[];
 export const balanceConfig = balanceJson as BalanceConfig;
 export const tileBriefings = tileBriefingsJson as TileBriefingSet[];
+export const defaultOptions = defaultOptionsJson as DefaultOption[];
 
 /** 칸 종류·이름·효과. 효과 규칙은 src/engine/tile-effects.ts, 설명 글은 tile-briefings.json. */
 const tileKinds: Array<Omit<BoardTile, 'index'>> = [
@@ -92,5 +94,10 @@ export function validateContent(): void {
   }
   if (boardTiles.filter((tile) => tile.effect === 'spotlight').length !== products.length) {
     throw new Error('상품 거리 칸은 상품 6종마다 하나여야 합니다.');
+  }
+  if (learningCards.some((card) => !card.quiz || !card.quiz.q || !card.quiz.why || card.quiz.options.length !== 3
+    || card.quiz.options.some((option) => !option) || new Set(card.quiz.options).size !== 3
+    || !Number.isInteger(card.quiz.answer) || card.quiz.answer < 0 || card.quiz.answer > 2)) {
+    throw new Error('학습 카드마다 3지선다 퀴즈(질문·서로 다른 선택지 3개·정답 위치·해설)가 있어야 합니다.');
   }
 }

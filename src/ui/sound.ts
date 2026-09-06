@@ -1,4 +1,4 @@
-export type SoundName = 'dice' | 'hop' | 'arrive' | 'news' | 'shock' | 'up' | 'down' | 'star' | 'refund';
+export type SoundName = 'dice' | 'hop' | 'arrive' | 'news' | 'shock' | 'up' | 'down' | 'star' | 'refund' | 'milestone';
 export type Wave = 'sine' | 'square' | 'triangle' | 'sawtooth' | 'noise';
 
 export interface ToneStep {
@@ -13,12 +13,12 @@ export interface ToneStep {
   gain: number;
 }
 
-export const SOUND_NAMES: SoundName[] = ['dice', 'hop', 'arrive', 'news', 'shock', 'up', 'down', 'star', 'refund'];
+export const SOUND_NAMES: SoundName[] = ['dice', 'hop', 'arrive', 'news', 'shock', 'up', 'down', 'star', 'refund', 'milestone'];
 export const MAX_SOUND_SECONDS = 0.6;
 
 const step = (at: number, freq: number, dur: number, wave: Wave, gain: number): ToneStep => ({ at, freq, dur, wave, gain });
 
-/** 음원 파일 없이 오실레이터로 만드는 9종. 모두 0.6초 이내로 끝난다. */
+/** 음원 파일 없이 오실레이터로 만드는 10종. 모두 0.6초 이내로 끝난다. */
 export function toneScript(name: SoundName): ToneStep[] {
   switch (name) {
     case 'dice':
@@ -40,6 +40,9 @@ export function toneScript(name: SoundName): ToneStep[] {
     case 'refund':
       // 동전 두 개가 떨어지는 소리. 연말정산 환급 장면.
       return [step(0, 1568, 0.07, 'square', 0.14), step(0.09, 2093, 0.16, 'square', 0.16), step(0.3, 1568, 0.06, 'square', 0.1), step(0.38, 2093, 0.18, 'square', 0.12)];
+    case 'milestone':
+      // 짧은 팡파르 세 음. 목표 이정표를 처음 넘는 정산.
+      return [step(0, 659, 0.09, 'triangle', 0.22), step(0.1, 880, 0.09, 'triangle', 0.24), step(0.2, 1175, 0.3, 'triangle', 0.28), step(0.2, 587, 0.3, 'sine', 0.12)];
   }
 }
 

@@ -9,5 +9,8 @@
   "taxCreditRate":0.132,
   "earlyDepositPenaltyRate":0.012,
   "allowedWithdrawalFeeRate":0.03,
-  "receivingMonths":240
+  "receivingMonths":240,
+  "pensionTaxRate":0.055,
+  "lumpSumTaxRate":0.165,
+  "payoutReviewedAt":"2026-09-06"
 }

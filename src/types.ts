@@ -112,13 +112,66 @@ export interface MarketConfig {
   regimes: Record<Regime, RegimeConfig>;
 }
 
+export type LifeEventKind = 'cost' | 'bonus' | 'transfer';
+
 export interface LifeEvent {
   id: string;
+  /** cost: 지출(cost>0) · bonus: 생활자금 보너스(cost<0) · transfer: 퇴직급여 이전(cost<0, IRP 또는 세후 생활자금) */
+  kind: LifeEventKind;
   title: string;
   body: string;
   cost: number;
   eligibleWithdrawal: boolean;
   learningCardId: string;
+}
+
+/**
+ * 생활사건 선택지. 비용: cash·deposit·withdraw / 보너스: contribute-all·contribute-half·cash / 이전: transfer-irp·cash.
+ * `cash`는 어떤 사건에서도 "IRP를 건드리지 않고 생활자금 쪽으로"라는 뜻이라 항상 고를 수 있다(예전 호출 호환).
+ */
+export type LifeChoice = 'cash' | 'deposit' | 'withdraw' | 'contribute-all' | 'contribute-half' | 'transfer-irp';
+
+export interface LifeChoiceOption {
+  id: LifeChoice;
+  label: string;
+  enabled: boolean;
+  /** 비활성 이유 */
+  reason?: string;
+  /** 즉시 비용·효과 한 줄 */
+  immediate: string;
+  /** 장기 비용·효과 한 줄 */
+  longTerm: string;
+}
+
+/** 이번 턴 생활사건을 어떻게 해결했는지. 정산 「사건」 블록과 "다른 선택이었다면" 줄의 재료 */
+export interface LifeResolution {
+  eventId: string;
+  title: string;
+  kind: LifeEventKind;
+  choice: LifeChoice;
+  choiceLabel: string;
+  /** 사건 금액(지출 +, 보너스·이전 −) */
+  cost: number;
+  cashDelta: number;
+  irpDelta: number;
+  /** 예금 해지 불이익 */
+  penalty: number;
+  /** 중도인출 수수료 또는 일시 수령 세금 */
+  fee: number;
+  sales: Array<{ productId: ProductId; amount: number; penalty: number }>;
+  shortage: boolean;
+  /** "다른 선택이었다면" 비교 한 줄 */
+  alternative: string;
+  message: string;
+}
+
+/** 카드 1장 = 3지선다 1문항. `answer`는 `options`의 정답 위치 */
+export interface QuizQuestion {
+  q: string;
+  options: string[];
+  answer: 0 | 1 | 2;
+  /** 정답·오답 뒤 함께 보이는 해설 */
+  why: string;
 }
 
 export interface LearningCard {
@@ -130,6 +183,26 @@ export interface LearningCard {
   source_url: string;
   reviewed_at: string;
   simplified: boolean;
+  quiz: QuizQuestion;
+}
+
+/** 판에서 처음 넘는 순간 한 번만 울리는 이정표 */
+export type MilestoneId = 'goal-50' | 'goal-75' | 'goal-90' | 'goal-100' | 'drawdown-12';
+
+export interface Milestone {
+  id: MilestoneId;
+  turn: number;
+  title: string;
+  detail: string;
+  /** cheer: 축하 배너 / warn: 경고 배너 */
+  tone: 'cheer' | 'warn';
+}
+
+/** 퀴즈 한 번의 기록. 카드마다 한 판에 한 번만 출제된다 */
+export interface QuizRecord {
+  cardId: string;
+  correct: boolean;
+  turn: number;
 }
 
 export interface PolicyRules {
@@ -144,6 +217,26 @@ export interface PolicyRules {
   earlyDepositPenaltyRate: number;
   allowedWithdrawalFeeRate: number;
   receivingMonths: number;
+  /** 연금 수령 시 연금소득세(교육용 단순화) */
+  pensionTaxRate: number;
+  /** 일시금 수령 시 기타소득세(교육용 단순화) */
+  lumpSumTaxRate: number;
+  payoutReviewedAt: string;
+}
+
+/** 12턴 뒤 최종 결정. 연금(20년 분할) 또는 일시금 */
+export type PayoutChoice = 'annuity20' | 'lumpSum';
+
+export interface PayoutPlan {
+  choice: PayoutChoice;
+  taxRate: number;
+  tax: number;
+  /** 세후 총액 */
+  net: number;
+  /** 세후 월 수령(일시금은 240개월로 나눈 환산) */
+  monthlyNet: number;
+  /** 목표 판정에 쓰는 연금 기준 세전 월액. 연금은 IRP÷240, 일시금은 세후 총액을 연금 세후 기준으로 환산 */
+  monthlyBasis: number;
 }
 
 export interface BalanceConfig {
@@ -166,6 +259,16 @@ export interface BalanceConfig {
   defaultAllocation: Record<ProductId, number>;
   rebalanceAllocation: Record<ProductId, number>;
   market: MarketConfig;
+}
+
+/** 디폴트옵션(사전지정운용). 「그대로」를 고르면 대기자금이 이 상품들로 균등 매수된다. */
+export type DefaultOptionId = 'principal' | 'lowRisk' | 'midRisk' | 'highRisk';
+
+export interface DefaultOption {
+  id: DefaultOptionId;
+  name: string;
+  products: ProductId[];
+  blurb: string;
 }
 
 export interface InvestorProfile {
@@ -320,6 +423,22 @@ export interface GameState {
   extraLifeEvents: number;
   tileEffectsEnabled: boolean;
   ghost: GhostTrack | null;
+  /** 12턴 뒤 고른 수령 방식. 아직이면 null(점수는 연금 기준) */
+  payoutChoice: PayoutChoice | null;
+  /** 지정한 디폴트옵션. null이면 「그대로」가 대기자금을 건드리지 않는다(고스트·시뮬 기준선) */
+  defaultOption: DefaultOptionId | null;
+  /** 이번 턴 생활사건 해결 기록. 다음 턴 시작에 비운다 */
+  lifeResolution: LifeResolution | null;
+  /** 이번 판에 푼 퀴즈. 정답 수가 지식 점수에 들어간다 */
+  quizLog: QuizRecord[];
+  /** 연속 정답 수. 오답이면 0 */
+  quizStreak: number;
+  /** 이번 턴 출제 대기 카드. 속보를 닫은 뒤 모달로 뜨고 다음 턴 시작에 비운다 */
+  pendingQuizCardId: string | null;
+  /** 이번 판에 이미 넘은 이정표. 시작 시점에 이미 넘은 것은 배너 없이 여기에 들어간다 */
+  milestonesHit: MilestoneId[];
+  /** 이번 턴 마감에 처음 넘은 이정표. 정산 배너가 쓰고 다음 턴 시작에 비운다 */
+  turnMilestones: Milestone[];
 }
 
 export interface TurnProductDelta {
@@ -351,6 +470,10 @@ export interface TurnSummary {
   tileEffects: TileEffect[];
   /** 같은 턴 끝 고스트 IRP. 고스트가 없으면 null */
   ghostIrp: number | null;
+  /** 이번 턴 생활사건 해결 기록. 없으면 null */
+  lifeEvent: LifeResolution | null;
+  /** 이번 턴 마감에 처음 넘은 이정표(0~2개) */
+  milestones: Milestone[];
   marketHeadline: string;
   shock: boolean;
   alert?: MarketAlert;
@@ -395,11 +518,15 @@ export interface ScoreResult {
   relatedCardIds: string[];
   returnRate: number;
   investmentReturnRate: number;
+  /** 적용된 수령 방식 계산(미선택이면 연금 기준) */
+  payout: PayoutPlan;
 }
 
 export interface SaveData {
-  version: 4;
+  version: 5;
   settings: { reducedMotion: boolean; sound: boolean; characters: boolean; ghost: boolean };
+  /** 마지막으로 고른 디폴트옵션. null이면 다음 판 시작에 고른다 */
+  defaultOption: DefaultOptionId | null;
   unlockedCards: string[];
   bestScore: number;
   lastSeed: string;

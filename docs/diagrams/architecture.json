@@ -7,7 +7,7 @@
     "quality_profile": "showcase",
     "repository": {
       "url": "https://github.com/embrain82/2608_Pension_Monopoly",
-      "revision": "102ebbdbcdd86a43efc57273c6fc9842bfc7c146"
+      "revision": "e83b067642b120101379fcd79e24f59490c3933e"
     },
     "views": [
       {
@@ -21,7 +21,7 @@
           "portfolio",
           "scoring"
         ],
-        "note": "클릭 한 번이 엔진의 순수 함수 호출로 바뀌어 새 GameState를 돌려받는 길."
+        "note": "클릭 한 번이 엔진의 순수 함수 호출로 바뀌어 새 GameState를 돌려받는 길. 「그대로」는 디폴트옵션 자동 매수."
       },
       {
         "id": "render-path",
@@ -31,7 +31,7 @@
           "views",
           "fx"
         ],
-        "note": "상태를 마크업으로 바꾸고, DOM이 필요한 애니메이션·소리만 fx 계층이 맡는다."
+        "note": "상태를 마크업으로 바꾸는 순수 뷰(사건·퀴즈·수령·디폴트옵션 모달 포함). DOM이 필요한 애니메이션·소리만 fx가 맡는다."
       },
       {
         "id": "data-and-save",
@@ -79,7 +79,7 @@
       "id": "views",
       "type": "frontend",
       "label": "렌더 모듈",
-      "sublabel": "보드 · 속보 · 정산 · 고스트",
+      "sublabel": "보드 · 정산 · 사건 · 퀴즈",
       "pos": [
         290,
         140
@@ -96,7 +96,7 @@
           "path": "src/ui/settlement.ts"
         },
         {
-          "path": "src/ui/ghost.ts"
+          "path": "src/ui/life-view.ts"
         }
       ]
     },
@@ -149,7 +149,7 @@
       "id": "storage",
       "type": "database",
       "label": "LocalStorage",
-      "sublabel": "save-v1 · v4 설정·기록",
+      "sublabel": "save-v1 · v5 설정·기록",
       "pos": [
         550,
         140
@@ -168,7 +168,7 @@
       "id": "game",
       "type": "backend",
       "label": "game-engine",
-      "sublabel": "시장 먼저 · 칸 효과 · 고스트",
+      "sublabel": "시장 먼저 · 칸 효과 · 퀴즈",
       "pos": [
         550,
         320
@@ -182,7 +182,10 @@
           "path": "src/engine/game-engine.ts"
         },
         {
-          "path": "src/engine/tile-effects.ts"
+          "path": "src/engine/life-engine.ts"
+        },
+        {
+          "path": "src/engine/quiz-engine.ts"
         }
       ]
     },
@@ -190,7 +193,7 @@
       "id": "tests",
       "type": "external",
       "label": "검증",
-      "sublabel": "Vitest 222 · 시뮬 9전략",
+      "sublabel": "Vitest 316 · 시뮬 11전략",
       "pos": [
         550,
         600
@@ -204,7 +207,7 @@
           "path": "tests/balance-gate.test.ts"
         },
         {
-          "path": "tests/tile-effects.test.ts"
+          "path": "tests/quiz.test.ts"
         },
         {
           "path": "scripts/simulate.ts"
@@ -240,7 +243,7 @@
       "id": "scoring",
       "type": "backend",
       "label": "scoring · settlement",
-      "sublabel": "월 연금 · 별 · 턴 요약",
+      "sublabel": "월 연금 · 별 · 이정표",
       "pos": [
         820,
         320
@@ -255,6 +258,9 @@
         },
         {
           "path": "src/engine/settlement-engine.ts"
+        },
+        {
+          "path": "src/engine/milestones.ts"
         }
       ]
     },
@@ -262,7 +268,7 @@
       "id": "portfolio",
       "type": "backend",
       "label": "portfolio · policy",
-      "sublabel": "매매 · 70% · 성향",
+      "sublabel": "매매 · 70% · 디폴트옵션",
       "pos": [
         820,
         440
@@ -277,6 +283,9 @@
         },
         {
           "path": "src/engine/policy-engine.ts"
+        },
+        {
+          "path": "src/engine/default-option.ts"
         }
       ]
     },
@@ -284,7 +293,7 @@
       "id": "data",
       "type": "database",
       "label": "콘텐츠 JSON",
-      "sublabel": "products · balance · cards",
+      "sublabel": "products · cards · options",
       "pos": [
         1080,
         320
@@ -300,6 +309,9 @@
         },
         {
           "path": "src/data/balance-config.json"
+        },
+        {
+          "path": "src/data/default-options.json"
         }
       ]
     }
@@ -425,7 +437,7 @@
       "title": "UI 계층",
       "items": [
         "app.ts가 화면·모달·설정 상태를 들고 렌더",
-        "정산 막대 3개·고스트 줄은 settlement·ghost"
+        "사건·퀴즈·수령·디폴트옵션 모달은 순수 뷰"
       ]
     },
     {
@@ -433,7 +445,7 @@
       "title": "엔진 계층",
       "items": [
         "GameState → 새 GameState, 전부 순수 함수",
-        "시장 먼저 → 행동 → 마감, 시드로 판 재현"
+        "시장 먼저 → 행동 → 마감 → 퀴즈 · 수령"
       ]
     },
     {
@@ -441,7 +453,7 @@
       "title": "데이터·배포",
       "items": [
         "규칙 숫자는 src/data/*.json + validateContent()",
-        "저장은 설정·기록·성향·목표만, 배포는 Vercel 정적"
+        "저장 v5: 설정·기록·성향·목표·디폴트옵션"
       ]
     }
   ]

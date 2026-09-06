@@ -1,6 +1,7 @@
 import { products } from '../data/content';
-import type { TurnSummary } from '../types';
+import type { Milestone, TurnSummary } from '../types';
 import { renderGhostSettleLine } from './ghost';
+import { renderLifeSettleBlock } from './life-view';
 import { percent, signedPercent } from './market-view';
 import { renderSpeech } from './speech';
 import { renderTileEffects } from './tile-effects-view';
@@ -9,6 +10,18 @@ export interface SettlementOptions {
   characters: boolean;
   /** 설정 "그대로 둔 나" 비교. 끄면 고스트 줄을 숨긴다 */
   ghost?: boolean;
+  /** 동작 줄이기. 켜면 100% 컨페티를 그리지 않는다 */
+  reducedMotion?: boolean;
+  /** 12턴째 정산. 다음 턴이 없으니 버튼이 마무리(퀴즈·수령 방식)로 이어진다 */
+  final?: boolean;
+}
+
+/** 이정표 배너. 목표 100%는 컨페티(동작 줄이기면 없음), 낙폭 경고는 다른 색 */
+export function renderMilestoneBanner(milestone: Milestone, reducedMotion = false): string {
+  const confetti = milestone.id === 'goal-100' && !reducedMotion
+    ? `<div class="confetti" aria-hidden="true">${Array.from({ length: 14 }, (_, index) => `<i style="--i:${index}"></i>`).join('')}</div>`
+    : '';
+  return `<div class="milestone-banner ${milestone.tone} ${milestone.id}" role="status">${confetti}<span class="milestone-mark" aria-hidden="true">${milestone.tone === 'cheer' ? '★' : '!'}</span><div><strong>${milestone.title}</strong><p>${milestone.detail}</p></div></div>`;
 }
 
 const formatWon = (value: number) => `${Math.round(value).toLocaleString('ko-KR')}원`;
@@ -70,16 +83,25 @@ export function renderSettlementModal(summary: TurnSummary, options: SettlementO
     ? `<div class="preview-box settle-alert level-${summary.alert.level}"><strong>다음 턴 신호</strong><p>${summary.alert.text}</p></div>`
     : '';
   const ghost = options.ghost === false ? '' : renderGhostSettleLine(summary);
-  return `<p class="eyebrow">${summary.turn}턴 정산${shock}</p>
+  const milestones = (summary.milestones ?? []).map((milestone) => renderMilestoneBanner(milestone, options.reducedMotion)).join('');
+  const cheer = (summary.milestones ?? []).find((milestone) => milestone.tone === 'cheer');
+  const reactionTone = cheer ? 'positive' : summary.shock ? 'shock' : 'default';
+  const cta = options.final ? '마무리로 · 퀴즈와 수령 방식' : '다음 턴 준비';
+  const hints = options.final
+    ? ['12턴이 끝났습니다. 배운 카드에서 마무리 퀴즈(최대 3문항)를 풀고, 연금과 일시금 중 수령 방식을 정하면 결과 리포트가 열립니다.']
+    : summary.nextHints;
+  return `<p class="eyebrow">${summary.turn}턴 정산${shock}${options.final ? '<span class="settle-final">마지막 턴</span>' : ''}</p>
     <h2>무엇이 바뀌었나요?</h2>
     <p class="settle-headline">${summary.marketHeadline}</p>
+    ${milestones}
     ${irpBars(summary)}
     ${ghost}
-    <div class="settle-reaction">${renderSpeech('coach', `<p>${summary.reaction}</p>`, { characters: options.characters, title: '한 줄 정리', tone: summary.shock ? 'shock' : 'default' })}</div>
+    <div class="settle-reaction">${renderSpeech('coach', `<p>${summary.reaction}</p>`, { characters: options.characters, title: '한 줄 정리', tone: reactionTone })}</div>
     <div class="preview-box settle-market"><strong>시장이 한 일 · 상품별 이번 턴</strong><p class="settle-note">턴 시작에 이미 보유분에 반영된 수익률입니다.</p>${returnBars(summary)}</div>
+    ${renderLifeSettleBlock(summary.lifeEvent)}
     ${actionBlock(summary)}
     ${renderTileEffects(summary.tileEffects, { heading: '칸 효과' })}
     ${alert}
-    ${renderSpeech('coach', `<ul class="settle-hints">${summary.nextHints.map((hint) => `<li>${hint}</li>`).join('')}</ul>`, { characters: options.characters, title: '다음 판단' })}
-    <button class="primary jumbo" data-action="dismiss-settle">다음 턴 준비</button>`;
+    ${renderSpeech('coach', `<ul class="settle-hints">${hints.map((hint) => `<li>${hint}</li>`).join('')}</ul>`, { characters: options.characters, title: options.final ? '남은 일' : '다음 판단' })}
+    <button class="primary jumbo" data-action="dismiss-settle">${cta}</button>`;
 }

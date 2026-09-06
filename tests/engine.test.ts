@@ -479,7 +479,7 @@ describe('점수와 저장 복구', () => {
     expect(loadSave(v3).settings.characters).toBe(false);
     expect(loadSave(v3).settings.ghost).toBe(true);
     expect(loadSave(v4).settings.ghost).toBe(false);
-    expect(loadSave(v4).version).toBe(4);
+    expect(loadSave(v4).version).toBe(5);
     expect(defaultSave.settings.sound).toBe(false);
     expect(defaultSave.settings.ghost).toBe(true);
   });
@@ -491,7 +491,7 @@ describe('점수와 저장 복구', () => {
         : null
     };
     const loaded = loadSave(legacy);
-    expect(loaded.version).toBe(4);
+    expect(loaded.version).toBe(5);
     expect(loaded.settings.reducedMotion).toBe(true);
     expect(loaded.settings.characters).toBe(true);
     expect(loaded.settings.ghost).toBe(true);
