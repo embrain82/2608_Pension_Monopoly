@@ -1,0 +1,234 @@
+{
+  "schema_version": 1,
+  "diagram_type": "lifecycle",
+  "meta": {
+    "title": "연금로드 상태 흐름",
+    "output": "../../public/diagrams/game-lifecycle.html",
+    "viewBox": [
+      980,
+      600
+    ],
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "main-rail",
+        "label": "주 흐름",
+        "focus": [
+          "title",
+          "rolling",
+          "reading",
+          "acting",
+          "settle"
+        ],
+        "note": "타이틀 → 주사위 → 속보 → 운용 → 정산 장면. 이 레일을 12번 돈다."
+      },
+      {
+        "id": "loops",
+        "label": "되돌아가는 길",
+        "focus": [
+          "settle",
+          "rolling",
+          "acting",
+          "rejected"
+        ],
+        "note": "정산 장면은 다음 주사위로, 거절·보류는 운용으로 되돌아간다."
+      },
+      {
+        "id": "ending",
+        "label": "판 끝",
+        "focus": [
+          "settle",
+          "finished"
+        ],
+        "note": "12턴째 정산만 결과 리포트로 내려간다."
+      }
+    ]
+  },
+  "lanes": [
+    {
+      "id": "main",
+      "label": "판의 단계"
+    },
+    {
+      "id": "exceptions",
+      "label": "거절 · 되돌림"
+    },
+    {
+      "id": "terminal",
+      "label": "판 끝"
+    }
+  ],
+  "states": [
+    {
+      "id": "title",
+      "type": "start",
+      "label": "타이틀",
+      "sublabel": "면책 동의 · 바로 시작",
+      "lane": "main",
+      "col": 0,
+      "step": "01",
+      "tag": "createGame"
+    },
+    {
+      "id": "rolling",
+      "type": "active",
+      "label": "주사위 · 이동",
+      "sublabel": "합만큼 칸마다 점프",
+      "lane": "main",
+      "col": 1,
+      "step": "02",
+      "tag": "연출"
+    },
+    {
+      "id": "reading",
+      "type": "active",
+      "label": "속보 · 사건",
+      "sublabel": "시장 카드 · 생활사건",
+      "lane": "main",
+      "col": 2,
+      "step": "03",
+      "tag": "startTurn"
+    },
+    {
+      "id": "acting",
+      "type": "decision",
+      "label": "운용 1회",
+      "sublabel": "awaitingAction",
+      "lane": "main",
+      "col": 3,
+      "step": "04",
+      "tag": "performAction"
+    },
+    {
+      "id": "settle",
+      "type": "waiting",
+      "label": "정산 장면",
+      "sublabel": "다음 턴 준비 누르기",
+      "lane": "main",
+      "col": 4,
+      "step": "05",
+      "tag": "settled"
+    },
+    {
+      "id": "rejected",
+      "type": "failure",
+      "label": "거절 · 보류",
+      "sublabel": "성향 밖 · 한도 초과",
+      "lane": "exceptions",
+      "col": 1,
+      "tag": "턴 유지"
+    },
+    {
+      "id": "finished",
+      "type": "success",
+      "label": "결과 리포트",
+      "sublabel": "월 연금 · 별 · 100점",
+      "lane": "terminal",
+      "col": 2,
+      "tag": "finished",
+      "yOffset": -34
+    }
+  ],
+  "transitions": [
+    {
+      "id": "next-turn",
+      "from": "settle",
+      "to": "rolling",
+      "label": "턴 < 12 · 다음 턴 준비",
+      "variant": "emphasis",
+      "fromSide": "top",
+      "toSide": "top",
+      "via": [
+        [
+          710,
+          98
+        ],
+        [
+          248,
+          98
+        ]
+      ],
+      "labelAt": [
+        480,
+        98
+      ]
+    },
+    {
+      "id": "last-turn",
+      "from": "settle",
+      "to": "finished",
+      "label": "12턴 정산",
+      "variant": "default",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "route": "straight",
+      "labelAt": [
+        710,
+        300
+      ]
+    },
+    {
+      "id": "gate",
+      "from": "acting",
+      "to": "rejected",
+      "label": "게이트",
+      "variant": "security",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "route": "straight",
+      "labelAt": [
+        556,
+        232
+      ]
+    },
+    {
+      "id": "retry",
+      "from": "rejected",
+      "to": "acting",
+      "label": "다시 고르기",
+      "variant": "dashed",
+      "fromSide": "left",
+      "toSide": "left",
+      "via": [
+        [
+          480,
+          307
+        ],
+        [
+          480,
+          157
+        ]
+      ],
+      "labelAt": [
+        480,
+        232
+      ]
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "주 레일",
+      "items": [
+        "createGame 한 번, 12턴 반복",
+        "속보 안에 칸 설명·생활사건(3회)"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "대기 · 끝",
+      "items": [
+        "정산 장면은 「다음 턴 준비」로 닫아야 진행",
+        "12턴째만 결과 리포트 → 새 판"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "거절 · 이탈",
+      "items": [
+        "거절·보류는 턴을 쓰지 않고 운용 복귀",
+        "새로고침은 판을 잃음(중간 저장 없음)"
+      ]
+    }
+  ]
+}

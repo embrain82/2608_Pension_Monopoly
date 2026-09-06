@@ -1,0 +1,338 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "연금로드 한 턴의 순서",
+    "output": "../../public/diagrams/turn-workflow.html",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "main-loop",
+        "label": "기본 루프",
+        "focus": [
+          "dice",
+          "start",
+          "news",
+          "sheet",
+          "act",
+          "finalize",
+          "settle",
+          "next"
+        ],
+        "note": "12턴 동안 반복되는 길. 시장이 먼저 보이고, 행동은 한 번, 그 뒤 정산."
+      },
+      {
+        "id": "life-and-gates",
+        "label": "사건과 게이트",
+        "focus": [
+          "news",
+          "life",
+          "sheet",
+          "act",
+          "gate"
+        ],
+        "note": "생활사건은 시드 일정으로만 열리고, 성향·70% 게이트는 행동을 거절하거나 부분 체결한다."
+      },
+      {
+        "id": "ending",
+        "label": "끝내기",
+        "focus": [
+          "finalize",
+          "settle",
+          "next",
+          "result"
+        ],
+        "note": "11턴까지는 다음 주사위로, 12턴 정산은 결과 리포트로 간다."
+      }
+    ]
+  },
+  "lanes": [
+    {
+      "id": "player",
+      "label": "플레이어"
+    },
+    {
+      "id": "ui",
+      "label": "화면 · 모달"
+    },
+    {
+      "id": "except",
+      "label": "사건 · 게이트",
+      "variant": "exception"
+    },
+    {
+      "id": "engine",
+      "label": "엔진 (순수 함수)"
+    }
+  ],
+  "phases": [
+    {
+      "id": "open",
+      "label": "턴 열기",
+      "fromCol": 0,
+      "toCol": 1
+    },
+    {
+      "id": "read",
+      "label": "읽기 · 사건",
+      "fromCol": 2,
+      "toCol": 2,
+      "variant": "dashed"
+    },
+    {
+      "id": "decide",
+      "label": "운용 1회",
+      "fromCol": 3,
+      "toCol": 3,
+      "variant": "emphasis"
+    },
+    {
+      "id": "close",
+      "label": "정산 · 다음",
+      "fromCol": 4,
+      "toCol": 5
+    }
+  ],
+  "mainPath": [
+    "dice",
+    "start",
+    "news",
+    "sheet",
+    "act",
+    "finalize",
+    "settle",
+    "next"
+  ],
+  "nodes": [
+    {
+      "id": "dice",
+      "lane": "player",
+      "col": 0,
+      "type": "external",
+      "label": "주사위 굴리기",
+      "sublabel": "두 눈의 합만큼 이동",
+      "width": 140
+    },
+    {
+      "id": "next",
+      "lane": "player",
+      "col": 5,
+      "type": "external",
+      "label": "다음 턴 준비",
+      "sublabel": "턴 < 12이면 반복",
+      "width": 140
+    },
+    {
+      "id": "news",
+      "lane": "ui",
+      "col": 1,
+      "type": "frontend",
+      "label": "속보 카드",
+      "sublabel": "헤드라인 · 다이얼 · 화살표",
+      "tag": "충격 턴 흔들림",
+      "width": 150
+    },
+    {
+      "id": "tile",
+      "lane": "ui",
+      "col": 2,
+      "type": "frontend",
+      "label": "칸 설명 (선택)",
+      "sublabel": "24칸 × 5편 · 효과 없음",
+      "width": 150
+    },
+    {
+      "id": "sheet",
+      "lane": "ui",
+      "col": 3,
+      "type": "frontend",
+      "label": "운용 시트",
+      "sublabel": "행동 6종 중 하나",
+      "width": 150
+    },
+    {
+      "id": "settle",
+      "lane": "ui",
+      "col": 4,
+      "type": "frontend",
+      "label": "정산 장면",
+      "sublabel": "전·후 막대 · 내가 한 일",
+      "width": 150
+    },
+    {
+      "id": "result",
+      "lane": "ui",
+      "col": 5,
+      "type": "frontend",
+      "label": "결과 리포트",
+      "sublabel": "월 연금 · 별 · 100점",
+      "width": 150
+    },
+    {
+      "id": "start",
+      "lane": "engine",
+      "col": 0,
+      "type": "backend",
+      "label": "startTurn",
+      "sublabel": "시장 스텝 · 위치 · 카드",
+      "width": 150
+    },
+    {
+      "id": "act",
+      "lane": "engine",
+      "col": 3,
+      "type": "backend",
+      "label": "performAction",
+      "sublabel": "행동 1회 → 새 상태",
+      "width": 150
+    },
+    {
+      "id": "finalize",
+      "lane": "engine",
+      "col": 4,
+      "type": "backend",
+      "label": "finalizeTurn",
+      "sublabel": "시장 반영 · 주문 체결",
+      "width": 150
+    },
+    {
+      "id": "life",
+      "lane": "except",
+      "col": 2,
+      "type": "security",
+      "label": "생활사건",
+      "sublabel": "시드 일정 3회 · 2~11턴",
+      "tag": "생활자금 / 중도인출",
+      "width": 150
+    },
+    {
+      "id": "gate",
+      "lane": "except",
+      "col": 3,
+      "type": "security",
+      "label": "게이트",
+      "sublabel": "성향 등급 · 위험 70%",
+      "tag": "거절 · 부분 체결 · 보류",
+      "width": 150
+    }
+  ],
+  "edges": [
+    {
+      "id": "roll",
+      "from": "dice",
+      "to": "start",
+      "label": "diceSteps",
+      "variant": "emphasis"
+    },
+    {
+      "id": "state-to-news",
+      "from": "start",
+      "to": "news",
+      "label": "GameState",
+      "variant": "emphasis",
+      "bias": 0
+    },
+    {
+      "id": "continue",
+      "from": "news",
+      "to": "sheet",
+      "label": "계속",
+      "variant": "emphasis"
+    },
+    {
+      "id": "open-tile",
+      "from": "news",
+      "to": "tile",
+      "label": "칸 설명 보기",
+      "variant": "dashed",
+      "role": "branch"
+    },
+    {
+      "id": "life-turn",
+      "from": "news",
+      "to": "life",
+      "label": "사건 턴이면",
+      "variant": "security",
+      "role": "branch",
+      "bias": 1
+    },
+    {
+      "id": "life-resolved",
+      "from": "life",
+      "to": "sheet",
+      "label": "해결 → 운용 열림",
+      "variant": "security",
+      "role": "return"
+    },
+    {
+      "id": "choose",
+      "from": "sheet",
+      "to": "act",
+      "label": "GameAction",
+      "variant": "emphasis"
+    },
+    {
+      "id": "reject",
+      "from": "act",
+      "to": "gate",
+      "label": "성향 밖 · 한도 초과",
+      "variant": "security",
+      "role": "error"
+    },
+    {
+      "id": "ok",
+      "from": "act",
+      "to": "finalize",
+      "label": "ok",
+      "variant": "emphasis"
+    },
+    {
+      "id": "summary",
+      "from": "finalize",
+      "to": "settle",
+      "label": "summarizeTurn",
+      "variant": "emphasis"
+    },
+    {
+      "id": "to-next",
+      "from": "settle",
+      "to": "next",
+      "label": "턴 < 12",
+      "variant": "emphasis"
+    },
+    {
+      "id": "to-result",
+      "from": "settle",
+      "to": "result",
+      "label": "12턴 정산",
+      "variant": "default",
+      "role": "branch"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "루프의 불변",
+      "items": [
+        "시장을 본 뒤 행동 1회, 그 뒤 정산",
+        "주사위·칸은 연출, 사건은 시드 일정 3회"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "게이트",
+      "items": [
+        "성향 밖 상품은 거절(보유는 유지)",
+        "70% 초과는 한도 금액 제안 → 진행/보류"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "정산",
+      "items": [
+        "ETF·예금 즉시, 펀드는 다음 턴 체결",
+        "12턴 정산 뒤엔 바로 결과 리포트"
+      ]
+    }
+  ]
+}

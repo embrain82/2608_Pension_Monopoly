@@ -105,7 +105,7 @@ describe('배포용 매뉴얼', () => {
     expect(operator).toContain('settlement-engine.ts');
     expect(operator).toContain('2.5D 말');
     expect(operator).toContain('연출 코어');
-    expect(operator).toContain('회귀 168개');
+    expect(operator).toContain('회귀 169개');
     expect(operator).toContain('Q1~Q36');
     expect(operator).not.toContain('Q1~Q16');
     expect(user).toContain('구현 기준 2026-09-06');
@@ -113,5 +113,17 @@ describe('배포용 매뉴얼', () => {
     expect(user).toContain('12턴 IRP 곡선');
     expect(user).toContain('효과음 8종');
     expect(user).toContain('설정(동작 줄이기·캐릭터 표시·효과음)');
+  });
+
+  it('다이어그램 5장이 배포 폴더에 있고 운영자 매뉴얼이 링크한다', () => {
+    const operator = readFileSync('public/operator-manual.html', 'utf8');
+    expect(operator).toContain('href="./diagrams/"');
+    const index = readFileSync('public/diagrams/index.html', 'utf8');
+    for (const name of ['architecture', 'turn-workflow', 'seed-dataflow', 'game-lifecycle', 'action-sequence']) {
+      expect(index).toContain(`./${name}.html`);
+      const html = readFileSync(`public/diagrams/${name}.html`, 'utf8');
+      expect(html).toContain('<svg');
+      expect(JSON.parse(readFileSync(`docs/diagrams/${name}.json`, 'utf8')).meta.quality_profile).toBe('showcase');
+    }
   });
 });
