@@ -12,6 +12,7 @@ import { payoutPlan } from './scoring-engine';
 import { applyDefaultOption, normalizeDefaultOption, suggestDefaultOption } from './default-option';
 import { resolveLifeChoice } from './life-engine';
 import { answerQuiz, finalQuizCards, marketTileQuizzes, pickQuizCard, queueQuiz } from './quiz-engine';
+import { milestonesReached, stampMilestones } from './milestones';
 
 export { applyGoalToGame, clampGoalMonthly };
 
@@ -86,7 +87,7 @@ export function createGame(seed: string, profileId: ProfileId = 'balanced', goal
   const market = emptyMarketStep();
   const tileEffectsEnabled = options.tileEffects !== false;
   const goal = clampGoalMonthly(goalMonthly);
-  return {
+  const state: GameState = {
     seed,
     rngState: scheduled.rngState,
     status: 'playing',
@@ -136,8 +137,12 @@ export function createGame(seed: string, profileId: ProfileId = 'balanced', goal
     lifeResolution: null,
     quizLog: [],
     quizStreak: 0,
-    pendingQuizCardId: null
+    pendingQuizCardId: null,
+    milestonesHit: [],
+    turnMilestones: []
   };
+  // 시작 시점에 이미 넘어선 이정표(기본 목표면 90%까지)는 배너 없이 기록만 한다.
+  return { ...state, milestonesHit: milestonesReached(state) };
 }
 
 /**
@@ -221,7 +226,8 @@ export function startTurn(state: GameState, steps = 0): ActionResult {
     spotlightProductId: null,
     rebalanceBonusTurn: null,
     lifeResolution: null,
-    pendingQuizCardId: null
+    pendingQuizCardId: null,
+    turnMilestones: []
   }, market);
   next = settleOrders(next);
   next = {
@@ -382,7 +388,7 @@ export function finalizeTurn(state: GameState): GameState {
       };
     }
   }
-  return {
+  return stampMilestones({
     ...next,
     status: state.turn >= balanceConfig.maxTurns ? 'finished' : 'playing',
     awaitingAction: false,
@@ -391,7 +397,7 @@ export function finalizeTurn(state: GameState): GameState {
     rebalanceBonusTurn: null,
     irpHistory: [...next.irpHistory, portfolioValue(next)],
     logs: [...next.logs, { turn: state.turn, type: 'settle', message: `${state.turn}턴 마감` }]
-  };
+  });
 }
 
 export type AutoStrategy = 'balanced' | 'passive' | 'contributor' | 'growth' | 'steward' | 'etfOnly' | 'stopLoss' | 'momentum' | 'newsChaser' | 'defaultOption' | 'withdrawer';

@@ -186,6 +186,18 @@ export interface LearningCard {
   quiz: QuizQuestion;
 }
 
+/** 판에서 처음 넘는 순간 한 번만 울리는 이정표 */
+export type MilestoneId = 'goal-50' | 'goal-75' | 'goal-90' | 'goal-100' | 'drawdown-12';
+
+export interface Milestone {
+  id: MilestoneId;
+  turn: number;
+  title: string;
+  detail: string;
+  /** cheer: 축하 배너 / warn: 경고 배너 */
+  tone: 'cheer' | 'warn';
+}
+
 /** 퀴즈 한 번의 기록. 카드마다 한 판에 한 번만 출제된다 */
 export interface QuizRecord {
   cardId: string;
@@ -423,6 +435,10 @@ export interface GameState {
   quizStreak: number;
   /** 이번 턴 출제 대기 카드. 속보를 닫은 뒤 모달로 뜨고 다음 턴 시작에 비운다 */
   pendingQuizCardId: string | null;
+  /** 이번 판에 이미 넘은 이정표. 시작 시점에 이미 넘은 것은 배너 없이 여기에 들어간다 */
+  milestonesHit: MilestoneId[];
+  /** 이번 턴 마감에 처음 넘은 이정표. 정산 배너가 쓰고 다음 턴 시작에 비운다 */
+  turnMilestones: Milestone[];
 }
 
 export interface TurnProductDelta {
@@ -456,6 +472,8 @@ export interface TurnSummary {
   ghostIrp: number | null;
   /** 이번 턴 생활사건 해결 기록. 없으면 null */
   lifeEvent: LifeResolution | null;
+  /** 이번 턴 마감에 처음 넘은 이정표(0~2개) */
+  milestones: Milestone[];
   marketHeadline: string;
   shock: boolean;
   alert?: MarketAlert;

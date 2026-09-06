@@ -23,12 +23,13 @@ const sceneFields = {
 };
 
 /** 장부 필드를 채운 요약 픽스처. 시장이 한 일은 open→afterMarket, 내가 한 일은 before→after로 잡는다. */
-function summaryFixture(input: Omit<TurnSummary, 'actionLines' | 'irpOpen' | 'irpAfterMarket' | 'marketDelta' | 'lifeDelta' | 'actionDelta' | 'tileEffects' | 'ghostIrp' | 'lifeEvent'> & Partial<TurnSummary>): TurnSummary {
+function summaryFixture(input: Omit<TurnSummary, 'actionLines' | 'irpOpen' | 'irpAfterMarket' | 'marketDelta' | 'lifeDelta' | 'actionDelta' | 'tileEffects' | 'ghostIrp' | 'lifeEvent' | 'milestones'> & Partial<TurnSummary>): TurnSummary {
   const irpOpen = input.irpOpen ?? input.irpBefore;
   const irpAfterMarket = input.irpAfterMarket ?? input.irpBefore;
   return {
     actionLines: [input.actionLine],
     lifeEvent: null,
+    milestones: [],
     irpOpen,
     irpAfterMarket,
     marketDelta: irpAfterMarket - irpOpen,

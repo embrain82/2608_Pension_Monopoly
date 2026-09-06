@@ -92,6 +92,94 @@ export function starChecklist(state: GameState, score: ScoreResult): { label: st
   ];
 }
 
+const won = (value: number) => `${Math.round(value).toLocaleString('ko-KR')}원`;
+
+export interface StarLock {
+  /** 지금 별 수 */
+  stars: 0 | 1 | 2 | 3;
+  /** 다음 별. 3별이면 null */
+  nextStars: 1 | 2 | 3 | null;
+  /** 다음 별을 잠근 첫 조건. 3별이면 null */
+  reason: string | null;
+  /** 체크리스트 5개 중 통과 수 */
+  passed: number;
+  total: number;
+  /** "5개 중 3개 통과 · 다음 별까지: 생활자금 600만 원" 한 줄 */
+  line: string;
+}
+
+/**
+ * 별이 왜 거기서 멈췄는지. 별 규칙(목표 95% → 1, 목표 100%+생활자금 → 2, +낙폭·분산·성향 → 3)을 그대로
+ * 따라가며 다음 별을 잠근 **첫** 조건 하나만 말한다. 결과 화면의 "잠긴 별" 설명과 코치 대사가 쓴다.
+ */
+export function starLockReason(state: GameState, score: ScoreResult): StarLock {
+  const checklist = starChecklist(state, score);
+  const passed = checklist.filter((item) => item.passed).length;
+  const total = checklist.length;
+  const gap = Math.max(0, state.goalMonthly - score.monthlyPension);
+  let nextStars: StarLock['nextStars'] = null;
+  let reason: string | null = null;
+  if (score.stars === 0) {
+    nextStars = 1;
+    const nearGap = Math.max(0, state.goalMonthly * balanceConfig.nearGoalRate - score.monthlyPension);
+    reason = `월 연금이 목표의 ${Math.round(balanceConfig.nearGoalRate * 100)}%(${won(state.goalMonthly * balanceConfig.nearGoalRate)})에 ${won(nearGap)} 모자랍니다`;
+  } else if (score.stars === 1) {
+    nextStars = 2;
+    // 별 1 = (95% 이상·미달) 또는 (달성·생활자금 부족). 둘 중 어느 쪽인지로 다음 조건이 갈린다.
+    reason = !score.goalMet
+      ? `목표 월 연금 ${won(state.goalMonthly)}에 ${won(gap)} 모자랍니다`
+      : `생활자금 ${won(state.cash)}이 기준 ${won(balanceConfig.safeCashThreshold)}에 ${won(balanceConfig.safeCashThreshold - state.cash)} 모자랍니다`;
+  } else if (score.stars === 2) {
+    nextStars = 3;
+    const need = diversificationNeeded(state.profileId);
+    reason = state.maxDrawdown > balanceConfig.maxDrawdownThreshold
+      ? `최대 낙폭 ${Math.round(state.maxDrawdown * 100)}%가 기준 ${Math.round(balanceConfig.maxDrawdownThreshold * 100)}%를 넘었습니다`
+      : score.diversification < need
+        ? `5% 이상 보유 상품이 ${score.diversification}종 — ${need}종 이상이어야 합니다`
+        : `위험비중 ${Math.round(score.riskRatio * 100)}%가 성향 목표 ${Math.round(rebalanceTargetRisk(state.profileId) * 100)}%와 ${Math.round(balanceConfig.profileAlignBand * 100)}%p 넘게 다릅니다`;
+  }
+  const line = reason
+    ? `${total}개 조건 중 ${passed}개 통과 · 별 ${nextStars}개까지: ${reason}`
+    : `${total}개 조건을 모두 통과했습니다`;
+  return { stars: score.stars, nextStars, reason, passed, total, line };
+}
+
+export interface ShortfallPlan {
+  /** 목표 − 월 연금 */
+  gapMonthly: number;
+  /** 그 차이를 메우는 데 필요한 IRP 추가 평가액(수령 방식 계수 반영) */
+  neededIrp: number;
+  /** 이번 판 남은 납입 한도 */
+  contributionRoom: number;
+  /** 필요 금액이 남은 납입 한도 안이면 true — "더 넣었다면 도달" */
+  withinLimit: boolean;
+  /** 그만큼 납입했을 때 공제 한도 안에서 돌아왔을 환급 추정 */
+  refundEstimate: number;
+  line: string;
+}
+
+/**
+ * 목표 미달일 때 "얼마가 모자랐고, 무엇을 했으면 닿았을지"를 숫자로 말한다. 목표 달성이면 null.
+ * 필요 IRP = 부족 월 연금 × 240 ÷ payoutFactor. 남은 납입 한도 안이면 납입만으로 닿을 수 있었고,
+ * 한도 밖이면 운용 수익이 있어야 했다는 뜻이다. 환급 추정은 공제 한도(연 900만)와 공제율로 잡는다.
+ */
+export function shortfallPlan(state: GameState, score: ScoreResult): ShortfallPlan | null {
+  if (score.goalMet) return null;
+  const gapMonthly = state.goalMonthly - score.monthlyPension;
+  const choice: PayoutChoice = state.payoutChoice ?? 'annuity20';
+  const neededIrp = (gapMonthly * policyRules.receivingMonths) / payoutFactor(choice);
+  const contributionRoom = Math.max(0, policyRules.annualContributionLimit - state.contributionTotal);
+  const withinLimit = neededIrp <= contributionRoom;
+  const creditRoom = Math.max(0, policyRules.annualTaxCreditLimit - state.taxCreditEligible);
+  // 환급은 실제로 더 넣을 수 있는 금액 안에서, 공제 한도까지만 돌아온다.
+  const refundEstimate = Math.min(neededIrp, contributionRoom, creditRoom) * policyRules.taxCreditRate;
+  const payoutNote = choice === 'lumpSum' ? '(일시금은 세금이 더 붙어 필요액이 늘어납니다) ' : '';
+  const line = withinLimit
+    ? `월 ${won(gapMonthly)} 부족 → IRP ${won(neededIrp)}이 더 있었으면 목표. ${payoutNote}남은 납입 한도 ${won(contributionRoom)} 안이라 납입만으로 닿을 수 있었고, 그 납입은 세액공제 약 ${won(refundEstimate)}로 일부 돌아옵니다.`
+    : `월 ${won(gapMonthly)} 부족 → IRP ${won(neededIrp)}이 더 있었어야 합니다. ${payoutNote}남은 납입 한도 ${won(contributionRoom)}를 넘어 납입만으로는 부족했고, 운용 수익(분산·리밸런싱)이 함께 필요했습니다.`;
+  return { gapMonthly, neededIrp, contributionRoom, withinLimit, refundEstimate, line };
+}
+
 export function calculateScore(state: GameState): ScoreResult {
   const irpValue = portfolioValue(state);
   const choice: PayoutChoice = state.payoutChoice ?? 'annuity20';
