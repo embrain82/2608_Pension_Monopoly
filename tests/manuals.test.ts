@@ -307,6 +307,17 @@ describe('배포용 매뉴얼', () => {
     for (const id of ['Q55', 'Q56', 'Q57', 'Q58', 'Q59', 'Q60', 'Q61']) expect(operator).toContain(`<td>${id}</td>`);
   });
 
+  it('운영자 매뉴얼 표는 칸 너비 클래스와 가로 스크롤 그릇을 쓴다', () => {
+    const operator = readFileSync('public/operator-manual.html', 'utf8');
+    const css = readFileSync('public/manuals.css', 'utf8');
+    expect(operator).toContain('class="wrap wide"');
+    expect(operator).toContain('table-scroll');
+    expect(operator).toContain('cols-status');
+    expect(operator).toContain('cols-path');
+    expect(css).toContain('word-break: keep-all');
+    expect(css).toContain('table-layout: fixed');
+  });
+
   it('제출 핸드오프 HTML이 실행 프롬프트·패키지·소스 목록을 담고 두 매뉴얼이 링크한다', () => {
     const page = readFileSync('public/submission-handoff.html', 'utf8');
     const user = readFileSync('public/user-manual.html', 'utf8');
