@@ -95,6 +95,7 @@ tests/engine.test.ts    핵심 규칙 단위·통합 테스트
 
 - 사용자: [`public/user-manual.html`](./public/user-manual.html) → 배포 후 `/user-manual.html`
 - 운영자: [`public/operator-manual.html`](./public/operator-manual.html) → 배포 후 `/operator-manual.html`
+- 제출·실행 핸드오프: [`public/submission-handoff.html`](./public/submission-handoff.html) → 배포 후 `/submission-handoff.html` (복붙 프롬프트·패키지·소스 목록)
 
 ## 정적 배포
 

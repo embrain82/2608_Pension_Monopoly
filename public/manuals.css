@@ -17,6 +17,7 @@ body {
   line-height: 1.65;
 }
 .wrap { width: min(100% - 32px, 920px); margin: 0 auto; padding: 28px 0 80px; }
+.wrap.wide { width: min(100% - 32px, 1080px); }
 header.hero {
   padding: 28px 28px 24px;
   background: #fbfcf6;
@@ -59,6 +60,42 @@ th { color: var(--muted); font-size: .78rem; }
 .warn { background: #fff0e7; }
 .ok { background: #eef6d8; }
 code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .88em; }
+.prompt-wrap { position: relative; margin-top: 12px; }
+.prompt {
+  margin: 0;
+  padding: 16px 18px;
+  background: #153b3d;
+  color: #e8f2ea;
+  border-radius: 14px;
+  white-space: pre-wrap;
+  overflow-x: auto;
+  font-size: .84rem;
+  line-height: 1.55;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.copy-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  border: 0;
+  border-radius: 999px;
+  padding: 6px 12px;
+  background: #d86e3d;
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
+.copy-btn:focus { outline: 2px solid #fff; outline-offset: 2px; }
+.file-tree {
+  margin: 12px 0 0;
+  padding: 14px 16px;
+  background: #f1eddf;
+  border-radius: 12px;
+  overflow-x: auto;
+  white-space: pre;
+  font-size: .82rem;
+  line-height: 1.5;
+}
 footer { margin-top: 28px; color: var(--muted); font-size: .85rem; }
 @media print {
   body { background: #fff; }
