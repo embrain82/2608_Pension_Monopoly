@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="./manuals.css" />
 </head>
 <body>
-  <main class="wrap">
+  <main class="wrap wide">
     <header class="hero">
       <p class="eyebrow">Operator manual · 배포·검수·콘텐츠</p>
       <h1>연금로드 운영자 매뉴얼</h1>
@@ -49,7 +49,7 @@
 
     <section id="shipped">
       <h2>2. 구현된 기능 (2026-09-06, <code>main</code> 태그 <code>prod-2026-09-06-bundle-c</code>)</h2>
-      <table>
+      <div class="table-scroll"><table class="cols-status">
         <thead><tr><th>영역</th><th>상태</th><th>메모</th></tr></thead>
         <tbody>
           <tr><td>턴 리듬 다이어트(묶음 C 3.9)</td><td>구현</td><td>엔진 불변, UI만. (1) 「그대로」 직결: 행동 목록의 <code>hold-row</code> 버튼이 바로 <code>do-hold</code>(확인 화면 삭제, <code>ActionView</code>에서 <code>hold</code> 제외). 문구는 <code>holdMenuNote</code>가 디폴트옵션 매수 여부·대기자금 0/10만 미만/없음을 다 말함. (2) 사건 → 운용 머리글 <code>renderLifeResolvedStrip</code>(<code>lifeResolution</code> 있고 이번 턴 행동 0회일 때). (3) 정산 접기: <code>renderSettlementModal</code> 첫 화면(막대·고스트·사건·신호·한 줄·CTA) + <code>&lt;details class="settle-more"&gt;</code>(상품별·내가 한 일·칸 효과·다음 판단), 펼침은 <code>settings.settleExpanded</code>에 기억(toggle은 버블링 안 해 <code>render()</code>에서 직접 리스너). 12턴 「남은 일」은 접지 않음. (4) 자동 진행: <code>settings.autoSettle</code>(기본 false) && <code>canAutoSettle(summary, final)</code>(= !final && !shock && milestones 0 && !lifeEvent) → <code>AUTO_SETTLE_MS 2500</code> 뒤 <code>afterSettlement</code>. 창 안 클릭·details 펼침이 <code>clearAutoSettle</code>(타이머 해제 + 재렌더 없이 <code>.auto-bar</code> 제거·CTA를 <code>SETTLE_CTA_NEXT</code>로). 동작 줄이기면 막대 없이 타이머만. (5) 속도 2×: <code>settings.speed 1|2</code> → <code>speedScale</code>(0.5) · <code>scaleMs</code>가 JS 타이머(주사위 굴림·정지 유지·말 한 칸 <code>TOKEN_STEP_MS</code>·마지막 착지 <code>hopPlan(final, scale)</code>·숫자 트윈 <code>NUMBER_TWEEN_MS</code>·별/업적 소리 간격·환급 소리 지연)에 곱하고, CSS는 <code>html[data-speed="2"] { --fx: .5 }</code>·<code>--t</code>를 <code>animation-duration/delay</code>에 곱함. (6) 후반 가속 <code>scenePace(turn, shock, milestones)</code>: <code>turn ≥ LATE_GAME_TURN 7</code> && !shock && milestones 0 → <code>'fast'</code> → <code>.fast { --t: calc(var(--fx) * .5) }</code>(속보는 이정표를 모르니 <code>(turn, shock)</code>만). (7) 턴 트랙 <code>.track-note</code> 「사건 N회 남음 / 예정 사건 없음」(<code>remainingLifeEvents</code>, 어느 턴인지는 계속 숨김, 칸 추가 사건은 미포함)</td></tr>
@@ -85,12 +85,12 @@
           <tr><td>중간 저장</td><td>제외</td><td>범위 밖. 성향·기록만 저장</td></tr>
           <tr><td>은행 연동·로그인</td><td>제외</td><td>가상 숫자만</td></tr>
         </tbody>
-      </table>
+      </table></div>
     </section>
 
     <section id="arch">
       <h2>3. 구성</h2>
-      <table>
+      <div class="table-scroll"><table class="cols-path">
         <thead><tr><th>경로</th><th>역할</th></tr></thead>
         <tbody>
           <tr><td><code>src/engine/game-engine.ts</code></td><td>12턴 루프. <code>createGame</code>(옵션 <code>tileEffects</code>·<code>ghost</code>·<code>defaultOption</code>, 고스트 경로 <code>ghostTrackFor</code>, 시작 이정표 기록), <code>startTurn</code>(시장 반영 → 주문 체결 → 급여 → 칸 효과 → 칸 퀴즈 <code>queueTileQuiz</code> → 생활사건), <code>performAction</code>(행동 카운트 <code>actionsLeft</code>, <code>hold</code> → <code>applyDefaultOption</code>, 스포트라이트·리밸런싱 보너스), <code>finalizeTurn</code>(마감 전용 + <code>stampMilestones</code>), <code>resolveLifeEvent</code> → <code>life-engine</code> 위임, <code>choosePayout</code>, <code>setDefaultOption</code>, <code>autoplay</code> 전략 11종(<code>newsChaser</code>·<code>defaultOption</code>·<code>withdrawer</code> 포함, 옵션 <code>lifeChoice</code>·<code>quiz</code>)</td></tr>
@@ -131,7 +131,7 @@
           <tr><td><code>public/*.html</code></td><td>이 매뉴얼. 빌드 시 <code>dist/</code>로 복사</td></tr>
           <tr><td><code>scripts/simulate.ts</code></td><td>헤드리스 대량 시뮬</td></tr>
         </tbody>
-      </table>
+      </table></div>
       <p>난수는 시드 FNV-1a → xorshift32입니다. 같은 시드는 같은 주사위 합, 같은 시장 경로, 같은 생활사건 스케줄을 만듭니다.</p>
       <p>그림으로 보려면 <a href="./diagrams/">/diagrams/</a>에 다이어그램 5장이 있습니다: 시스템 구성(architecture, <code>life-engine</code>·<code>quiz-engine</code>·<code>achievements</code>·묶음 B/C 뷰 포함), 한 턴의 순서(workflow, 시장 먼저 → 퀴즈·사건 3지선다 → 행동 n회(「그대로」 직결) → 정산(접기·자동 진행) → 12턴 마무리·수령), 데이터 흐름(dataflow, 퀴즈·수령 계수·업적·저장 v6), 상태 흐름(lifecycle, 12턴 정산 → 마무리(퀴즈·수령) → 결과(업적·컬렉션)), 한 턴의 호출 순서(sequence, 시장 반영은 <code>startTurn</code>에서, <code>hold</code> → <code>applyDefaultOption</code>). 업적 판정은 엔진 밖(결과 화면 <code>recordResult</code>)이라 sequence에는 없습니다. 원본 JSON과 재생성 방법은 저장소 <code>docs/diagrams/README.md</code>. 뷰어 버튼 문구는 영어, 내용은 한국어입니다.</p>
     </section>
@@ -189,7 +189,7 @@ npm run build</code></pre>
 
     <section id="data">
       <h2>6. 데이터 파일</h2>
-      <table>
+      <div class="table-scroll"><table class="cols-data">
         <thead><tr><th>파일</th><th>바꿀 때</th><th>주의</th></tr></thead>
         <tbody>
           <tr><td><code>products.json</code></td><td>이름, 등급, 위험비율, 수수료</td><td><code>riskGrade</code> 1~5 정수. UI·적합성·한도가 같이 바뀜</td></tr>
@@ -205,12 +205,12 @@ npm run build</code></pre>
           <tr><td><code>market-scenarios.json</code></td><td>템플릿 스토리</td><td>실제 경로는 시드 생성. 테스트 일부는 템플릿 6·8턴 충격을 봄</td></tr>
           <tr><td><code>achievements.ts ACHIEVEMENTS</code></td><td>업적 12개: <code>id</code>·<code>title</code>·<code>detail</code>·<code>scope</code>(<code>game</code>/<code>meta</code>)와 판정 <code>GAME_CHECKS</code></td><td>JSON 아님(판정이 코드라 함께 둠). id를 지우면 저장된 <code>achievements[]</code>에서 로드 시 걸러짐. 문턱 상수(<code>GHOST_CRUSH_GAP</code>·<code>CALM_SEAS_DRAWDOWN</code>·<code>QUIZ_PERFECT_MIN</code>·<code>DEFAULT_OPTION_RUNS</code>)를 바꾸면 <code>achievements.test</code> 게이트(전략별 도달률 ≥ 1%·<code>passive</code> 0%)를 다시 확인. 문구는 사용자 매뉴얼 14장 표와 같아야 함</td></tr>
         </tbody>
-      </table>
+      </table></div>
     </section>
 
     <section id="balance">
       <h2>7. 밸런스·정책 값 (현재)</h2>
-      <table>
+      <div class="table-scroll"><table class="cols-kv">
         <thead><tr><th>항목</th><th>값</th></tr></thead>
         <tbody>
           <tr><td>시작 IRP / 생활자금</td><td>1억 800만 / 1,200만</td></tr>
@@ -228,9 +228,9 @@ npm run build</code></pre>
           <tr><td>1별 근접 / 3별 정렬</td><td>nearGoalRate 95% / 리밸런싱 목표 ±10%p</td></tr>
           <tr><td>지식 20점</td><td>기본 4 + 퀴즈 정답×2(≤8) + 이해 포인트(≤6) + 리밸런싱×2(≤4) − 위반×5, 0~20</td></tr>
         </tbody>
-      </table>
+      </table></div>
       <h3>묶음 B (<code>life-engine</code> · <code>default-option</code> · <code>quiz-engine</code> · <code>milestones</code>)</h3>
-      <table>
+      <div class="table-scroll"><table class="cols-kv">
         <thead><tr><th>항목</th><th>값</th></tr></thead>
         <tbody>
           <tr><td>디폴트옵션 4종</td><td>principal 예금 · lowRisk 단기채+예금 · midRisk 혼합형+TDF · highRisk TDF+ETF. 추천: 안정형 principal · 안정추구형 lowRisk · 위험중립형 midRisk · 적극/공격 highRisk</td></tr>
@@ -241,9 +241,9 @@ npm run build</code></pre>
           <tr><td>이정표</td><td>목표 달성률 0.50 / 0.75 / 0.90 / 1.00 첫 통과, 낙폭 <code>maxDrawdownThreshold</code> 12% 첫 초과. <code>isUrgent</code>: 남은 턴 ≤ 3 && 달성률 &lt; 1</td></tr>
           <tr><td>기준선(고스트·<code>passive</code>)</td><td>디폴트옵션 없음, 모든 사건 <code>cash</code>(퇴직금은 지금 받기), 퀴즈 없음, 수령 연금. 그래서 IRP 이전·디폴트옵션·퀴즈는 모두 「판단」으로 남음</td></tr>
         </tbody>
-      </table>
+      </table></div>
       <h3>묶음 C (<code>fx.ts</code> · <code>settlement.ts</code> · <code>achievements.ts</code>)</h3>
-      <table>
+      <div class="table-scroll"><table class="cols-kv">
         <thead><tr><th>항목</th><th>값</th></tr></thead>
         <tbody>
           <tr><td>속도</td><td><code>settings.speed</code> 1 | 2 → <code>speedScale</code> 1 | 0.5. JS 타이머는 <code>scaleMs</code>, CSS는 <code>html[data-speed="2"] { --fx: .5 }</code>. 기본 타이밍: 주사위 굴림 <code>DICE_ROLL_DURATION_MS</code> 1120ms·정지 유지 <code>DICE_LAND_HOLD_MS</code> 280ms, 말 한 칸 <code>TOKEN_STEP_MS</code> 260ms(공중 70%·마지막 착지 <code>LAND_MS</code> 320ms), 숫자 트윈 <code>NUMBER_TWEEN_MS</code> 600ms, 별 간격 400ms</td></tr>
@@ -254,9 +254,9 @@ npm run build</code></pre>
           <tr><td>업적 문턱</td><td><code>GHOST_CRUSH_GAP</code> 월 연금 50,000원 · <code>CALM_SEAS_DRAWDOWN</code> 5% · <code>QUIZ_PERFECT_MIN</code> 3문항(전부 정답) · <code>DEFAULT_OPTION_RUNS</code> 2회 · <code>diversified-12</code>는 <code>record.diversifiedTurns ≥ maxTurns</code> 12(마감마다 5%+ 보유 ≥ <code>diversificationMin</code> 3종) · <code>tax-credit-max</code>는 <code>taxCreditEligible ≥ annualTaxCreditLimit</code> 900만 · <code>pre-shock-rebalance</code>는 <code>record.rebalanceTurns</code>의 어느 t에 대해 <code>marketPath[t+1].shock</code> · <code>annuity-choice</code>는 <code>payoutChoice ?? 'annuity20'</code> · <code>severance-to-irp</code>는 <code>lifeChoices</code>에 <code>severance / transfer-irp</code> · <code>all-profiles</code>(누적)는 컬렉션 5종 <code>plays ≥ 1</code></td></tr>
           <tr><td>컬렉션·주간 시드</td><td><code>recordCollection(collection, profileId, stars)</code> → <code>plays +1</code>, <code>bestStars = max</code>. <code>weeklySeed(date)</code> = <code>weekly-YYYY-Www</code>(ISO 8601 주, 월요일 시작, 연말 주 경계는 ISO 규칙) · <code>isWeeklySeed</code>는 정규식 <code>/^weekly-\d{4}-W\d{2}$/</code>. 순위표 없음</td></tr>
         </tbody>
-      </table>
+      </table></div>
       <h3>칸 효과 (<code>tile-effects.ts</code> 상수 · <code>balance-config</code>)</h3>
-      <table>
+      <div class="table-scroll"><table class="cols-kv">
         <thead><tr><th>항목</th><th>값</th></tr></thead>
         <tbody>
           <tr><td>환급 시점</td><td>출발 칸 통과(<code>position + steps ≥ 24</code>) 또는 도착. 12턴 마감 잔여 일괄. 율·한도는 <code>policy-rules</code>(13.2%, 연 900만)</td></tr>
@@ -268,9 +268,9 @@ npm run build</code></pre>
           <tr><td>성향 점검 / 분산 광장</td><td><code>profileAlignBand</code> 10%p 이내 이해 +1 / <code>diversificationMin</code> 3종(5%+) 이해 +1</td></tr>
           <tr><td>고스트</td><td><code>autoplay(seed, 'passive', profileId, { ghost: false, tileEffects })</code>. 생활사건은 생활자금으로 해결, 납입 없음</td></tr>
         </tbody>
-      </table>
+      </table></div>
       <h3>시장 (<code>balance-config.market</code>)</h3>
-      <table>
+      <div class="table-scroll"><table class="cols-kv">
         <thead><tr><th>항목</th><th>값</th></tr></thead>
         <tbody>
           <tr><td>금리 시작 / 범위 / 스텝</td><td>2.50% / 0.50~6.00% / 0.25%p</td></tr>
@@ -285,9 +285,9 @@ npm run build</code></pre>
           <tr><td>신호</td><td>충격 직전 턴 강한 신호 80% · 약한 신호 20% · 충격 없는 턴 가짜 약한 신호 15%</td></tr>
           <tr><td>수익률 클램프</td><td>±20%</td></tr>
         </tbody>
-      </table>
+      </table></div>
       <h3>성향 × 상품 (신규 매수)</h3>
-      <table>
+      <div class="table-scroll"><table class="cols-matrix">
         <thead><tr><th></th><th>예금1</th><th>단기2</th><th>장기3</th><th>혼합4</th><th>TDF4</th><th>ETF5</th></tr></thead>
         <tbody>
           <tr><td>안정형</td><td>○</td><td>○</td><td>×</td><td>×</td><td>×</td><td>×</td></tr>
@@ -295,13 +295,13 @@ npm run build</code></pre>
           <tr><td>위험중립형</td><td>○</td><td>○</td><td>○</td><td>○</td><td>○</td><td>×</td></tr>
           <tr><td>적극/공격</td><td>○</td><td>○</td><td>○</td><td>○</td><td>○</td><td>○</td></tr>
         </tbody>
-      </table>
+      </table></div>
     </section>
 
     <section id="qa">
       <h2>8. QA 케이스 매트릭스</h2>
       <p>자동 테스트가 엔진을 잠그고, 아래는 브라우저 스모크용입니다. 375폭과 1280폭을 권장합니다.</p>
-      <table>
+      <div class="table-scroll"><table class="cols-qa">
         <thead><tr><th>ID</th><th>절차</th><th>기대</th></tr></thead>
         <tbody>
           <tr><td>Q1</td><td>동의 → 바로 시작</td><td>성향 표시 위험중립형. ETF 매수/바꾸기 대상 비활성</td></tr>
@@ -366,14 +366,14 @@ npm run build</code></pre>
           <tr><td>Q15</td><td>동작 줄이기 on</td><td>주사위·말 이동 즉시</td></tr>
           <tr><td>Q16</td><td>Tab만으로 타이틀→설정→진단→게임</td><td>포커스 가능, 44px 터치 영역</td></tr>
         </tbody>
-      </table>
+      </table></div>
       <p class="note">엔진 단위: <code>교체매매는 위험 한도까지만</code>, <code>대기자금 매수가 한도를 넘으면 70% 금액을 제안</code>, <code>성향보다 높은 위험등급</code>, <code>진행 중 게임의 성향을 진단 결과로 바로 바꾼다</code>, <code>리밸런싱은 성향 밖 상품을 담지 않는다</code>.</p>
     </section>
 
     <section id="save">
       <h2>9. 저장 데이터</h2>
       <p>키 <code>pension-road-save-v1</code>, 버전 6(묶음 C). 버전 5 이하 저장은 새 필드를 기본값으로 채워 읽습니다(버전 5는 묶음 B <code>defaultOption</code>, 버전 4는 <code>settings.ghost</code>).</p>
-      <table>
+      <div class="table-scroll"><table class="cols-kv">
         <thead><tr><th>필드</th><th>의미</th></tr></thead>
         <tbody>
           <tr><td>settings.reducedMotion</td><td>동작 줄이기</td></tr>
@@ -394,7 +394,7 @@ npm run build</code></pre>
           <tr><td>profileId</td><td>진단 성향. 없으면 위험중립형</td></tr>
           <tr><td>goalMonthly</td><td>월 연금 목표. 없으면 50만 원. 지금 판과 새로고침 후 유지</td></tr>
         </tbody>
-      </table>
+      </table></div>
       <p>판 도중 포트폴리오는 저장하지 않습니다(수령 방식·퀴즈 기록·이정표·<code>record</code>도 판 안에만). 깨진 JSON은 <code>defaultSave</code>로 복구합니다. v1~v5 저장은 v6 기본 필드를 채웁니다.</p>
     </section>
 

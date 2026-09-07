@@ -47,9 +47,65 @@ section {
 h2 { margin: 0 0 12px; font-size: 1.25rem; }
 h3 { margin: 20px 0 8px; font-size: 1.05rem; }
 p, li { color: #2c4442; }
-table { width: 100%; border-collapse: collapse; font-size: .92rem; }
-th, td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
-th { color: var(--muted); font-size: .78rem; }
+.table-scroll {
+  margin: 12px -4px 4px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .9rem;
+  line-height: 1.55;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+th, td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+th {
+  color: var(--muted);
+  font-size: .78rem;
+  font-weight: 700;
+  background: #eef3ea;
+}
+tbody tr:nth-child(even) td { background: #f7faf2; }
+table code {
+  display: inline;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  background: #e8efe6;
+  padding: 0.08em 0.32em;
+  border-radius: 4px;
+}
+table.cols-status { table-layout: fixed; min-width: 720px; }
+table.cols-status th:nth-child(1),
+table.cols-status td:nth-child(1) { width: 11.5rem; }
+table.cols-status th:nth-child(2),
+table.cols-status td:nth-child(2) { width: 7rem; white-space: nowrap; font-weight: 700; }
+table.cols-path { table-layout: fixed; min-width: 680px; }
+table.cols-path th:nth-child(1),
+table.cols-path td:nth-child(1) { width: 17rem; }
+table.cols-kv { table-layout: fixed; }
+table.cols-kv th:nth-child(1),
+table.cols-kv td:nth-child(1) { width: 13.5rem; }
+table.cols-data { table-layout: fixed; min-width: 720px; }
+table.cols-data th:nth-child(1),
+table.cols-data td:nth-child(1) { width: 13.5rem; }
+table.cols-data th:nth-child(2),
+table.cols-data td:nth-child(2) { width: 28%; }
+table.cols-qa { table-layout: fixed; min-width: 680px; }
+table.cols-qa th:nth-child(1),
+table.cols-qa td:nth-child(1) { width: 3.6rem; white-space: nowrap; }
+table.cols-qa th:nth-child(2),
+table.cols-qa td:nth-child(2) { width: 38%; }
+table.cols-matrix { table-layout: fixed; }
+table.cols-matrix th, table.cols-matrix td { text-align: center; }
+table.cols-matrix th:first-child,
+table.cols-matrix td:first-child { text-align: left; width: 6.5rem; white-space: nowrap; }
 .note, .warn, .ok {
   margin: 12px 0 0;
   padding: 12px 14px;
@@ -100,4 +156,5 @@ footer { margin-top: 28px; color: var(--muted); font-size: .85rem; }
 @media print {
   body { background: #fff; }
   header.hero, section { box-shadow: none; break-inside: avoid; }
+  .table-scroll { overflow: visible; }
 }
