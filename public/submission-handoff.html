@@ -1,0 +1,406 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>연금로드 제출·실행 핸드오프</title>
+  <link rel="stylesheet" href="./manuals.css" />
+</head>
+<body>
+  <main class="wrap wide">
+    <header class="hero">
+      <p class="eyebrow">Submission handoff · 실행 가능 상태</p>
+      <h1>연금로드를 제출·재실행할 때</h1>
+      <p class="lead">이 페이지는 프로젝트를 다른 사람(또는 다른 AI)에게 넘길 때 쓰는 한 장입니다. 실행가능한 상태를 만드는 <strong>복붙 프롬프트</strong>, <strong>필요한 패키지</strong>, <strong>소스 목록</strong>을 모았습니다. 이 HTML만으로는 게임이 돌아가지 않습니다. 저장소를 받아 <code>npm ci</code> 한 뒤 브라우저로 엽니다.</p>
+      <div class="nav-links">
+        <a href="./">게임 열기</a>
+        <a href="./user-manual.html">사용자 매뉴얼</a>
+        <a href="./operator-manual.html">운영자 매뉴얼</a>
+        <a href="https://github.com/embrain82/2608_Pension_Monopoly">GitHub</a>
+        <a href="https://pension-road.vercel.app/">운영 주소</a>
+      </div>
+      <nav class="toc" aria-label="목차">
+        <strong>목차</strong>
+        <ol>
+          <li><a href="#what">한 줄 요약</a></li>
+          <li><a href="#prompt">실행가능한 상태를 만드는 프롬프트</a></li>
+          <li><a href="#checklist">사람용 체크리스트</a></li>
+          <li><a href="#env">환경 · 없는 것</a></li>
+          <li><a href="#packages">필요한 패키지</a></li>
+          <li><a href="#scripts">npm 스크립트</a></li>
+          <li><a href="#entry">실행 흐름</a></li>
+          <li><a href="#source">소스코드 목록</a></li>
+          <li><a href="#done">완료 조건</a></li>
+        </ol>
+      </nav>
+    </header>
+
+    <section id="what">
+      <h2>1. 한 줄 요약</h2>
+      <p><strong>연금로드(Pension Road)</strong>는 12턴 IRP 교육용 HTML5 게임입니다. Vite + TypeScript, 서버 없음, 로그인 없음, 환경 변수 없음. 숫자는 브라우저 LocalStorage에만 남습니다.</p>
+      <table>
+        <thead><tr><th>항목</th><th>값</th></tr></thead>
+        <tbody>
+          <tr><td>저장소</td><td><a href="https://github.com/embrain82/2608_Pension_Monopoly">embrain82/2608_Pension_Monopoly</a></td></tr>
+          <tr><td>권장 체크아웃</td><td><code>main</code> 또는 태그 <code>prod-2026-09-07-quiz-pension</code></td></tr>
+          <tr><td>런타임</td><td>Node.js 22 이상 + npm (CI·Pages도 Node 22)</td></tr>
+          <tr><td>모듈</td><td><code>"type": "module"</code> (ESM)</td></tr>
+          <tr><td>프로덕션 의존성</td><td><strong>없음</strong>. <code>package.json</code>의 패키지는 전부 <code>devDependencies</code></td></tr>
+          <tr><td>비밀·API 키</td><td>없음. <code>.env</code>를 만들지 말 것</td></tr>
+          <tr><td>운영 URL</td><td><a href="https://pension-road.vercel.app/">https://pension-road.vercel.app/</a></td></tr>
+          <tr><td>저장 스키마</td><td>LocalStorage 버전 6</td></tr>
+          <tr><td>구현 기준</td><td>2026-09-06 묶음 C + 2026-09-07 퀴즈 5장 교체</td></tr>
+        </tbody>
+      </table>
+      <p class="ok">브라우저에서 제목 화면이 뜨고 「바로 시작」으로 한 턴을 넘기면 실행 가능 상태입니다. 백엔드·DB·토큰을 찾지 마세요.</p>
+    </section>
+
+    <section id="prompt">
+      <h2>2. 실행가능한 상태를 만드는 프롬프트</h2>
+      <p>아래 글을 그대로 복사해 다른 AI 또는 인수인계 메모에 붙이면 됩니다. 저장소에 접근할 수 있어야 합니다.</p>
+      <div class="prompt-wrap">
+        <button type="button" class="copy-btn" data-copy="setup-prompt">복사</button>
+        <pre class="prompt" id="setup-prompt">당신은 로컬에서 「연금로드(Pension Road)」를 실행 가능한 상태로 만듭니다.
+
+프로젝트
+- 저장소: https://github.com/embrain82/2608_Pension_Monopoly
+- 권장 체크아웃: 브랜치 main, 또는 태그 prod-2026-09-07-quiz-pension
+- 스택: Vite 7 + TypeScript 5.8 + Vitest 3. ESM. 서버리스 정적 HTML5 게임.
+- 성격: 12턴 가상 IRP 교육 게임. 실제 계좌·추천·실시간 시세 없음.
+- 데이터: 브라우저 LocalStorage만. 저장 스키마 v6.
+- 비밀: 환경 변수, API 키, 로그인, DB, CMS 없음. .env를 만들지 말 것.
+- 런타임 npm 패키지: 없음. package.json의 패키지는 전부 개발용(devDependencies).
+
+할 일 (이 순서)
+1. Node.js 22 이상이 있는지 확인한다. 없으면 22 LTS를 설치한다.
+2. git clone https://github.com/embrain82/2608_Pension_Monopoly.git
+3. cd 2608_Pension_Monopoly
+4. git checkout main
+   (고정본이 필요하면: git checkout prod-2026-09-07-quiz-pension)
+5. npm ci
+   (lockfile이 없으면 npm install)
+6. 검증: npm run lint &amp;&amp; npm run typecheck &amp;&amp; npm run test
+7. 개발 서버: npm run dev
+8. 터미널에 나온 로컬 주소(보통 http://localhost:5173/)를 브라우저에서 연다.
+9. 제목 화면 → 「바로 시작」→ 속보 카드를 넘기고 한 턴을 진행해 본다.
+10. 같은 서버에서 /user-manual.html, /operator-manual.html, /submission-handoff.html 이 열리는지 확인한다.
+11. 배포본이 필요하면 npm run build 후 dist/ 를 정적 호스팅한다. Vite base는 './' 이라 하위 경로도 된다.
+
+완료 조건
+- npm run test 가 통과한다.
+- npm run build 가 dist/ 를 만든다.
+- 브라우저에서 게임이 열리고 한 턴을 진행할 수 있다.
+- 콘솔에 validateContent 오류가 없다.
+
+하지 말 것
+- .env, 서버, 데이터베이스, OAuth, API 키를 추가하거나 찾지 않는다.
+- package.json에 런타임 dependencies를 새로 넣지 않는다.
+- 기획안 원본(퇴직연금_브루마블형_HTML5_게임_기획안*)을 수정하지 않는다.
+- 규칙을 바꾸면 public/user-manual.html, public/operator-manual.html, tests/manuals.test.ts 를 같은 작업에서 고친다.
+
+참고 경로
+- 진입: index.html → src/main.ts → validateContent() + PensionRoadApp
+- 엔진: src/engine/  화면: src/ui/  콘텐츠 JSON: src/data/
+- 설정: package.json, vite.config.ts, tsconfig*.json, vercel.json
+- 매뉴얼: public/user-manual.html, public/operator-manual.html
+- 이 핸드오프: public/submission-handoff.html</pre>
+      </div>
+      <h3>ZIP만 받았을 때</h3>
+      <p>Git이 없으면 압축을 푼 폴더에서 5번(<code>npm ci</code>)부터 같습니다. <code>package-lock.json</code>이 있어야 버전이 고정됩니다.</p>
+    </section>
+
+    <section id="checklist">
+      <h2>3. 사람용 체크리스트</h2>
+      <ol>
+        <li>Node.js 22 확인: <code>node -v</code></li>
+        <li>저장소 clone 또는 ZIP 해제</li>
+        <li>프로젝트 루트에서 <code>npm ci</code></li>
+        <li><code>npm run test</code> 통과</li>
+        <li><code>npm run dev</code> 후 브라우저에서 한 턴 진행</li>
+        <li>(선택) <code>npm run build</code> → <code>dist/</code> 확인</li>
+      </ol>
+      <p class="note">운영 배포는 Vercel이 <code>main</code> 머지 때 올립니다. 로컬에서 제출·시연만 하면 개발 서버로 충분합니다. 대량 균형 확인은 <code>npm run simulate -- --runs=1000</code>입니다.</p>
+    </section>
+
+    <section id="env">
+      <h2>4. 환경 · 없는 것</h2>
+      <table>
+        <thead><tr><th>필요</th><th>불필요</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>Node.js 22+, npm, 최신 Chrome/Safari/Firefox, 저장소 읽기 권한</td>
+            <td>Python, Docker, DB, Redis, 클라우드 계정, Vercel 토큰, API 키, <code>.env</code></td>
+          </tr>
+        </tbody>
+      </table>
+      <p>앱은 정적 파일입니다. 개발 중에는 Vite가 <code>src/</code>를 묶어 주고, 배포 때는 <code>dist/</code>만 올리면 됩니다. <code>vercel.json</code>은 Framework Vite, Build <code>npm run build</code>, Output <code>dist</code>로 고정합니다. GitHub Pages 워크플로(<code>.github/workflows/pages.yml</code>)는 <strong>수동 실행 전용</strong>입니다.</p>
+      <p class="warn"><code>.vercel/</code>과 <code>.env.local</code>이 생기면 커밋하지 마세요. 이 프로젝트는 원래 환경 변수가 없습니다.</p>
+    </section>
+
+    <section id="packages">
+      <h2>5. 필요한 패키지</h2>
+      <p><code>package.json</code> 기준입니다. <strong>dependencies 칸은 비어 있습니다.</strong> 설치는 <code>npm ci</code>(lockfile 고정)를 씁니다. 아래 버전은 범위이고, 실제 설치 버전은 <code>package-lock.json</code>이 정합니다.</p>
+      <h3>개발용 (devDependencies)</h3>
+      <table>
+        <thead><tr><th>패키지</th><th>범위</th><th>하는 일</th></tr></thead>
+        <tbody>
+          <tr><td><code>vite</code></td><td>^7.1.1</td><td>개발 서버·번들. <code>base: './'</code></td></tr>
+          <tr><td><code>typescript</code></td><td>~5.8.3</td><td>타입 검사. 빌드는 <code>tsc -b &amp;&amp; vite build</code></td></tr>
+          <tr><td><code>vitest</code></td><td>^3.2.4</td><td>테스트. <code>tests/**/*.test.ts</code>, environment <code>node</code></td></tr>
+          <tr><td><code>tsx</code></td><td>^4.20.3</td><td>시뮬레이터 <code>scripts/simulate.ts</code> 실행</td></tr>
+          <tr><td><code>eslint</code></td><td>^9.32.0</td><td>린트</td></tr>
+          <tr><td><code>@eslint/js</code></td><td>^9.32.0</td><td>ESLint JS 권장 설정</td></tr>
+          <tr><td><code>typescript-eslint</code></td><td>^8.39.0</td><td>TS용 ESLint. <code>no-explicit-any</code>는 끔</td></tr>
+          <tr><td><code>globals</code></td><td>^16.3.0</td><td>브라우저+Node 글로벌</td></tr>
+          <tr><td><code>@types/node</code></td><td>^24.2.0</td><td>테스트·스크립트용 Node 타입</td></tr>
+        </tbody>
+      </table>
+      <h3>브라우저에 따로 설치하지 않는 것</h3>
+      <p>React, Vue, UI 라이브러리, 상태 라이브러리, 차트, 오디오 파일, 3D 엔진은 없습니다. 화면은 바닐라 DOM, 말은 Web Animations API, 효과음은 WebAudio 합성, 스타일은 <code>src/styles/main.css</code> 한 장입니다.</p>
+      <h3>Node 내장만 쓰는 곳</h3>
+      <p>테스트와 시뮬레이터는 <code>node:fs</code> 등으로 파일을 읽습니다. 추가 npm 패키지가 아닙니다.</p>
+    </section>
+
+    <section id="scripts">
+      <h2>6. npm 스크립트</h2>
+      <table>
+        <thead><tr><th>명령</th><th>하는 일</th></tr></thead>
+        <tbody>
+          <tr><td><code>npm run dev</code></td><td>Vite 개발 서버. 시연·검수용</td></tr>
+          <tr><td><code>npm run build</code></td><td><code>tsc -b &amp;&amp; vite build</code> → <code>dist/</code></td></tr>
+          <tr><td><code>npm run test</code></td><td><code>vitest run</code>. 회귀(매뉴얼 문자열 검사 포함)</td></tr>
+          <tr><td><code>npm run lint</code></td><td><code>eslint .</code></td></tr>
+          <tr><td><code>npm run typecheck</code></td><td><code>tsc -b --pretty false</code></td></tr>
+          <tr><td><code>npm run simulate -- --runs=1000</code></td><td>헤드리스 대량 시뮬. 선택</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="entry">
+      <h2>7. 실행 흐름</h2>
+      <pre class="file-tree">index.html
+  └─ /src/main.ts
+        ├─ validateContent()     src/data/content.ts  (JSON·보드·퀴즈 형식 검사)
+        └─ new PensionRoadApp()  src/ui/app.ts        (화면·입력·저장)
+
+한 턴(엔진): startTurn(시장 반영) → 칸 효과·퀴즈·생활사건 → performAction(최대 2회)
+            → finalizeTurn → 정산 화면
+12턴 뒤: 마무리 퀴즈 ≤3 → 수령 방식 → 결과(업적·컬렉션)</pre>
+      <p>난수는 시드(FNV-1a → xorshift32)라 같은 시드는 같은 주사위·시장·사건입니다. 콘텐츠는 <code>src/data/*.json</code>이고 코드가 숫자를 하드코딩하지 않습니다.</p>
+    </section>
+
+    <section id="source">
+      <h2>8. 소스코드 목록</h2>
+      <p>실행에 <strong>꼭 필요한 것</strong>은 설정 + <code>index.html</code> + <code>src/</code> + <code>public/</code>(매뉴얼·다이어그램)입니다. <code>tests/</code>와 <code>scripts/</code>는 검증용입니다. 기획안 원본 파일은 읽기 전용입니다.</p>
+
+      <h3>8-1. 진입·설정</h3>
+      <table>
+        <thead><tr><th>경로</th><th>역할</th></tr></thead>
+        <tbody>
+          <tr><td><code>index.html</code></td><td>앱 셸. <code>#app</code>, <code>#announcer</code>, <code>/src/main.ts</code></td></tr>
+          <tr><td><code>src/main.ts</code></td><td>콘텐츠 검사 후 UI 기동</td></tr>
+          <tr><td><code>src/types.ts</code></td><td>공유 타입</td></tr>
+          <tr><td><code>src/styles/main.css</code></td><td>게임 화면 스타일(모바일 우선)</td></tr>
+          <tr><td><code>package.json</code> / <code>package-lock.json</code></td><td>스크립트·패키지 범위 / 고정 버전</td></tr>
+          <tr><td><code>vite.config.ts</code></td><td><code>base: './'</code>, Vitest include</td></tr>
+          <tr><td><code>tsconfig.json</code></td><td>프로젝트 레퍼런스</td></tr>
+          <tr><td><code>tsconfig.app.json</code></td><td>앱 TS (src, DOM)</td></tr>
+          <tr><td><code>tsconfig.node.json</code></td><td>vite·scripts·tests</td></tr>
+          <tr><td><code>eslint.config.js</code></td><td>린트. dist/coverage/.vercel 무시</td></tr>
+          <tr><td><code>vercel.json</code></td><td>Vite, <code>npm run build</code>, <code>dist</code></td></tr>
+          <tr><td><code>.github/workflows/pages.yml</code></td><td>Pages 수동 배포(Node 22, <code>npm ci</code>)</td></tr>
+        </tbody>
+      </table>
+
+      <h3>8-2. 엔진 <code>src/engine/</code></h3>
+      <table>
+        <thead><tr><th>파일</th><th>역할</th></tr></thead>
+        <tbody>
+          <tr><td><code>game-engine.ts</code></td><td>12턴 루프. 시작·행동·마감·자동플레이</td></tr>
+          <tr><td><code>market-engine.ts</code></td><td>시드 12턴 경로, 충격 배치, 신호, 낙폭</td></tr>
+          <tr><td><code>regime-engine.ts</code></td><td>금리·물가·주가 국면 상태기계</td></tr>
+          <tr><td><code>return-model.ts</code></td><td>국면 값 → 상품 6종 수익률</td></tr>
+          <tr><td><code>portfolio-engine.ts</code></td><td>매수·매도·교체·리밸런싱·주문 정산</td></tr>
+          <tr><td><code>policy-engine.ts</code></td><td>70% 한도, 성향 적합성, 세액공제</td></tr>
+          <tr><td><code>profile-engine.ts</code></td><td>진단 점수 → 성향, 진행 중 판에 적용</td></tr>
+          <tr><td><code>scoring-engine.ts</code></td><td>월 연금, 수령 계수, 별, 100점, 처방</td></tr>
+          <tr><td><code>settlement-engine.ts</code></td><td>턴 장부 요약, 반응 한 줄</td></tr>
+          <tr><td><code>life-engine.ts</code></td><td>생활사건 3지선다(순수)</td></tr>
+          <tr><td><code>default-option.ts</code></td><td>디폴트옵션 허용·추천·「그대로」 자동 매수</td></tr>
+          <tr><td><code>quiz-engine.ts</code></td><td>칸 퀴즈·마무리 ≤3, 점수</td></tr>
+          <tr><td><code>tile-effects.ts</code></td><td>도착 칸 효과 10종, 환급, 전망대</td></tr>
+          <tr><td><code>achievements.ts</code></td><td>업적 12개, 컬렉션, 주간 시드, 공유 문구</td></tr>
+          <tr><td><code>milestones.ts</code></td><td>이정표·긴급 여부</td></tr>
+          <tr><td><code>goal.ts</code></td><td>월 목표 범위·적용</td></tr>
+          <tr><td><code>random-engine.ts</code></td><td>시드 해시, xorshift32, 주사위</td></tr>
+          <tr><td><code>tile-briefing.ts</code></td><td>도착 칸 설명 선택</td></tr>
+          <tr><td><code>content-engine.ts</code></td><td>상품·카드·사건 조회</td></tr>
+        </tbody>
+      </table>
+
+      <h3>8-3. 화면 <code>src/ui/</code></h3>
+      <table>
+        <thead><tr><th>파일</th><th>역할</th></tr></thead>
+        <tbody>
+          <tr><td><code>app.ts</code></td><td>전체 화면, 모달 순서, 말 이동, 저장</td></tr>
+          <tr><td><code>ui-state.ts</code></td><td>LocalStorage 로드·v4~v6 마이그레이션</td></tr>
+          <tr><td><code>board.ts</code></td><td>24칸 SVG 보드, 이동 경로</td></tr>
+          <tr><td><code>token3d.ts</code></td><td>2.5D 말(퍽) 오버레이</td></tr>
+          <tr><td><code>dice.ts</code></td><td>주사위 마크업·굴림 시간, 턴 트랙 스포일러</td></tr>
+          <tr><td><code>market-view.ts</code></td><td>시장 카드, 수익률, 턴 트랙</td></tr>
+          <tr><td><code>news-flash.ts</code></td><td>속보 카드, 금리 다이얼, 「내 IRP에 반영」</td></tr>
+          <tr><td><code>hud.ts</code></td><td>목표·위험 게이지</td></tr>
+          <tr><td><code>action-form.ts</code></td><td>매도·교체 선택 보정(10만 원 이상)</td></tr>
+          <tr><td><code>settlement.ts</code></td><td>정산 장면, 접기, 자동 진행</td></tr>
+          <tr><td><code>life-view.ts</code></td><td>생활사건 모달·정산 블록</td></tr>
+          <tr><td><code>quiz-view.ts</code></td><td>퀴즈 모달, 「배운 것」</td></tr>
+          <tr><td><code>payout-view.ts</code></td><td>수령 방식 모달·결과 줄</td></tr>
+          <tr><td><code>default-option-view.ts</code></td><td>디폴트옵션 카드·모달</td></tr>
+          <tr><td><code>achievements-view.ts</code></td><td>업적·컬렉션·주간 시드·결과 복사</td></tr>
+          <tr><td><code>tile-effects-view.ts</code></td><td>칸 효과 글리프·스트립</td></tr>
+          <tr><td><code>tile-briefing.ts</code></td><td>도착 칸 설명(첫 문장 + 자세히)</td></tr>
+          <tr><td><code>ghost.ts</code></td><td>「그대로 둔 나」 판정·정산 줄</td></tr>
+          <tr><td><code>howto.ts</code></td><td>첫 판 게임 방법</td></tr>
+          <tr><td><code>result-chart.ts</code></td><td>12턴 IRP 스파크라인</td></tr>
+          <tr><td><code>fx.ts</code> / <code>fx-dom.ts</code></td><td>숫자 트윈·속도·후반 가속 / DOM 실행</td></tr>
+          <tr><td><code>avatars.ts</code> / <code>speech.ts</code></td><td>성향 아바타·말풍선</td></tr>
+          <tr><td><code>sound.ts</code> / <code>sound-dom.ts</code></td><td>효과음 10종 스크립트 / WebAudio 재생</td></tr>
+        </tbody>
+      </table>
+
+      <h3>8-4. 콘텐츠 <code>src/data/</code></h3>
+      <table>
+        <thead><tr><th>파일</th><th>역할</th></tr></thead>
+        <tbody>
+          <tr><td><code>content.ts</code></td><td>JSON import, 24칸 보드, <code>validateContent()</code>(퀴즈 보드 단어 금지 포함)</td></tr>
+          <tr><td><code>products.json</code></td><td>교육용 상품 6종</td></tr>
+          <tr><td><code>investor-profiles.json</code></td><td>성향 5종</td></tr>
+          <tr><td><code>policy-rules.json</code></td><td>한도·세율·수령 개월(정책 숫자의 단일 출처)</td></tr>
+          <tr><td><code>balance-config.json</code></td><td>시작 잔고, 목표, 시장 국면 상수</td></tr>
+          <tr><td><code>market-scenarios.json</code></td><td>12턴 템플릿(충격 턴 6·8)</td></tr>
+          <tr><td><code>market-shocks.json</code></td><td>충격 카탈로그 6종</td></tr>
+          <tr><td><code>life-events.json</code></td><td>생활사건 12종</td></tr>
+          <tr><td><code>learning-cards.json</code></td><td>학습 카드 20장 + 3지선다 퀴즈</td></tr>
+          <tr><td><code>tile-briefings.json</code></td><td>24칸 × 설명 5개</td></tr>
+          <tr><td><code>default-options.json</code></td><td>디폴트옵션 4종</td></tr>
+        </tbody>
+      </table>
+
+      <h3>8-5. 배포 정적 파일 <code>public/</code></h3>
+      <table>
+        <thead><tr><th>파일</th><th>역할</th></tr></thead>
+        <tbody>
+          <tr><td><code>user-manual.html</code></td><td>플레이어용 규칙·케이스북</td></tr>
+          <tr><td><code>operator-manual.html</code></td><td>실행·배포·QA·저장 스키마</td></tr>
+          <tr><td><code>submission-handoff.html</code></td><td>이 문서</td></tr>
+          <tr><td><code>manuals.css</code></td><td>매뉴얼·핸드오프 공통 스타일</td></tr>
+          <tr><td><code>diagrams/*.html</code></td><td>구성·턴·데이터·상태·호출 다이어그램 5장 + 색인</td></tr>
+        </tbody>
+      </table>
+
+      <h3>8-6. 테스트 <code>tests/</code></h3>
+      <p>Vitest, Node 환경. <code>npm run test</code>가 한 번에 돌립니다.</p>
+      <table>
+        <thead><tr><th>파일</th><th>고정하는 것</th></tr></thead>
+        <tbody>
+          <tr><td><code>engine.test.ts</code></td><td>핵심 규칙·통합</td></tr>
+          <tr><td><code>content.test.ts</code></td><td>콘텐츠 게이트</td></tr>
+          <tr><td><code>quiz.test.ts</code></td><td>퀴즈 20장, 보드 단어 금지, 점수</td></tr>
+          <tr><td><code>manuals.test.ts</code></td><td>두 매뉴얼·이 핸드오프 문구</td></tr>
+          <tr><td><code>turn-order.test.ts</code></td><td>시장 먼저 순서</td></tr>
+          <tr><td><code>tile-effects.test.ts</code></td><td>칸 효과·환급·행동 2회</td></tr>
+          <tr><td><code>ghost.test.ts</code></td><td>고스트 = passive 자동플레이</td></tr>
+          <tr><td><code>default-option.test.ts</code></td><td>디폴트옵션·저장 v5</td></tr>
+          <tr><td><code>life-choices.test.ts</code></td><td>사건 3지선다 경로</td></tr>
+          <tr><td><code>payout.test.ts</code></td><td>연금/일시금 세율·계수</td></tr>
+          <tr><td><code>narrative.test.ts</code></td><td>잠긴 별·처방·이정표</td></tr>
+          <tr><td><code>rhythm.test.ts</code></td><td>속도 2×·정산 접기/자동·후반 가속</td></tr>
+          <tr><td><code>achievements.test.ts</code></td><td>업적 12개·주간 시드</td></tr>
+          <tr><td><code>market-regime.test.ts</code></td><td>국면·충격·신호 비율</td></tr>
+          <tr><td><code>balance-gate.test.ts</code></td><td>전략 게이트</td></tr>
+          <tr><td><code>scoring.test.ts</code> / <code>star-distribution.test.ts</code></td><td>점수·별 분포</td></tr>
+          <tr><td><code>action-form.test.ts</code></td><td>매도·교체 선택 보정</td></tr>
+          <tr><td><code>bundle-b-views.test.ts</code> / <code>bundle-c-views.test.ts</code></td><td>뷰 마크업</td></tr>
+          <tr><td><code>board.test.ts</code> / <code>dice.test.ts</code> / <code>token3d.test.ts</code></td><td>보드·주사위·말</td></tr>
+          <tr><td><code>hud.test.ts</code> / <code>market-view.test.ts</code> / <code>news-flash.test.ts</code></td><td>HUD·시장·속보</td></tr>
+          <tr><td><code>settlement.test.ts</code> / <code>result-chart.test.ts</code></td><td>정산·결과 곡선</td></tr>
+          <tr><td><code>tile-briefing.test.ts</code> / <code>avatars.test.ts</code></td><td>칸 설명·아바타</td></tr>
+          <tr><td><code>fx.test.ts</code> / <code>sound.test.ts</code></td><td>연출·효과음</td></tr>
+        </tbody>
+      </table>
+
+      <h3>8-7. 시뮬·문서(실행에 필수는 아님)</h3>
+      <table>
+        <thead><tr><th>경로</th><th>역할</th></tr></thead>
+        <tbody>
+          <tr><td><code>scripts/simulate.ts</code></td><td>전략 자동플레이 대량 시뮬</td></tr>
+          <tr><td><code>README.md</code></td><td>설치·배포 요약(기능 목록은 매뉴얼이 더 최신)</td></tr>
+          <tr><td><code>IMPLEMENTATION_NOTES.md</code></td><td>구현 검증·제한</td></tr>
+          <tr><td><code>docs/diagrams/*.json</code></td><td>다이어그램 원본. 결과물은 <code>public/diagrams/</code></td></tr>
+          <tr><td><code>docs/superpowers/plans/</code></td><td>기능별 구현 플랜(이력)</td></tr>
+          <tr><td><code>퇴직연금_브루마블형_HTML5_게임_기획안*</code></td><td>기획 원본. <strong>수정하지 않음</strong></td></tr>
+        </tbody>
+      </table>
+
+      <h3>8-8. 폴더 한눈에</h3>
+      <pre class="file-tree">2608_Pension_Monopoly/
+├── index.html                 앱 셸
+├── package.json               스크립트·devDependencies만
+├── package-lock.json          버전 고정
+├── vite.config.ts
+├── tsconfig*.json
+├── eslint.config.js
+├── vercel.json
+├── src/
+│   ├── main.ts
+│   ├── types.ts
+│   ├── styles/main.css
+│   ├── data/                  JSON 10 + content.ts
+│   ├── engine/                규칙(순수 함수 위주)
+│   └── ui/                    DOM 화면
+├── public/                    매뉴얼·핸드오프·다이어그램
+├── tests/                     vitest
+├── scripts/simulate.ts
+└── docs/                      플랜·다이어그램 원본</pre>
+    </section>
+
+    <section id="done">
+      <h2>9. 완료 조건</h2>
+      <ul>
+        <li><code>npm ci</code>가 끝나고 <code>node_modules/</code>가 생긴다.</li>
+        <li><code>npm run lint</code> · <code>npm run typecheck</code> · <code>npm run test</code>가 통과한다.</li>
+        <li><code>npm run dev</code> 주소에서 제목 화면이 보인다.</li>
+        <li>「바로 시작」으로 속보 → 행동 → 정산까지 한 턴이 이어진다.</li>
+        <li><code>/user-manual.html</code>, <code>/operator-manual.html</code>, <code>/submission-handoff.html</code>이 같은 서버에서 열린다.</li>
+        <li>(배포본) <code>npm run build</code> 후 <code>dist/index.html</code>과 <code>dist/assets/index-*.js</code>가 있다.</li>
+      </ul>
+      <p class="ok">여기까지면 제출·시연용 실행 가능 상태입니다. 규칙의 뜻은 <a href="./user-manual.html">사용자 매뉴얼</a>, 배포·QA는 <a href="./operator-manual.html">운영자 매뉴얼</a>을 봅니다.</p>
+    </section>
+
+    <footer>
+      <p>연금로드 제출·실행 핸드오프 · 정리일 2026-09-07 · 체크아웃 기준 <code>main</code> / 태그 <code>prod-2026-09-07-quiz-pension</code> · 저장소 embrain82/2608_Pension_Monopoly</p>
+    </footer>
+  </main>
+  <script>
+    document.querySelectorAll("[data-copy]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const target = document.getElementById(btn.getAttribute("data-copy"));
+        if (!target) return;
+        const text = target.textContent ?? "";
+        try {
+          await navigator.clipboard.writeText(text);
+          btn.textContent = "복사됨";
+          setTimeout(() => { btn.textContent = "복사"; }, 1600);
+        } catch {
+          const range = document.createRange();
+          range.selectNodeContents(target);
+          const sel = window.getSelection();
+          sel?.removeAllRanges();
+          sel?.addRange(range);
+          btn.textContent = "드래그해서 복사";
+        }
+      });
+    });
+  </script>
+</body>
+</html>

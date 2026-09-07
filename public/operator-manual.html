@@ -15,6 +15,7 @@
       <div class="nav-links">
         <a href="./">게임 열기</a>
         <a href="./user-manual.html">사용자 매뉴얼</a>
+        <a href="./submission-handoff.html">제출·실행 핸드오프</a>
         <a href="https://github.com/embrain82/2608_Pension_Monopoly">GitHub</a>
       </div>
       <nav class="toc" aria-label="목차">
@@ -80,7 +81,7 @@
           <tr><td>모달 4종(묶음 B UI)</td><td>구현</td><td><code>default-option</code>(판 시작·설정, 카드 4장·성향 밖 잠김·추천 태그·「지정 안 함/해제」), <code>life</code>(선택지 카드 3장·지금/나중·잠김 이유), <code>quiz</code>(A/B/C·정답/오답 표시·코치 이유·「이번엔 건너뛰기」·진행 n/3), <code>payout</code>(연금/일시금 카드·세금·월 수령·목표 판정 기준·달성률 차이). 넷 모두 <strong>sticky</strong>(×·Esc 없음, 명시 행동으로만 닫힘). 하단 CTA는 <code>finished</code>면 「마무리 · 수령 방식 정하기」(<code>resume-finish</code>)로 창을 잃어도 막히지 않음</td></tr>
           <tr><td>보드 이펙트</td><td>구현</td><td>도착 칸 bounce·종류별 파티클(<code>landed</code>). 칸 설명 첫 문장 노출 + 「자세히」 접기. 엔진 규칙 변화 없음</td></tr>
           <tr><td>2.5D 말</td><td>구현</td><td>윗면(아바타 또는 「나」)·옆면·그림자를 가진 퍽 오버레이(<code>token3d.ts</code>). 첫 칸부터 마지막 칸까지 칸마다 같은 점프(260ms, Web Animations API). 현재 칸 테두리 없음. 설정 항목 없음, 동작 줄이기면 즉시 도착</td></tr>
-          <tr><td>사용자·운영 매뉴얼</td><td>구현</td><td><code>/user-manual.html</code>, <code>/operator-manual.html</code></td></tr>
+          <tr><td>사용자·운영 매뉴얼</td><td>구현</td><td><code>/user-manual.html</code>, <code>/operator-manual.html</code>, 제출용 <code>/submission-handoff.html</code>(실행 프롬프트·패키지·소스 목록)</td></tr>
           <tr><td>중간 저장</td><td>제외</td><td>범위 밖. 성향·기록만 저장</td></tr>
           <tr><td>은행 연동·로그인</td><td>제외</td><td>가상 숫자만</td></tr>
         </tbody>
@@ -154,7 +155,7 @@ npm run build</code></pre>
       <p><code>tests/turn-order.test.ts</code>는 시장 먼저 순서(턴 시작 반영, <code>finalizeTurn</code> 재반영 없음, ETF 매수 턴 수익률 미적용, 펀드 다음 턴 체결, 12턴 강제 체결, 장부 3점 분해)를, <code>tests/tile-effects.test.ts</code>는 칸 효과 10종·환급 보류/통과/마감·행동 2회·결정성·끔 옵션을, <code>tests/ghost.test.ts</code>는 고스트 경로 = <code>autoplay(seed, 'passive')</code>와 「아무 것도 안 하면 곡선이 겹친다」를 고정합니다.</p>
       <p>묶음 A 게이트 측정(시드 400, 2026-09-06, 기준 <code>main 9624cb0</code>): <code>newsChaser &gt; balanced</code> 21%. <code>passive</code> 월 연금 479,415원 → 479,415원(0%), <code>contributor</code> 529,415 → 533,778원(+0.8%). <code>momentum</code>·<code>stopLoss</code> 별 평균 1.07/1.58 → 1.06/0.96(오르지 않음). <code>passive</code> 0별 41%. <code>steward</code> 3별 94% → 94%, <code>balanced</code> 63% → 70%. 칸 효과 켬/끔 월 연금 차이 최대 +4,363원(<code>contributor</code>). <code>contributor</code> 별 1.91 → 1.63은 환급이 판 중간에 들어와 다시 납입되면서 마감 생활자금이 600만 원 아래로 내려가는 시드가 늘어난 것으로, 「전부 납입」 전략의 약점이 드러난 결과입니다.</p>
       <p><code>npm run simulate -- --runs=1600</code>은 전략별 달성률·별·수익률 p10/p90·낙폭·낙폭 12% 초과 비율을 표로 냅니다. <code>--json</code>을 붙이면 JSON으로 냅니다. 기준선은 <code>IMPLEMENTATION_NOTES.md</code>「시장 국면 엔진」에 있습니다.</p>
-      <p>개발 서버에서 매뉴얼은 <code>/user-manual.html</code>, <code>/operator-manual.html</code>입니다.</p>
+      <p>개발 서버에서 매뉴얼은 <code>/user-manual.html</code>, <code>/operator-manual.html</code>입니다. 제출·인수인계용 실행 프롬프트·패키지·소스 목록은 <code>/submission-handoff.html</code>입니다.</p>
     </section>
 
     <section id="deploy">
@@ -165,6 +166,7 @@ npm run build</code></pre>
         <li>게임: <a href="https://pension-road.vercel.app/">https://pension-road.vercel.app/</a></li>
         <li>사용자 매뉴얼: <a href="https://pension-road.vercel.app/user-manual.html">/user-manual.html</a></li>
         <li>운영자 매뉴얼: <a href="https://pension-road.vercel.app/operator-manual.html">/operator-manual.html</a></li>
+        <li>제출·실행 핸드오프: <a href="https://pension-road.vercel.app/submission-handoff.html">/submission-handoff.html</a></li>
         <li>대시보드: <a href="https://vercel.com/nonsleepers-projects/pension-road">nonsleepers-projects/pension-road</a></li>
       </ul>
       <p>GitHub 저장소 <code>embrain82/2608_Pension_Monopoly</code>가 이 프로젝트에 연결되어 있습니다. <code>main</code> 머지 후 Production, 이 작업 브랜치는 Preview가 붙습니다. Framework는 Vite, Build <code>npm run build</code>, Output <code>dist</code>입니다.</p>
@@ -180,6 +182,7 @@ npm run build</code></pre>
         <li><code>/</code> 게임</li>
         <li><code>/user-manual.html</code> 사용자 매뉴얼</li>
         <li><code>/operator-manual.html</code> 이 문서</li>
+        <li><code>/submission-handoff.html</code> 제출·실행 핸드오프(프롬프트·패키지·소스 목록)</li>
         <li><code>/diagrams/</code> 다이어그램 5장(HTML 각 0.7MB, 정적 파일)</li>
       </ul>
     </section>

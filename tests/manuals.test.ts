@@ -307,6 +307,23 @@ describe('배포용 매뉴얼', () => {
     for (const id of ['Q55', 'Q56', 'Q57', 'Q58', 'Q59', 'Q60', 'Q61']) expect(operator).toContain(`<td>${id}</td>`);
   });
 
+  it('제출 핸드오프 HTML이 실행 프롬프트·패키지·소스 목록을 담고 두 매뉴얼이 링크한다', () => {
+    const page = readFileSync('public/submission-handoff.html', 'utf8');
+    const user = readFileSync('public/user-manual.html', 'utf8');
+    const operator = readFileSync('public/operator-manual.html', 'utf8');
+    expect(page).toContain('실행가능한 상태를 만드는 프롬프트');
+    expect(page).toContain('필요한 패키지');
+    expect(page).toContain('소스코드 목록');
+    expect(page).toContain('npm ci');
+    expect(page).toContain('prod-2026-09-07-quiz-pension');
+    expect(page).toContain('devDependencies');
+    expect(page).toContain('game-engine.ts');
+    expect(page).toContain('vite');
+    expect(page).toContain('.env를 만들지 말 것');
+    expect(user).toContain('submission-handoff.html');
+    expect(operator).toContain('submission-handoff.html');
+  });
+
   it('다이어그램 5장이 배포 폴더에 있고 운영자 매뉴얼이 링크한다', () => {
     const operator = readFileSync('public/operator-manual.html', 'utf8');
     expect(operator).toContain('href="./diagrams/"');
