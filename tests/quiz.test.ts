@@ -25,6 +25,33 @@ describe('퀴즈 데이터(3.4)', () => {
     }
     expect(Math.min(...counts)).toBeGreaterThanOrEqual(5);
   });
+
+  it('질문·선택지에 보드 규칙 단어가 없고, 교체 5장은 연금·상품·시장 상식을 묻는다', () => {
+    const banned = /턴|속보|게임|주사위|칸|마무리 퀴즈/;
+    for (const item of learningCards) {
+      expect(banned.test(item.quiz.q), item.id).toBe(false);
+      for (const option of item.quiz.options) expect(banned.test(option), `${item.id}:${option}`).toBe(false);
+    }
+    const etf = card('etf-order');
+    expect(etf.title).toContain('이미 난');
+    expect(etf.title).not.toContain('다음 턴');
+    expect(etf.quiz.q).toContain('오늘 뉴스');
+    expect(etf.quiz.answer).toBe(0);
+    const fund = card('fund-order');
+    expect(fund.title).toContain('기준가');
+    expect(fund.quiz.options[1]).toContain('기준가');
+    expect(fund.quiz.answer).toBe(1);
+    expect(fund.quiz.options[1]).not.toContain('다음 턴');
+    const pension = card('pension-assumption');
+    expect(pension.quiz.q).not.toContain('게임이');
+    expect(pension.quiz.answer).toBe(2);
+    const tax = card('pension-tax');
+    expect(tax.quiz.q).not.toContain('교육용 세율');
+    expect(tax.quiz.answer).toBe(0);
+    const signal = card('signal-vs-forecast');
+    expect(signal.quiz.q).not.toContain('충격 전 신호');
+    expect(signal.quiz.answer).toBe(2);
+  });
 });
 
 describe('출제(pickQuizCard·queueQuiz·finalQuizCards)', () => {

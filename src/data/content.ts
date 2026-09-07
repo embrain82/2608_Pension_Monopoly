@@ -100,4 +100,8 @@ export function validateContent(): void {
     || !Number.isInteger(card.quiz.answer) || card.quiz.answer < 0 || card.quiz.answer > 2)) {
     throw new Error('학습 카드마다 3지선다 퀴즈(질문·서로 다른 선택지 3개·정답 위치·해설)가 있어야 합니다.');
   }
+  const QUIZ_BOARD_WORDS = /턴|속보|게임|주사위|칸|마무리 퀴즈/;
+  if (learningCards.some((card) => QUIZ_BOARD_WORDS.test(card.quiz.q) || card.quiz.options.some((option) => QUIZ_BOARD_WORDS.test(option)))) {
+    throw new Error('퀴즈 질문·선택지는 보드 규칙(턴·속보·게임 등)이 아니라 제도·상품·시장 상식이어야 합니다.');
+  }
 }
