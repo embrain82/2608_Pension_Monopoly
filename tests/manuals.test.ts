@@ -251,6 +251,13 @@ describe('배포용 매뉴얼', () => {
     for (const id of ['Q47', 'Q48', 'Q49', 'Q50', 'Q51', 'Q52', 'Q53', 'Q54']) expect(operator).toContain(`<td>${id}</td>`);
   });
 
+  it('퀴즈 문항은 제도·상품·시장 상식이고 보드 규칙을 묻지 않는다고 매뉴얼이 적는다', () => {
+    const user = readFileSync('public/user-manual.html', 'utf8');
+    const operator = readFileSync('public/operator-manual.html', 'utf8');
+    expect(user).toContain('퇴직연금 제도, 운용 상품, 시장이 흔들릴 때의 태도');
+    expect(operator).toContain('퀴즈 질문·선택지에는 턴·속보·게임');
+  });
+
   it('묶음 C 현행화: 턴 리듬(그대로 직결·정산 접기/자동 진행·속도 2×·후반 가속)·업적·컬렉션·주간 시드가 두 매뉴얼에 있다', () => {
     const user = readFileSync('public/user-manual.html', 'utf8');
     const operator = readFileSync('public/operator-manual.html', 'utf8');
